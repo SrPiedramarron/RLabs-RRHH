@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Logo para el panel de Filament - versión horizontal compacta -->
+<!-- Coloca este archivo en: public/images/inprocess-logo.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 80" height="40">
+  <defs>
+    <style>
+      .logo-dark { fill: #494b48; }
+      .logo-red  { fill: #e30613; fill-rule: evenodd; }
+    </style>
+  </defs>
+
+  <!-- Símbolo "IN" en rojo (escalado del original) -->
+  <g transform="scale(0.695)">
+    <polygon class="logo-red" points="14.96 0 31.23 0 16.27 69.02 0 69.02 14.96 0"/>
+    <polygon class="logo-red" points="39.25 0 59.57 0 79.91 49.5 90.65 0 106.18 0 91.22 69.02 72.33 69.02 51.26 17.37 40.07 69.02 24.29 69.02 39.25 0"/>
+  </g>
+
+  <!-- Texto "Process" en gris oscuro (comienza después del "IN") -->
+  <text x="82" y="52"
+        font-family="Arial, Helvetica, sans-serif"
+        font-weight="700"
+        font-size="44"
+        letter-spacing="-1"
+        class="logo-dark">Process</text>
+
+  <!-- Subtítulo "Control de Asistencia" -->
+  <text x="82" y="72"
+        font-family="Arial, Helvetica, sans-serif"
+        font-size="13"
+        letter-spacing="1"
+        fill="#E30613"
+        font-weight="400">CONTROL DE ASISTENCIA</text>
+</svg>

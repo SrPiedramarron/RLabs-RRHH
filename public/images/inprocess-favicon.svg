@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Favicon para el panel - símbolo "IN" en rojo InProcess -->
+<!-- Coloca este archivo en: public/images/inprocess-favicon.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 110 70">
+  <defs>
+    <style>
+      .r { fill: #e30613; fill-rule: evenodd; }
+    </style>
+  </defs>
+  <polygon class="r" points="14.96 0 31.23 0 16.27 69.02 0 69.02 14.96 0"/>
+  <polygon class="r" points="39.25 0 59.57 0 79.91 49.5 90.65 0 106.18 0 91.22 69.02 72.33 69.02 51.26 17.37 40.07 69.02 24.29 69.02 39.25 0"/>
+</svg>
