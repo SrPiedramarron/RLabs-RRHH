@@ -101,6 +101,10 @@ class GenerarReporte extends Page implements HasForms
                             ->label('Hasta')
                             ->required()
                             ->displayFormat('d/m/Y'),
+                        Forms\Components\Toggle::make('incluir_refrigerio')
+                            ->label('Incluir columna de refrigerio')
+                            ->default(false)
+                            ->columnSpanFull(),
                     ])->columns(2),
             ])
             ->statePath('data');
@@ -364,10 +368,11 @@ class GenerarReporte extends Page implements HasForms
 
         return Excel::download(
             new AttendanceExport(
-                companyId:  $data['company_id'],
-                locationId: $data['location_id'] ?? null,
-                desde:      $data['desde'],
-                hasta:      $data['hasta'],
+                companyId:          $data['company_id'],
+                locationId:         $data['location_id'] ?? null,
+                desde:              $data['desde'],
+                hasta:              $data['hasta'],
+                incluirRefrigerio:  $data['incluir_refrigerio'] ?? false,
             ),
             $filename
         );

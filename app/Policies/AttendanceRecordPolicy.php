@@ -15,7 +15,7 @@ class AttendanceRecordPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->can('view_any_attendance::record');
+        return $user->can('view_any_statistics');
     }
 
     /**
@@ -23,7 +23,7 @@ class AttendanceRecordPolicy
      */
     public function view(User $user, AttendanceRecord $attendanceRecord): bool
     {
-        return $user->can('view_attendance::record');
+        return $user->can('view_statistics');
     }
 
     /**
@@ -31,7 +31,7 @@ class AttendanceRecordPolicy
      */
     public function create(User $user): bool
     {
-        return $user->can('create_attendance::record');
+        return $user->can('create_statistics');
     }
 
     /**
@@ -39,7 +39,7 @@ class AttendanceRecordPolicy
      */
     public function update(User $user, AttendanceRecord $attendanceRecord): bool
     {
-        return $user->can('update_attendance::record');
+        return $user->can('update_statistics');
     }
 
     /**
@@ -47,7 +47,7 @@ class AttendanceRecordPolicy
      */
     public function delete(User $user, AttendanceRecord $attendanceRecord): bool
     {
-        return $user->can('delete_attendance::record');
+        return $user->can('delete_statistics');
     }
 
     /**
@@ -55,7 +55,7 @@ class AttendanceRecordPolicy
      */
     public function deleteAny(User $user): bool
     {
-        return $user->can('delete_any_attendance::record');
+        return $user->can('delete_any_statistics');
     }
 
     /**
@@ -63,7 +63,7 @@ class AttendanceRecordPolicy
      */
     public function forceDelete(User $user, AttendanceRecord $attendanceRecord): bool
     {
-        return $user->can('force_delete_attendance::record');
+        return $user->can('force_delete_statistics');
     }
 
     /**
@@ -71,7 +71,7 @@ class AttendanceRecordPolicy
      */
     public function forceDeleteAny(User $user): bool
     {
-        return $user->can('force_delete_any_attendance::record');
+        return $user->can('force_delete_any_statistics');
     }
 
     /**
@@ -79,7 +79,7 @@ class AttendanceRecordPolicy
      */
     public function restore(User $user, AttendanceRecord $attendanceRecord): bool
     {
-        return $user->can('restore_attendance::record');
+        return $user->can('restore_statistics');
     }
 
     /**
@@ -87,7 +87,7 @@ class AttendanceRecordPolicy
      */
     public function restoreAny(User $user): bool
     {
-        return $user->can('restore_any_attendance::record');
+        return $user->can('restore_any_statistics');
     }
 
     /**
@@ -95,7 +95,7 @@ class AttendanceRecordPolicy
      */
     public function replicate(User $user, AttendanceRecord $attendanceRecord): bool
     {
-        return $user->can('replicate_attendance::record');
+        return $user->can('replicate_statistics');
     }
 
     /**
@@ -103,6 +103,6 @@ class AttendanceRecordPolicy
      */
     public function reorder(User $user): bool
     {
-        return $user->can('reorder_attendance::record');
+        return $user->can('reorder_statistics');
     }
 }
