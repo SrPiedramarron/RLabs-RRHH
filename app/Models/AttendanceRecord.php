@@ -16,6 +16,8 @@ class AttendanceRecord extends Model
         'fecha',
         'hora_entrada',
         'hora_salida',
+        'inicio_refrigerio',
+        'fin_refrigerio',
         'minutos_tarde',
         'minutos_trabajados',
         'horas_ordinarias',

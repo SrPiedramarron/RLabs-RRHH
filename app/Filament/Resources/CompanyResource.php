@@ -9,12 +9,10 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use App\Filament\Traits\HasCompanyScope;
 use App\Filament\Traits\HasResourcePermissions;
 
 class CompanyResource extends Resource
 {
-    use HasCompanyScope;
     use HasResourcePermissions;
 
     protected static ?string $permissionKey = 'empresas';

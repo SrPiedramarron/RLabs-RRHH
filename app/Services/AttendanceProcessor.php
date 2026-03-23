@@ -11,41 +11,88 @@ class AttendanceProcessor
 {
     public function processUnprocessedLogs(): void
     {
-        $logs = AttendanceLog::where('procesado', false)
+        $logsNuevos = AttendanceLog::where('procesado', false)
             ->orderBy('timestamp')
             ->get();
 
-        // Agrupar por empleado + fecha
-        $agrupados = $logs->groupBy(function ($log) {
-            return $log->reloj_id . '_' . $log->timestamp->format('Y-m-d');
-        });
+        if ($logsNuevos->isEmpty()) return;
 
-        foreach ($agrupados as $key => $grupo) {
+        $combinaciones = $logsNuevos->map(function ($log) {
+            return $log->reloj_id . '_' . $log->timestamp->format('Y-m-d');
+        })->unique();
+
+        foreach ($combinaciones as $key) {
             [$relojId, $fecha] = explode('_', $key, 2);
 
-            $employee = Employee::where('dni', $relojId)->first();
+            $employee = Employee::with('schedules')->where('reloj_id', $relojId)->orWhere('dni', $relojId)->first();
             if (!$employee) continue;
 
-            // Primera marcación = entrada, última = salida
-            $sorted  = $grupo->sortBy('timestamp');
-            $entrada = $sorted->first();
-            $salida  = $sorted->last();
+            $logs = AttendanceLog::where('reloj_id', $relojId)
+                ->whereDate('timestamp', $fecha)
+                ->orderBy('timestamp')
+                ->get();
 
-            // Si solo hay una marcación, no hay salida
-            if ($entrada->id === $salida->id) {
-                $salida = null;
-            }
-
-            $this->calcularYGuardar($employee, $fecha, $entrada, $salida);
-
-            // Marcar logs como procesados
-            $grupo->each(fn($log) => $log->update(['procesado' => true]));
+            $this->calcularYGuardar($employee, $fecha, $logs);
         }
+
+        AttendanceLog::where('procesado', false)->update(['procesado' => true]);
     }
 
-    private function calcularYGuardar(Employee $employee, string $fecha, $logEntrada, $logSalida): void
+    private function calcularYGuardar(Employee $employee, string $fecha, $logs): void
     {
-        $schedule = $employee->schedule;
+        // Buscar el horario correcto según el día de la semana
+        $diaSemana = (int) date('N', strtotime($fecha)); // 1=lun ... 7=dom
+        $schedule  = $employee->schedule;
+
+        // Buscar horario alternativo: primero en horarios adicionales del empleado,
+        // luego en todos los horarios de la empresa
+        $scheduleAlternativo = $employee->schedules
+            ->first(function ($s) use ($diaSemana) {
+                $dias = is_array($s->dias_laborables)
+                    ? $s->dias_laborables
+                    : json_decode($s->dias_laborables, true);
+                return in_array((string)$diaSemana, array_map('strval', $dias ?? []));
+            });
+
+        if (!$scheduleAlternativo) {
+            $scheduleAlternativo = \App\Models\Schedule::where('company_id', $employee->company_id)
+                ->where('id', '!=', $employee->schedule_id)
+                ->get()
+                ->first(function ($s) use ($diaSemana) {
+                    $dias = is_array($s->dias_laborables)
+                        ? $s->dias_laborables
+                        : json_decode($s->dias_laborables, true);
+                    return in_array((string)$diaSemana, array_map('strval', $dias ?? []));
+                });
+        }
+
+        // Usar horario alternativo si el principal no cubre este día
+        $diasPrincipal = is_array($schedule->dias_laborables)
+            ? $schedule->dias_laborables
+            : json_decode($schedule->dias_laborables, true);
+
+        if (!in_array((string)$diaSemana, array_map('strval', $diasPrincipal ?? [])) && $scheduleAlternativo) {
+            $schedule = $scheduleAlternativo;
+        }
+
+        // Separar logs por tipo
+        // 0 = entrada, 1 = salida, 4 = salida refrigerio, 5 = retorno refrigerio
+        $entradas          = $logs->whereIn('tipo', [0])->sortBy('timestamp');
+        $salidas           = $logs->whereIn('tipo', [1])->sortByDesc('timestamp');
+        $salidasRefrigerio = $logs->whereIn('tipo', [4])->sortBy('timestamp');
+        $retornosRefrigerio= $logs->whereIn('tipo', [5])->sortBy('timestamp');
+
+        // Si no hay tipos diferenciados, usar primer y último log
+        $logEntrada = $entradas->first() ?? $logs->first();
+        $logSalida  = $salidas->first() ?? ($logs->count() > 1 ? $logs->last() : null);
+
+        if ($logEntrada && $logSalida && $logEntrada->id === $logSalida->id) {
+            $logSalida = null;
+        }
+
+        // Refrigerio real marcado en el reloj
+        $logInicioRefrigerio = $salidasRefrigerio->first();
+        $logFinRefrigerio    = $retornosRefrigerio->first();
 
         $horaEntradaProgramada = strtotime($fecha . ' ' . $schedule->hora_entrada);
         $horaSalidaProgramada  = strtotime($fecha . ' ' . $schedule->hora_salida);
@@ -68,8 +115,12 @@ class AttendanceProcessor
         if ($horaEntradaReal && $horaSalidaReal) {
             $minutosTrabajados = (int)(($horaSalidaReal - $horaEntradaReal) / 60);
 
-            // Descontar refrigerio si aplica
-            if ($schedule->refrigerio_inicio && $schedule->refrigerio_fin) {
+            // Descontar refrigerio real si fue marcado, si no usar el del horario
+            if ($logInicioRefrigerio && $logFinRefrigerio) {
+                $refInicio = $logInicioRefrigerio->timestamp->timestamp;
+                $refFin    = $logFinRefrigerio->timestamp->timestamp;
+                $minutosTrabajados -= (int)(($refFin - $refInicio) / 60);
+            } elseif ($schedule->refrigerio_inicio && $schedule->refrigerio_fin) {
                 $refInicio = strtotime($fecha . ' ' . $schedule->refrigerio_inicio);
                 $refFin    = strtotime($fecha . ' ' . $schedule->refrigerio_fin);
                 if ($horaEntradaReal < $refFin && $horaSalidaReal > $refInicio) {
@@ -81,7 +132,6 @@ class AttendanceProcessor
             $minutosOrdinarios    = min($minutosTrabajados, $minutosJornadaNormal);
             $minutosExtra         = max(0, $minutosTrabajados - $minutosJornadaNormal);
 
-            // Separar horas extra diurnas/nocturnas (nocturno: 22:00-06:00)
             if ($minutosExtra > 0) {
                 $nocturnoInicio      = strtotime($fecha . ' 22:00:00');
                 $minutosNocturno     = max(0, (int)(($horaSalidaReal - $nocturnoInicio) / 60));
@@ -90,14 +140,14 @@ class AttendanceProcessor
             }
         }
 
-        // Determinar estado del día
+        // Determinar estado
         $esHoliday = Holiday::whereDate('fecha', $fecha)
             ->where(fn($q) => $q->whereNull('company_id')
                 ->orWhere('company_id', $employee->company_id))
             ->exists();
 
-        $diasLabor = $schedule->dias_laborables;
-        $diaSemana = (int) date('N', strtotime($fecha)); // 1=Lun, 7=Dom
+        $diasLabor  = array_map('intval', (array)$schedule->dias_laborables);
+        $diaSemana  = (int) date('N', strtotime($fecha));
         $esDescanso = !in_array($diaSemana, $diasLabor);
 
         $estado = match(true) {
@@ -107,6 +157,45 @@ class AttendanceProcessor
             $minutosTarde > 0 => 'tarde',
             default           => 'presente',
         };
+
+        // Resolver refrigerio: 1) marcación real tipo 4/5, 2) inferir de tipo 0, 3) fallback programado
+        $inicioRefrigerio = $logInicioRefrigerio?->timestamp;
+        $finRefrigerio    = $logFinRefrigerio?->timestamp;
+
+        if (!$inicioRefrigerio && $schedule->refrigerio_inicio && $horaEntradaReal && $horaSalidaReal) {
+
+            // Intentar inferir refrigerio de marcaciones tipo 0 intermedias
+            // La entrada real ya es el primer tipo 0 — buscar los siguientes en ventana de refrigerio
+            $ventanaInicio = strtotime($fecha . ' ' . $schedule->refrigerio_inicio) - 1800; // -30 min
+            $ventanaFin    = strtotime($fecha . ' ' . $schedule->refrigerio_fin)    + 1800; // +30 min
+
+            // Buscar logs tipo 0 dentro de la ventana de refrigerio
+            // Sin skip por posición — filtramos directamente por ventana horaria
+            $candidatos = $logs->whereIn('tipo', [0])
+                ->sortBy('timestamp')
+                ->filter(function ($log) use ($ventanaInicio, $ventanaFin) {
+                    $ts = $log->timestamp->timestamp;
+                    return $ts >= $ventanaInicio && $ts <= $ventanaFin;
+                })->values();
+
+            if ($candidatos->count() >= 2) {
+                // Tenemos inicio y fin inferidos
+                $inicioRefrigerio = $candidatos[0]->timestamp;
+                $finRefrigerio    = $candidatos[1]->timestamp;
+            } elseif ($candidatos->count() === 1) {
+                // Solo inicio, fin programado
+                $inicioRefrigerio = $candidatos[0]->timestamp;
+                $finRefrigerio    = $fecha . ' ' . $schedule->refrigerio_fin;
+            } else {
+                // Sin marcaciones en ventana: usar horario programado
+                $refInicioProgramado = strtotime($fecha . ' ' . $schedule->refrigerio_inicio);
+                $refFinProgramado    = strtotime($fecha . ' ' . $schedule->refrigerio_fin);
+                if ($horaEntradaReal <= $refInicioProgramado && $horaSalidaReal >= $refFinProgramado) {
+                    $inicioRefrigerio = $fecha . ' ' . $schedule->refrigerio_inicio;
+                    $finRefrigerio    = $fecha . ' ' . $schedule->refrigerio_fin;
+                }
+            }
+        }
 
         AttendanceRecord::updateOrCreate(
             [
@@ -118,6 +207,8 @@ class AttendanceProcessor
                 'location_id'           => $employee->location_id,
                 'hora_entrada'          => $logEntrada?->timestamp,
                 'hora_salida'           => $logSalida?->timestamp,
+                'inicio_refrigerio'     => $inicioRefrigerio,
+                'fin_refrigerio'        => $finRefrigerio,
                 'minutos_tarde'         => $minutosTarde,
                 'minutos_trabajados'    => $minutosOrdinarios,
                 'horas_ordinarias'      => round($minutosOrdinarios / 60, 2),

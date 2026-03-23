@@ -32,14 +32,14 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
 
             // ─── BRANDING ────────────────────────────────────────────────
-            ->brandName('Control de Asistencia - InProcess')
-            ->brandLogo(asset('images/inprocess-logo.svg'))
+            ->brandName('SumaRH')
+            ->brandLogo(asset('images/sumarh-logo.svg'))
             ->brandLogoHeight('2.5rem')
-            ->favicon(asset('images/inprocess-favicon.svg'))
+            ->favicon(asset('images/sumarh-favicon.svg'))
 
             // ─── COLORES ─────────────────────────────────────────────────
             ->colors([
-                'primary'   => Color::hex('#E30613'),   // Rojo InProcess
+                'primary'   => Color::hex('#2563EB'),   // Azul SumaRH
                 'gray'      => Color::hex('#494B48'),   // Gris oscuro InProcess
             ])
 
@@ -55,7 +55,7 @@ class AdminPanelProvider extends PanelProvider
                         border-top: 1px solid #e5e7eb;
                         background: #f9fafb;
                     ">
-                        © 2026 InProcess Perú &mdash;
+                        © 2026 SumaRH &mdash;
                         <span style="color: #E30613; font-weight: 600;">Powered by RLabs</span>
                     </div>
                 '),

@@ -74,6 +74,15 @@ class LocationResource extends Resource
                         ->placeholder('ZKTeco K40')
                         ->maxLength(50),
 
+                    Forms\Components\Select::make('reloj_tipo')
+                        ->label('Tipo de Conexión')
+                        ->options([
+                            'zkbio' => 'ZKBio HTTP API (Sede con túnel HTTP)',
+                            'zksdk' => 'ZKTeco SDK (Protocolo nativo puerto 4370)',
+                        ])
+                        ->default('zkbio')
+                        ->required(),
+
                     Forms\Components\Toggle::make('reloj_activo')
                         ->label('Reloj Activo')
                         ->default(true),
@@ -123,6 +132,13 @@ class LocationResource extends Resource
 
                 Tables\Columns\TextColumn::make('reloj_modelo')
                     ->label('Modelo'),
+
+                Tables\Columns\BadgeColumn::make('reloj_tipo')
+                    ->label('Tipo')
+                    ->colors([
+                        'primary' => 'zkbio',
+                        'warning' => 'zksdk',
+                    ]),
 
                 Tables\Columns\BadgeColumn::make('sync_estado')
                     ->label('Sync')

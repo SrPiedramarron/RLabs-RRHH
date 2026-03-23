@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 80" width="280" height="80">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f2a6e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2563EB;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="textGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1d4ed8;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0ea5e9;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="56" height="56" rx="12" fill="url(#bgGrad)" />
+  <circle cx="30" cy="30" r="16" stroke="white" stroke-width="3" fill="none" opacity="0.95"/>
+  <line x1="30" y1="30" x2="30" y2="18" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="30" y1="30" x2="39" y2="35" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="30" cy="30" r="2" fill="white"/>
+  <circle cx="46" cy="46" r="8" fill="#0ea5e9"/>
+  <path d="M42 46 L45 49 L50 43" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <text x="72" y="38" font-family="'Segoe UI', Arial, sans-serif" font-weight="800" font-size="28" letter-spacing="1" fill="url(#textGrad)">SUMA</text>
+  <text x="163" y="38" font-family="'Segoe UI', Arial, sans-serif" font-weight="800" font-size="28" letter-spacing="1" fill="#0ea5e9">RH</text>
+  <text x="73" y="54" font-family="'Segoe UI', Arial, sans-serif" font-weight="400" font-size="13" letter-spacing="4" fill="#64748b">ASISTENCIA</text>
+  <line x1="72" y1="42" x2="248" y2="42" stroke="#e2e8f0" stroke-width="1"/>
+</svg>

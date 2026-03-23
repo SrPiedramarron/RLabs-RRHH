@@ -23,6 +23,7 @@ class GenerarReporte extends Page implements HasForms
 
     protected static ?string $navigationIcon  = 'heroicon-o-document-chart-bar';
     protected static ?string $navigationLabel = 'Reportes SUNAFIL';
+    protected static bool $shouldRegisterNavigation = false;
     protected static ?string $title           = 'Generar Reportes SUNAFIL';
     protected static ?int    $navigationSort  = 8;
     protected static string  $view            = 'filament.pages.generar-reporte';
@@ -203,9 +204,9 @@ class GenerarReporte extends Page implements HasForms
             $r->hora_entrada?->format('H:i') ?? '—',
             $r->hora_salida?->format('H:i')  ?? '—',
             $r->minutos_tarde > 0 ? $r->minutos_tarde : '—',
-            $r->horas_ordinarias  > 0 ? $r->horas_ordinarias  : '—',
-            $r->horas_extra_diurnas   > 0 ? $r->horas_extra_diurnas   : '—',
-            $r->horas_extra_nocturnas > 0 ? $r->horas_extra_nocturnas : '—',
+            $r->horas_ordinarias  > 0 ? sprintf('%02d:%02d', intdiv((int)round($r->horas_ordinarias * 60), 60), (int)round($r->horas_ordinarias * 60) % 60) : '—',
+            $r->horas_extra_diurnas   > 0 ? sprintf('%02d:%02d', intdiv((int)round($r->horas_extra_diurnas * 60), 60), (int)round($r->horas_extra_diurnas * 60) % 60) : '—',
+            $r->horas_extra_nocturnas > 0 ? sprintf('%02d:%02d', intdiv((int)round($r->horas_extra_nocturnas * 60), 60), (int)round($r->horas_extra_nocturnas * 60) % 60) : '—',
             strtoupper($r->estado),
         ])->toArray();
 

@@ -1,7 +1,5 @@
 <?php
-
 namespace App\Console\Commands;
-
 use App\Models\Company;
 use App\Models\Department;
 use App\Models\Employee;
@@ -15,13 +13,21 @@ class ImportEmployeesFromZKBio extends Command
     protected $signature   = 'zkbio:import-employees';
     protected $description = 'Importa empleados desde ZKBio a la base de datos local';
 
+    /**
+     * Mapeo de nombre de departamento (reloj) → RUC de empresa en SumaRH.
+     * Actualizar si se agregan nuevas empresas/áreas.
+     */
+    private array $departmentCompanyMap = [
+        'inprocess' => '20514706302', // INDUSTRIAL PROCESS SRL
+        'quantum'   => '20602076211', // QUANTUM (actualizar RUC real)
+    ];
+
     public function handle(ZKTecoService $zkService): void
     {
         $this->info('Conectando con ZKBio...');
         $empleados = $zkService->importEmployees();
         $this->info(count($empleados) . ' empleados encontrados.');
 
-        // Necesitamos una location y schedule por defecto
         $location = Location::first();
         $schedule = Schedule::first();
 
@@ -30,44 +36,49 @@ class ImportEmployeesFromZKBio extends Command
             return;
         }
 
-        $creados     = 0;
+        $creados      = 0;
         $actualizados = 0;
-        $omitidos    = 0;
+        $omitidos     = 0;
 
         foreach ($empleados as $emp) {
-            // Limpiar DNI: quitar ceros a la izquierda
             $dni = ltrim($emp['emp_code'], '0');
 
-            // Validar que sea DNI peruano válido (8 dígitos)
             if (strlen($dni) !== 8 || !is_numeric($dni)) {
                 $this->warn("Omitiendo emp_code {$emp['emp_code']}: no parece DNI válido.");
                 $omitidos++;
                 continue;
             }
 
-            // Buscar o crear empresa
-            $company = null;
-            if (!empty($emp['company'])) {
-                $company = Company::firstOrCreate(
-                    ['ruc' => $emp['company']['company_code']],
-                    ['razon_social' => $emp['company']['company_name'], 'active' => true]
-                );
+            // ── Resolver empresa desde el departamento del reloj ──────────────
+            $company    = null;
+            $department = null;
+
+            if (!empty($emp['department']['dept_name'])) {
+                $deptName   = $emp['department']['dept_name'];
+                $deptKey    = strtolower(trim($deptName));
+                $ruc        = $this->departmentCompanyMap[$deptKey] ?? null;
+
+                if ($ruc) {
+                    $company = Company::where('ruc', $ruc)->first();
+                    if (!$company) {
+                        $this->warn("No se encontró empresa con RUC {$ruc} para dept '{$deptName}'. Usando empresa por defecto.");
+                    }
+                }
+
+                // Fallback: primera empresa si no hay mapeo
+                $company ??= Company::first();
+
+                $department = Department::firstOrCreate([
+                    'company_id' => $company->id,
+                    'nombre'     => $deptName,
+                ]);
+
             } else {
+                // Sin departamento: empresa por defecto
                 $company = Company::first();
             }
+            // ─────────────────────────────────────────────────────────────────
 
-            // Buscar o crear departamento
-            $department = null;
-            if (!empty($emp['department'])) {
-                $department = Department::firstOrCreate(
-                    [
-                        'company_id' => $company->id,
-                        'nombre'     => $emp['department']['dept_name'],
-                    ]
-                );
-            }
-
-            // Crear o actualizar empleado
             $existe = Employee::where('dni', $dni)
                 ->where('company_id', $company->id)
                 ->first();
@@ -95,13 +106,13 @@ class ImportEmployeesFromZKBio extends Command
                 $creados++;
             }
 
-            $this->line("✓ {$emp['last_name']} {$emp['first_name']} — DNI: {$dni}");
+            $this->line("✓ {$emp['last_name']} {$emp['first_name']} — DNI: {$dni} — Empresa: {$company->razon_social}");
         }
 
-        $this->info("-----------------------------------");
+        $this->info('-----------------------------------');
         $this->info("Creados: {$creados}");
         $this->info("Actualizados: {$actualizados}");
         $this->info("Omitidos: {$omitidos}");
-        $this->info("Importación completada.");
+        $this->info('Importación completada.');
     }
 }

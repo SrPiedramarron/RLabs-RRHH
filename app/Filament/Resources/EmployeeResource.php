@@ -97,10 +97,19 @@ class EmployeeResource extends Resource
                         ->nullable(),
 
                     Forms\Components\Select::make('schedule_id')
-                        ->label('Horario')
+                        ->label('Horario Principal')
                         ->relationship('schedule', 'nombre')
                         ->required()
-                        ->searchable(),
+                        ->searchable()
+                        ->helperText('Horario de lunes a viernes'),
+
+                    Forms\Components\Select::make('schedules')
+                        ->label('Horarios Adicionales')
+                        ->relationship('schedules', 'nombre')
+                        ->multiple()
+                        ->searchable()
+                        ->preload()
+                        ->helperText('Ej: horario de sábados u otros turnos especiales'),
 
                     Forms\Components\TextInput::make('codigo_empleado')
                         ->label('Código')
@@ -368,10 +377,14 @@ class EmployeeResource extends Resource
         $record->fill($data)->save();
 
         // Actualizamos credencial si corresponde
-        if ($passwordNueva || $record->credential) {
+        if ($passwordNueva || $record->credential || $credentialActive) {
             $credData = ['active' => $credentialActive];
             if ($passwordNueva) {
+                // Contraseña especificada manualmente
                 $credData['password'] = Hash::make($passwordNueva);
+            } elseif (!$record->credential) {
+                // Nueva credencial sin contraseña → usar DNI como contraseña por defecto
+                $credData['password'] = Hash::make($record->dni);
             }
             EmployeeCredential::updateOrCreate(
                 ['employee_id' => $record->id],
@@ -393,6 +406,11 @@ class EmployeeResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with('credential');
+        $query = parent::getEloquentQuery()->with('credential');
+        $companyId = \App\Helpers\CompanyContext::get();
+        if ($companyId) {
+            $query->where('company_id', $companyId);
+        }
+        return $query;
     }
 }

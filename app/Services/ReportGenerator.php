@@ -65,7 +65,7 @@ class ReportGenerator
     private function buildMeta(array $options): array
     {
         $user    = Auth::user();
-        $company = $user->company_id ? Company::find($user->company_id) : null;
+        $company = $user->company_id ? Company::find($user->company_id) : Company::first();
 
         $location   = isset($options['location_id']) ? Location::find($options['location_id']) : null;
         $department = isset($options['department_id']) ? Department::find($options['department_id']) : null;
@@ -84,7 +84,7 @@ class ReportGenerator
         $hasta = \Carbon\Carbon::parse($options['fecha_fin']);
 
         return [
-            'empresa_razon_social' => $company?->razon_social ?? 'EMPRESA',
+            'empresa_razon_social' => $company ? $company->ruc . ' - ' . $company->razon_social : 'EMPRESA',
             'empresa_ruc'          => $company?->ruc ?? '',
             'empresa_direccion'    => $company?->direccion ?? '',
             'fecha_inicio'         => $desde->format('d/m/Y'),

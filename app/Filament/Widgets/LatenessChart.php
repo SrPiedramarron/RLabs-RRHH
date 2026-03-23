@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Helpers\CompanyContext;
 use App\Models\AttendanceRecord;
 use App\Models\Employee;
 use Leandrocfe\FilamentApexCharts\Widgets\ApexChartWidget;
@@ -20,6 +21,7 @@ class LatenessChart extends ApexChartWidget
         $anio = now()->year;
 
         $data = AttendanceRecord::with('employee')
+            ->when(CompanyContext::get(), fn($q) => $q->where('company_id', CompanyContext::get()))
             ->whereMonth('fecha', $mes)
             ->whereYear('fecha', $anio)
             ->where('minutos_tarde', '>', 0)

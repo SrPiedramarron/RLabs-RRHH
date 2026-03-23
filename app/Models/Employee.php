@@ -58,6 +58,11 @@ class Employee extends Model
         return $this->belongsTo(Schedule::class);
     }
 
+    public function schedules()
+    {
+        return $this->belongsToMany(Schedule::class, 'employee_schedules');
+    }
+
     public function attendanceRecords()
     {
         return $this->hasMany(AttendanceRecord::class);

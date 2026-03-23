@@ -95,6 +95,16 @@ class CheckinController extends Controller
             if (! $resultado['match']) {
                 $checkin->update(['estado_procesado' => 'rechazado']);
 
+                // Si es AJAX (reintento desde JS), devolver JSON
+                if ($request->ajax() || $request->wantsJson()) {
+                    return response()->json([
+                        'success'  => false,
+                        'facial'   => false,
+                        'mensaje'  => $resultado['mensaje'],
+                        'confianza' => $resultado['confianza'],
+                    ], 422);
+                }
+
                 return redirect()->route('checkin.home')->with(
                     'error',
                     '❌ ' . $resultado['mensaje'] . ' Si crees que es un error, contacta a RR.HH.'
@@ -167,13 +177,13 @@ class CheckinController extends Controller
     public function manifest()
     {
         return response()->json([
-            'name'             => 'AsistenciaRLabs',
-            'short_name'       => 'Asistencia',
-            'description'      => 'Marcado remoto de asistencia',
+            'name'             => 'SumaRH',
+            'short_name'       => 'SumaRH',
+            'description'      => 'Control de asistencia remoto',
             'start_url'        => '/checkin/home',
             'display'          => 'standalone',
-            'background_color' => '#1a7f4b',
-            'theme_color'      => '#1a7f4b',
+            'background_color' => '#1E3A5F',
+            'theme_color'      => '#2563EB',
             'icons'            => [
                 ['src' => '/images/checkin/icon-192.png', 'sizes' => '192x192', 'type' => 'image/png'],
                 ['src' => '/images/checkin/icon-512.png', 'sizes' => '512x512', 'type' => 'image/png'],
@@ -200,7 +210,7 @@ class CheckinController extends Controller
             $imgData  = base64_decode($base64);
             $filename = 'checkins/' . now()->format('Y/m') . "/{$employeeId}_" . now()->format('YmdHis') . '.jpg';
 
-            Storage::put($filename, $imgData);
+            Storage::disk('public')->put($filename, $imgData);
             return $filename;
 
         } catch (\Exception $e) {

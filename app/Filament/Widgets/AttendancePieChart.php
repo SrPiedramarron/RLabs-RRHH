@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Helpers\CompanyContext;
 use App\Models\AttendanceRecord;
 use Leandrocfe\FilamentApexCharts\Widgets\ApexChartWidget;
 use Illuminate\Support\Facades\Auth;
@@ -19,12 +20,15 @@ class AttendancePieChart extends ApexChartWidget
         $anio  = now()->year;
 
         $presentes = AttendanceRecord::where('estado', 'presente')
+            ->when(CompanyContext::get(), fn($q) => $q->where('company_id', CompanyContext::get()))
             ->whereMonth('fecha', $mes)->whereYear('fecha', $anio)->count();
 
         $tardanzas = AttendanceRecord::where('estado', 'tarde')
+            ->when(CompanyContext::get(), fn($q) => $q->where('company_id', CompanyContext::get()))
             ->whereMonth('fecha', $mes)->whereYear('fecha', $anio)->count();
 
         $ausentes = AttendanceRecord::where('estado', 'ausente')
+            ->when(CompanyContext::get(), fn($q) => $q->where('company_id', CompanyContext::get()))
             ->whereMonth('fecha', $mes)->whereYear('fecha', $anio)->count();
 
         return [

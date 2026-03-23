@@ -6,6 +6,7 @@ use App\Models\AttendanceRecord;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Facades\Auth;
+use App\Helpers\CompanyContext;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -19,16 +20,13 @@ class TardanzaResumenWidget extends BaseWidget
 
     protected function getStats(): array
     {
-        $user = Auth::user();
         $mesActual = now()->month;
         $anioActual = now()->year;
 
         $base = AttendanceRecord::query()
             ->whereMonth('fecha', $mesActual)
             ->whereYear('fecha', $anioActual)
-            ->when($user->company_id, function ($q) use ($user) {
-                $q->whereHas('employee', fn($e) => $e->where('company_id', $user->company_id));
-            });
+            ->when(CompanyContext::get(), fn($q) => $q->where('company_id', CompanyContext::get()));
 
         // Total días con tardanza este mes
         $totalTardanzas = (clone $base)->where('minutos_tarde', '>', 0)->count();
@@ -53,8 +51,8 @@ class TardanzaResumenWidget extends BaseWidget
             ->whereNull('hora_salida')
             ->where('estado', '!=', 'ausente')
             ->whereDate('fecha', '>=', now()->subDays(30))
-            ->when($user->company_id, function ($q) use ($user) {
-                $q->whereHas('employee', fn($e) => $e->where('company_id', $user->company_id));
+            ->when(CompanyContext::get(), function ($q) {
+                $q->whereHas('employee', fn($e) => $e->where('company_id', CompanyContext::get()));
             })
             ->count();
 

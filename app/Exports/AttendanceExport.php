@@ -40,6 +40,13 @@ class AttendanceExport implements FromQuery, WithHeadings, WithMapping, WithStyl
         }
     }
 
+    private function decimalToHHMM(?float $decimal): string
+    {
+        if (!$decimal || $decimal <= 0) return '—';
+        $total = (int) round($decimal * 60);
+        return sprintf('%02d:%02d', intdiv($total, 60), $total % 60);
+    }
+
     public function query()
     {
         return AttendanceRecord::with(['employee', 'location'])
@@ -55,7 +62,8 @@ class AttendanceExport implements FromQuery, WithHeadings, WithMapping, WithStyl
     {
         $headers = ['N°', 'APELLIDOS Y NOMBRES', 'DNI', 'FECHA', 'HORA INGRESO', 'HORA SALIDA'];
         if ($this->incluirRefrigerio) {
-            $headers[] = 'MIN. REFRIGERIO';
+            $headers[] = 'INICIO REFRIGERIO';
+            $headers[] = 'FINAL REFRIGERIO';
         }
         $headers[] = 'HORAS LABORADAS';
         $headers[] = 'HORAS EXTRAS 25%';
@@ -76,20 +84,13 @@ class AttendanceExport implements FromQuery, WithHeadings, WithMapping, WithStyl
         ];
 
         if ($this->incluirRefrigerio) {
-            $minRefrigerio = '—';
-            if ($record->inicio_refrigerio && $record->fin_refrigerio) {
-                $inicio = Carbon::parse($record->inicio_refrigerio);
-                $fin    = Carbon::parse($record->fin_refrigerio);
-                $minRefrigerio = $fin->diffInMinutes($inicio);
-            }
-            $row[] = $minRefrigerio;
+            $row[] = $record->inicio_refrigerio ? Carbon::parse($record->inicio_refrigerio)->format('H:i') : '—';
+            $row[] = $record->fin_refrigerio    ? Carbon::parse($record->fin_refrigerio)->format('H:i')    : '—';
         }
 
-        $horasLaboradas = $record->horas_ordinarias > 0 ? number_format($record->horas_ordinarias, 2) : '—';
-
-        $row[] = $horasLaboradas;
-        $row[] = $record->horas_extra_diurnas > 0 ? number_format($record->horas_extra_diurnas, 2) : '—';
-        $row[] = $record->horas_extra_nocturnas > 0 ? number_format($record->horas_extra_nocturnas, 2) : '—';
+        $row[] = $this->decimalToHHMM($record->horas_ordinarias);
+        $row[] = $this->decimalToHHMM($record->horas_extra_diurnas);
+        $row[] = $this->decimalToHHMM($record->horas_extra_nocturnas);
         return $row;
     }
 
@@ -115,7 +116,7 @@ class AttendanceExport implements FromQuery, WithHeadings, WithMapping, WithStyl
         $sheet->setCellValue('B5', Carbon::parse($this->desde)->format('d/m/Y') . ' al ' . Carbon::parse($this->hasta)->format('d/m/Y'));
         $sheet->getStyle('A3:A5')->applyFromArray(['font' => ['bold' => true]]);
 
-        $lastCol = $this->incluirRefrigerio ? 'J' : 'I';
+        $lastCol = $this->incluirRefrigerio ? 'K' : 'I';
         $sheet->getStyle("A7:{$lastCol}7")->applyFromArray([
             'font'      => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
             'fill'      => ['fillType' => 'solid', 'startColor' => ['rgb' => 'C0392B']],

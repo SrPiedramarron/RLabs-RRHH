@@ -11,6 +11,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
+use App\Helpers\CompanyContext;
 use Maatwebsite\Excel\Facades\Excel;
 
 class SinMarcacionSalida extends ListRecords
@@ -19,15 +20,14 @@ class SinMarcacionSalida extends ListRecords
 
     protected function getTableQuery(): Builder
     {
-        $user = Auth::user();
 
         return AttendanceRecord::query()
             ->whereNotNull('hora_entrada')
             ->whereNull('hora_salida')
             ->where('estado', '!=', 'ausente')
             ->with(['employee', 'location'])
-            ->when($user->company_id, function ($q) use ($user) {
-                $q->where('company_id', $user->company_id);
+            ->when(CompanyContext::get(), function ($q) {
+                $q->where('company_id', CompanyContext::get());
             });
     }
 
@@ -92,13 +92,12 @@ class SinMarcacionSalida extends ListRecords
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('success')
                 ->action(function () {
-                    $user = Auth::user();
                     $records = AttendanceRecord::query()
                         ->whereNotNull('hora_entrada')
                         ->whereNull('hora_salida')
                         ->where('estado', '!=', 'ausente')
                         ->with(['employee', 'location'])
-                        ->when($user->company_id, fn($q) => $q->where('company_id', $user->company_id))
+                        ->when(CompanyContext::get(), fn($q) => $q->where('company_id', CompanyContext::get()))
                         ->orderBy('fecha', 'desc')
                         ->get();
                     return Excel::download(

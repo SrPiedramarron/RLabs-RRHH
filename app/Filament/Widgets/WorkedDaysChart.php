@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Helpers\CompanyContext;
 use App\Models\AttendanceRecord;
 use App\Models\Holiday;
 use Leandrocfe\FilamentApexCharts\Widgets\ApexChartWidget;
@@ -38,6 +39,7 @@ class WorkedDaysChart extends ApexChartWidget
 
         // Días efectivamente trabajados (presente o tarde)
         $diasTrabajados = AttendanceRecord::whereIn('estado', ['presente', 'tarde'])
+            ->when(CompanyContext::get(), fn($q) => $q->where('company_id', CompanyContext::get()))
             ->whereMonth('fecha', $mes)
             ->whereYear('fecha', $anio)
             ->distinct('fecha')

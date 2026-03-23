@@ -13,6 +13,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
+use App\Helpers\CompanyContext;
 use Illuminate\Support\Facades\DB;
 
 
@@ -41,7 +42,6 @@ class StatisticsResource extends Resource
     // ─── Página principal: ranking de tardanzas ────────────────────────────
     public static function table(Table $table): Table
     {
-        $user = Auth::user();
 
         return $table
             ->query(
@@ -57,8 +57,8 @@ class StatisticsResource extends Resource
                         DB::raw('SUM(minutos_tarde) as total_minutos_tarde'),
                     ])
                     ->with(['employee.department', 'employee.location'])
-                    ->when($user->company_id, function ($q) use ($user) {
-                        $q->whereHas('employee', fn($e) => $e->where('company_id', $user->company_id));
+                    ->when(CompanyContext::get(), function ($q) {
+                        $q->whereHas('employee', fn($e) => $e->where('company_id', CompanyContext::get()));
                     })
                     ->groupBy('employee_id')
                     ->orderByDesc('total_minutos_tarde')

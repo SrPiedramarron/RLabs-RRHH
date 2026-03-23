@@ -1,20 +1,20 @@
 <?php
-
 namespace App\Filament\Traits;
 
+use App\Helpers\CompanyContext;
 use Illuminate\Database\Eloquent\Builder;
 
 trait HasCompanyScope
 {
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
-        $user  = auth()->user();
+        $query     = parent::getEloquentQuery();
+        $companyId = CompanyContext::get();
 
-        if ($user->isSuperAdmin() || is_null($user->company_id)) {
-            return $query;
+        if ($companyId) {
+            return $query->where('company_id', $companyId);
         }
 
-        return $query->where('company_id', $user->company_id);
+        return $query;
     }
 }

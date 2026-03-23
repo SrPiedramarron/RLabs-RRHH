@@ -41,8 +41,12 @@ class FacialValidationService
             return $this->errorResponse('Servicio de validación facial no disponible');
         }
 
+        // Normalizar rutas — las fotos se guardan en storage/app/public/
+        $fotoPerfilPath  = Storage::exists($fotoPerfil) ? $fotoPerfil : 'public/' . $fotoPerfil;
+        $fotoCheckinPath = Storage::exists($fotoCheckin) ? $fotoCheckin : 'public/' . $fotoCheckin;
+
         // Verificar que las fotos existen en storage
-        if (! Storage::exists($fotoPerfil)) {
+        if (! Storage::disk('public')->exists($fotoPerfil) && ! Storage::exists($fotoPerfilPath)) {
             return [
                 'match'     => false,
                 'confianza' => null,
@@ -52,18 +56,26 @@ class FacialValidationService
             ];
         }
 
-        if (! Storage::exists($fotoCheckin)) {
+        if (! Storage::exists($fotoCheckinPath)) {
             return $this->errorResponse('No se encontró la foto del checkin');
         }
 
         try {
             // Convertir fotos a base64
-            $perfilBase64  = base64_encode(Storage::get($fotoPerfil));
-            $checkinBase64 = base64_encode(Storage::get($fotoCheckin));
+            $perfilBase64  = base64_encode(
+                Storage::disk('public')->exists($fotoPerfil)
+                    ? Storage::disk('public')->get($fotoPerfil)
+                    : Storage::get($fotoPerfilPath)
+            );
+            $checkinBase64 = base64_encode(
+                Storage::disk('public')->exists($fotoCheckin)
+                    ? Storage::disk('public')->get($fotoCheckin)
+                    : Storage::get($fotoCheckinPath)
+            );
 
             // Detectar mime type
-            $perfilMime  = Storage::mimeType($fotoPerfil)  ?? 'image/jpeg';
-            $checkinMime = Storage::mimeType($fotoCheckin) ?? 'image/jpeg';
+            $perfilMime  = 'image/jpeg';
+            $checkinMime = 'image/jpeg';
 
             $response = Http::timeout($this->timeout)
                 ->post("{$this->baseUrl}/compare", [

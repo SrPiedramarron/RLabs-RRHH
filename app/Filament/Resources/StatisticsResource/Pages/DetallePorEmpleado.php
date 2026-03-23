@@ -11,6 +11,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
+use App\Helpers\CompanyContext;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Collection;
@@ -23,7 +24,6 @@ class DetallePorEmpleado extends ListRecords
 
     protected function getTableQuery(): Builder
     {
-        $user = Auth::user();
         return AttendanceRecord::query()
             ->select([
                 'employee_id',
@@ -35,7 +35,7 @@ class DetallePorEmpleado extends ListRecords
                 DB::raw('SUM(minutos_tarde) as total_minutos'),
             ])
             ->with(['employee', 'employee.department', 'employee.location'])
-            ->when($user->company_id, fn($q) => $q->where('company_id', $user->company_id))
+            ->when(CompanyContext::get(), fn($q) => $q->where('company_id', CompanyContext::get()))
             ->groupBy('employee_id', 'company_id');
     }
 
@@ -92,7 +92,6 @@ class DetallePorEmpleado extends ListRecords
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('success')
                 ->action(function () {
-                    $user = Auth::user();
                     $records = AttendanceRecord::query()
                         ->select([
                             'employee_id',
@@ -104,7 +103,7 @@ class DetallePorEmpleado extends ListRecords
                             DB::raw('SUM(minutos_tarde) as total_minutos'),
                         ])
                         ->with(['employee', 'employee.department', 'employee.location'])
-                        ->when($user->company_id, fn($q) => $q->where('company_id', $user->company_id))
+                        ->when(CompanyContext::get(), fn($q) => $q->where('company_id', CompanyContext::get()))
                         ->groupBy('employee_id', 'company_id')
                         ->get();
 

@@ -17,6 +17,7 @@ class Location extends Model
         'reloj_ip',
         'reloj_puerto',
         'reloj_modelo',
+        'reloj_tipo',
         'reloj_activo',
         'ultima_sync',
         'sync_estado',

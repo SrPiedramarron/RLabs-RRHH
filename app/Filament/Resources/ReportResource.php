@@ -15,6 +15,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
+use App\Helpers\CompanyContext;
 
 class ReportResource extends Resource
 {
@@ -37,7 +38,21 @@ class ReportResource extends Resource
                     ->label('Generar Reporte SUNAFIL')
                     ->icon('heroicon-o-document-arrow-down')
                     ->color('primary')
+                    ->modalSubmitActionLabel('Generar Reporte')
                     ->form([
+                        Forms\Components\Section::make('Tipo de Reporte')
+                            ->schema([
+                                Forms\Components\Radio::make('tipo')
+                                    ->label('')
+                                    ->options([
+                                        'general'    => 'Reporte General (todos los empleados)',
+                                        'individual' => 'Reporte Individual (por empleado)',
+                                    ])
+                                    ->default('general')
+                                    ->live()
+                                    ->inline(),
+                            ]),
+
                         Forms\Components\Section::make('Período')
                             ->columns(2)
                             ->schema([
@@ -58,27 +73,37 @@ class ReportResource extends Resource
                                     ->label('Sede')
                                     ->placeholder('Todas las sedes')
                                     ->options(function () {
-                                        $user = Auth::user();
-                                        return Location::when(
-                                            $user->company_id,
-                                            fn($q) => $q->where('company_id', $user->company_id)
+                                        return Location::when(CompanyContext::get(),
+                                            fn($q) => $q->where('company_id', CompanyContext::get())
                                         )->pluck('nombre', 'id');
                                     })
                                     ->searchable()
                                     ->reactive(),
 
+                                Forms\Components\Select::make('employee_id')
+                                    ->label('Empleado')
+                                    ->options(fn() =>
+                                        Employee::where('active', true)
+                                            ->when(CompanyContext::get(), fn($q) => $q->where('company_id', CompanyContext::get()))
+                                            ->get()
+                                            ->pluck('nombre_completo', 'id')
+                                    )
+                                    ->searchable()
+                                    ->required(fn(Forms\Get $get) => $get('tipo') === 'individual')
+                                    ->visible(fn(Forms\Get $get) => $get('tipo') === 'individual')
+                                    ->placeholder('Selecciona un empleado')
+                                    ->columnSpanFull(),
+
                                 Forms\Components\Select::make('department_id')
-                                    ->label('Área / Departamento')
-                                    ->placeholder('Todos los departamentos')
+                                    ->label('Empresa')
+                                    ->placeholder('Todas las empresas')
                                     ->options(function (callable $get) {
-                                        $user = Auth::user();
                                         $locationId = $get('location_id');
 
-                                        return Department::when(
-                                            $user->company_id,
-                                            fn($q) => $q->where('company_id', $user->company_id)
+                                        return Department::when(CompanyContext::get(),
+                                            fn($q) => $q->where('company_id', CompanyContext::get())
                                         )
-                                        ->when($locationId, fn($q) => $q->where('location_id', $locationId))
+                                        
                                         ->pluck('nombre', 'id');
                                     })
                                     ->searchable(),
@@ -103,18 +128,19 @@ class ReportResource extends Resource
                             ]),
                     ])
                     ->action(function (array $data) {
-                        $user = Auth::user();
-
                         $query = AttendanceRecord::with(['employee.department', 'employee.location'])
                             ->whereBetween('fecha', [$data['fecha_inicio'], $data['fecha_fin']])
-                            ->when($user->company_id, function ($q) use ($user) {
-                                $q->whereHas('employee', fn($e) => $e->where('company_id', $user->company_id));
+                            ->when(CompanyContext::get(), function ($q) {
+                                $q->whereHas('employee', fn($e) => $e->where('company_id', CompanyContext::get()));
                             })
                             ->when($data['location_id'] ?? null, function ($q) use ($data) {
                                 $q->whereHas('employee', fn($e) => $e->where('location_id', $data['location_id']));
                             })
                             ->when($data['department_id'] ?? null, function ($q) use ($data) {
                                 $q->whereHas('employee', fn($e) => $e->where('department_id', $data['department_id']));
+                            })
+                            ->when(($data['tipo'] ?? 'general') === 'individual' && !empty($data['employee_id']), function ($q) use ($data) {
+                                $q->where('employee_id', $data['employee_id']);
                             })
                             ->orderBy('fecha')
                             ->orderBy('employee_id');

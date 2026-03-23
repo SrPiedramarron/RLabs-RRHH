@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Helpers\CompanyContext;
 use App\Models\AttendanceRecord;
 use App\Models\Employee;
 use App\Models\Location;
@@ -17,14 +18,17 @@ class StatsOverview extends BaseWidget
         $hoy = now()->toDateString();
 
         $presentes = AttendanceRecord::whereDate('fecha', $hoy)
+            ->when(CompanyContext::get(), fn($q) => $q->where('company_id', CompanyContext::get()))
             ->where('estado', 'presente')
             ->count();
 
         $tardanzas = AttendanceRecord::whereDate('fecha', $hoy)
+            ->when(CompanyContext::get(), fn($q) => $q->where('company_id', CompanyContext::get()))
             ->where('estado', 'tarde')
             ->count();
 
         $totalEmpleados = Employee::where('active', true)
+            ->when(CompanyContext::get(), fn($q) => $q->where('company_id', CompanyContext::get()))
             ->where('exonerado_registro', false)
             ->count();
 

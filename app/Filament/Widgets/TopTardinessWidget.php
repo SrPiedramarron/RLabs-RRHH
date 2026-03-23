@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Helpers\CompanyContext;
 use App\Models\AttendanceRecord;
 use App\Models\Employee;
 use Filament\Tables;
@@ -19,6 +20,7 @@ class TopTardinessWidget extends BaseWidget
         return $table
             ->query(
                 Employee::query()
+                    ->when(CompanyContext::get(), fn($q) => $q->where('company_id', CompanyContext::get()))
                     ->withCount([
                         'attendanceRecords as total_tardanzas' => fn($q) =>
                             $q->whereMonth('fecha', now()->month)

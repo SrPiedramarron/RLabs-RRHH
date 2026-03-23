@@ -16,7 +16,13 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        $middleware->redirectGuestsTo(function ($request) {
+            if ($request->is('checkin*')) {
+                return route('checkin.login');
+            }
+            return route('filament.admin.auth.login');
+        });
+        $middleware->appendToGroup('web', \App\Http\Middleware\EnsureCompanySelected::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

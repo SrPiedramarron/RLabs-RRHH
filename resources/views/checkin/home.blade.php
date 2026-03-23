@@ -239,12 +239,77 @@
         btnMarcar.disabled = !(gpsOk && fotoTomada);
     }
 
-    // ── 6. Loading state al enviar ─────────────────────────────────────────
-    form && form.addEventListener('submit', function() {
+    // ── 6. Envío con reintentos faciales ─────────────────────────────────────
+    let intentosFacial = 0;
+    const MAX_INTENTOS = 3;
+
+    form && form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+
         btnMarcar.classList.add('loading');
         btnMarcar.disabled = true;
-        if (stream) stream.getTracks().forEach(t => t.stop());
+
+        const formData = new FormData(form);
+
+        try {
+            const response = await fetch(form.action, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: formData
+            });
+
+            if (response.ok) {
+                if (stream) stream.getTracks().forEach(t => t.stop());
+                window.location.href = '{{ route("checkin.home") }}';
+                return;
+            }
+
+            const data = await response.json();
+
+            if (response.status === 422 && data.facial === false) {
+                intentosFacial++;
+
+                if (intentosFacial < MAX_INTENTOS) {
+                    const restantes = MAX_INTENTOS - intentosFacial;
+                    showAlert('⚠️ Rostro no reconocido. Te quedan ' + restantes + ' intento(s). Toma otra foto.', 'amarillo');
+
+                    fotoImg.style.display    = 'none';
+                    video.style.display      = 'block';
+                    btnRetomar.style.display = 'none';
+                    inputFoto.value = '';
+                    fotoTomada = false;
+                    btnMarcar.disabled = true;
+                    btnMarcar.classList.remove('loading');
+                } else {
+                    if (stream) stream.getTracks().forEach(t => t.stop());
+                    showAlert('❌ Marcación rechazada tras 3 intentos fallidos. Contacta a RR.HH.', 'rojo');
+                    btnMarcar.classList.remove('loading');
+                }
+            } else {
+                showAlert('❌ Error al registrar marcación. Intenta nuevamente.', 'rojo');
+                btnMarcar.classList.remove('loading');
+                btnMarcar.disabled = false;
+            }
+
+        } catch(err) {
+            showAlert('❌ Error de conexión. Verifica tu internet.', 'rojo');
+            btnMarcar.classList.remove('loading');
+            btnMarcar.disabled = false;
+        }
     });
+
+    function showAlert(msg, tipo) {
+        let alerta = document.getElementById('alerta-facial');
+        if (!alerta) {
+            alerta = document.createElement('div');
+            alerta.id = 'alerta-facial';
+            alerta.style.cssText = 'padding:12px 16px; border-radius:10px; font-size:13px; margin-top:12px; font-weight:600;';
+            form.parentNode.insertBefore(alerta, form);
+        }
+        alerta.textContent = msg;
+        alerta.style.background = tipo === 'rojo' ? '#fde8e8' : '#fef9e7';
+        alerta.style.color = tipo === 'rojo' ? '#c0392b' : '#b7770d';
+    }
 
     // ── Iniciar ────────────────────────────────────────────────────────────
     iniciarCamara();
