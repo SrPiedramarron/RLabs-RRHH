@@ -56,7 +56,7 @@ class FacialValidationService
             ];
         }
 
-        if (! Storage::exists($fotoCheckinPath)) {
+        if (! Storage::disk('public')->exists($fotoCheckin) && ! Storage::exists($fotoCheckinPath)) {
             return $this->errorResponse('No se encontró la foto del checkin');
         }
 

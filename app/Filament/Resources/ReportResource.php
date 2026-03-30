@@ -201,8 +201,11 @@ class ReportResource extends Resource
                         'gray'    => 'feriado',
                     ]),
                 Tables\Columns\TextColumn::make('minutos_tarde')
-                    ->label('Tardanza (min)')
-                    ->sortable(),
+                    ->label('Tardanza')
+                    ->sortable()
+                    ->formatStateUsing(fn ($state) => $state > 0
+                        ? sprintf('%02d:%02d', intdiv($state, 60), $state % 60)
+                        : '—'),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('location_id')

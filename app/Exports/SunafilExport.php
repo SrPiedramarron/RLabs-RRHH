@@ -70,18 +70,18 @@ class SunafilExport implements
 
         if ($salidaEfectiva->lte($entradaEfectiva)) return '—';
 
-        $minutos = $salidaEfectiva->diffInMinutes($entradaEfectiva);
+        $minutos = (int) $entradaEfectiva->diffInMinutes($salidaEfectiva, true);
 
         // Descontar refrigerio
         if ($record->inicio_refrigerio && $record->fin_refrigerio) {
             $iniRef = Carbon::parse($record->inicio_refrigerio);
             $finRef = Carbon::parse($record->fin_refrigerio);
-            $minutos -= $finRef->diffInMinutes($iniRef);
+            $minutos -= (int) $iniRef->diffInMinutes($finRef, true);
         } elseif ($schedule->refrigerio_inicio && $schedule->refrigerio_fin) {
             $refInicio = Carbon::parse($fecha . ' ' . $schedule->refrigerio_inicio);
             $refFin    = Carbon::parse($fecha . ' ' . $schedule->refrigerio_fin);
             if ($entradaEfectiva->lt($refFin) && $salidaEfectiva->gt($refInicio)) {
-                $minutos -= $refFin->diffInMinutes($refInicio);
+                $minutos -= (int) $refInicio->diffInMinutes($refFin, true);
             }
         }
 

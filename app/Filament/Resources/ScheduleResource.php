@@ -10,14 +10,10 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use App\Filament\Traits\HasCompanyScope;
-use App\Filament\Traits\HasResourcePermissions;
 
 class ScheduleResource extends Resource
 {
     use HasCompanyScope;
-    use HasResourcePermissions;
-
-    protected static ?string $permissionKey = 'horarios';
     protected static ?string $model = Schedule::class;
     protected static ?string $navigationIcon = 'heroicon-o-clock';
     protected static ?string $navigationLabel = 'Horarios';

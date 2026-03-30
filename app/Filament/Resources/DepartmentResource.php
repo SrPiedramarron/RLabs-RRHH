@@ -10,15 +10,11 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use App\Filament\Traits\HasCompanyScope;
-use App\Filament\Traits\HasResourcePermissions;
 
 
 class DepartmentResource extends Resource
 {
     use HasCompanyScope;
-    use HasResourcePermissions;
-
-    protected static ?string $permissionKey = 'departamentos';
     protected static ?string $model = Department::class;
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
     protected static ?string $navigationLabel = 'Áreas';

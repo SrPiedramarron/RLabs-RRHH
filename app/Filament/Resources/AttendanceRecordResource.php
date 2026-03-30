@@ -11,14 +11,10 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use App\Filament\Traits\HasCompanyScope;
-use App\Filament\Traits\HasResourcePermissions;
 
 class AttendanceRecordResource extends Resource
 {
     use HasCompanyScope;
-    use HasResourcePermissions;
-
-    protected static ?string $permissionKey = 'asistencia';
     protected static ?string $model = AttendanceRecord::class;
     protected static ?string $navigationIcon = 'heroicon-o-calendar-days';
     protected static ?string $navigationLabel = 'Asistencia';

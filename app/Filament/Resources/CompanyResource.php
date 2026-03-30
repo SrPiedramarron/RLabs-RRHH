@@ -9,13 +9,9 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use App\Filament\Traits\HasResourcePermissions;
 
 class CompanyResource extends Resource
 {
-    use HasResourcePermissions;
-
-    protected static ?string $permissionKey = 'empresas';
     protected static ?string $model = Company::class;
     protected static ?string $navigationIcon = 'heroicon-o-building-office-2';
     protected static ?string $navigationLabel = 'Empresas';

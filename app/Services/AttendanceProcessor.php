@@ -75,16 +75,14 @@ class AttendanceProcessor
             $schedule = $scheduleAlternativo;
         }
 
-        // Separar logs por tipo
-        // 0 = entrada, 1 = salida, 4 = salida refrigerio, 5 = retorno refrigerio
-        $entradas          = $logs->whereIn('tipo', [0])->sortBy('timestamp');
-        $salidas           = $logs->whereIn('tipo', [1])->sortByDesc('timestamp');
+        // Refrigerio por tipo de marcación (4 = salida refrigerio, 5 = retorno refrigerio)
         $salidasRefrigerio = $logs->whereIn('tipo', [4])->sortBy('timestamp');
         $retornosRefrigerio= $logs->whereIn('tipo', [5])->sortBy('timestamp');
 
-        // Si no hay tipos diferenciados, usar primer y último log
-        $logEntrada = $entradas->first() ?? $logs->first();
-        $logSalida  = $salidas->first() ?? ($logs->count() > 1 ? $logs->last() : null);
+        // Entrada = primer log del día, Salida = último log del día
+        // No confiamos en el tipo del reloj ZKBio (a veces marca entrada como tipo 1)
+        $logEntrada = $logs->first();
+        $logSalida  = $logs->count() > 1 ? $logs->last() : null;
 
         if ($logEntrada && $logSalida && $logEntrada->id === $logSalida->id) {
             $logSalida = null;
@@ -113,18 +111,29 @@ class AttendanceProcessor
         $horasExtraNocturnas = 0;
 
         if ($horaEntradaReal && $horaSalidaReal) {
-            $minutosTrabajados = (int)(($horaSalidaReal - $horaEntradaReal) / 60);
+            // FIX: Los minutos "de sobra" antes de la hora programada no cuentan.
+            // El cómputo siempre arranca desde la hora programada de entrada.
+            $horaInicioComputo = max($horaEntradaReal, $horaEntradaProgramada);
+            $minutosTrabajados = (int)(($horaSalidaReal - $horaInicioComputo) / 60);
 
-            // Descontar refrigerio real si fue marcado, si no usar el del horario
-            if ($logInicioRefrigerio && $logFinRefrigerio) {
-                $refInicio = $logInicioRefrigerio->timestamp->timestamp;
-                $refFin    = $logFinRefrigerio->timestamp->timestamp;
-                $minutosTrabajados -= (int)(($refFin - $refInicio) / 60);
-            } elseif ($schedule->refrigerio_inicio && $schedule->refrigerio_fin) {
-                $refInicio = strtotime($fecha . ' ' . $schedule->refrigerio_inicio);
-                $refFin    = strtotime($fecha . ' ' . $schedule->refrigerio_fin);
-                if ($horaEntradaReal < $refFin && $horaSalidaReal > $refInicio) {
+            // FIX: Sábados (y cualquier día cuya hora_salida_programada coincide con
+            // el inicio del refrigerio) NO descuentan refrigerio.
+            // La jornada termina justo cuando empieza el almuerzo, así que no aplica.
+            $jornadaTerminaEnRefrigerio = $schedule->refrigerio_inicio &&
+                $horaSalidaProgramada === strtotime($fecha . ' ' . $schedule->refrigerio_inicio);
+
+            if (!$jornadaTerminaEnRefrigerio) {
+                // Descontar refrigerio real si fue marcado, si no usar el del horario
+                if ($logInicioRefrigerio && $logFinRefrigerio) {
+                    $refInicio = $logInicioRefrigerio->timestamp->timestamp;
+                    $refFin    = $logFinRefrigerio->timestamp->timestamp;
                     $minutosTrabajados -= (int)(($refFin - $refInicio) / 60);
+                } elseif ($schedule->refrigerio_inicio && $schedule->refrigerio_fin) {
+                    $refInicio = strtotime($fecha . ' ' . $schedule->refrigerio_inicio);
+                    $refFin    = strtotime($fecha . ' ' . $schedule->refrigerio_fin);
+                    if ($horaInicioComputo < $refFin && $horaSalidaReal > $refInicio) {
+                        $minutosTrabajados -= (int)(($refFin - $refInicio) / 60);
+                    }
                 }
             }
 

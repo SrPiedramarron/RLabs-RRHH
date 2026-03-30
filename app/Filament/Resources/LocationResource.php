@@ -11,14 +11,10 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use App\Filament\Traits\HasCompanyScope;
-use App\Filament\Traits\HasResourcePermissions;
 
 class LocationResource extends Resource
 {
     use HasCompanyScope;
-    use HasResourcePermissions;
-
-    protected static ?string $permissionKey = 'empleados';
     protected static ?string $model = Location::class;
     protected static ?string $navigationIcon = 'heroicon-o-map-pin';
     protected static ?string $navigationLabel = 'Sedes';

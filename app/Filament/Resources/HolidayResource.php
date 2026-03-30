@@ -9,13 +9,9 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use App\Filament\Traits\HasResourcePermissions;
 
 class HolidayResource extends Resource
 {
-    use HasResourcePermissions;
-
-    protected static ?string $permissionKey = 'feriados';
     protected static ?string $model = Holiday::class;
     protected static ?string $navigationIcon = 'heroicon-o-calendar';
     protected static ?string $navigationLabel = 'Feriados';

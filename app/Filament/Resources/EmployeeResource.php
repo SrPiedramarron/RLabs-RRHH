@@ -19,14 +19,10 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Hash;
 use App\Filament\Traits\HasCompanyScope;
-use App\Filament\Traits\HasResourcePermissions;
 
 class EmployeeResource extends Resource
 {
     use HasCompanyScope;
-    use HasResourcePermissions;
-
-    protected static ?string $permissionKey = 'empleados';
     protected static ?string $model         = Employee::class;
     protected static ?string $navigationIcon  = 'heroicon-o-users';
     protected static ?string $navigationLabel = 'Empleados';
