@@ -206,7 +206,12 @@ class AttendanceProcessor
             }
         }
 
-        AttendanceRecord::updateOrCreate(
+        // No pisar registros corregidos manualmente
+        $existente = AttendanceRecord::where('employee_id', $employee->id)
+            ->where('fecha', $fecha)
+            ->first();
+        if ($existente && $existente->corregido_manualmente) return;
+AttendanceRecord::updateOrCreate(
             [
                 'employee_id' => $employee->id,
                 'fecha'       => $fecha,

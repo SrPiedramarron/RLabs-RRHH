@@ -27,6 +27,7 @@ class AttendanceRecord extends Model
         'justificado',
         'observacion',
         'corregido_manualmente',
+        'motivo_correccion',
     ];
 
     protected $casts = [

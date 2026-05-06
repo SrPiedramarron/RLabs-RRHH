@@ -20,65 +20,21 @@ class SunafilExport implements
     ShouldAutoSize,
     WithTitle
 {
-    private \Illuminate\Support\Collection $sorted;
-    private array $subtotalRows = [];
+    private Collection $sorted;
+    private array $subtotalRows = []; // filas (1-based, sin contar los 3 headers) que son subtotal
 
     public function __construct(
         private Collection $records,
         private array $meta,
         private bool $incluyeRefrigerio = false
     ) {
-        // Construir colección expandida con todos los días del período por empleado
-        $desde = \Carbon\Carbon::parse($meta['fecha_inicio_raw']);
-        $hasta = \Carbon\Carbon::parse($meta['fecha_fin_raw']);
-
-        // Indexar registros reales por employee_id + fecha
-        $index = [];
-        foreach ($records as $record) {
-            $key = $record->employee_id . '_' . \Carbon\Carbon::parse($record->fecha)->toDateString();
-            $index[$key] = $record;
-        }
-
-        // Empleados únicos, ordenados por apellido
-        $empleados = $records->map(fn($r) => $r->employee)
-            ->unique('id')
-            ->sortBy(fn($e) => ($e->apellidos ?? '') . ($e->nombres ?? ''))
-            ->values();
-
-        $expanded = collect();
-
-        foreach ($empleados as $employee) {
-            $fecha = $desde->copy();
-            while ($fecha->lte($hasta)) {
-                $dateStr = $fecha->toDateString();
-                $key     = $employee->id . '_' . $dateStr;
-
-                if (isset($index[$key])) {
-                    $expanded->push($index[$key]);
-                } else {
-                    // Crear registro vacío
-                    $dummy = new \App\Models\AttendanceRecord([
-                        'employee_id'  => $employee->id,
-                        'fecha'        => $dateStr,
-                        'hora_entrada' => null,
-                        'hora_salida'  => null,
-                        'estado'       => $fecha->isSunday() ? 'descanso' : 'ausente',
-                        'minutos_tarde' => 0,
-                        'horas_extra_diurnas'   => 0,
-                        'horas_extra_nocturnas' => 0,
-                        'inicio_refrigerio' => null,
-                        'fin_refrigerio'    => null,
-                        'observacion'       => null,
-                    ]);
-                    $dummy->setRelation('employee', $employee);
-                    $expanded->push($dummy);
-                }
-
-                $fecha->addDay();
-            }
-        }
-
-        $this->sorted = $expanded;
+        $this->sorted = $records->sortBy([
+            fn($a, $b) => strcmp(
+                ($a->employee->apellidos ?? '') . ($a->employee->nombres ?? ''),
+                ($b->employee->apellidos ?? '') . ($b->employee->nombres ?? '')
+            ),
+            fn($a, $b) => strcmp($a->fecha, $b->fecha),
+        ])->values();
     }
 
     private function decimalToHHMM(?float $decimal): string
@@ -97,21 +53,16 @@ class SunafilExport implements
     private function calcularMinutosTrabajados($record): int
     {
         if (!$record->hora_entrada || !$record->hora_salida) return 0;
-        if ($record->estado === 'ausente') return 0;
-
-        // Descanso/feriado con marcaciones: calcular directo sin horario
-        if (in_array($record->estado, ['descanso', 'feriado'])) {
-            return max(0, (int) Carbon::parse($record->hora_entrada)->diffInMinutes(Carbon::parse($record->hora_salida), true));
-        }
+        if (in_array($record->estado, ['ausente', 'descanso', 'feriado'])) return 0;
 
         $schedule = $record->employee->schedule;
         if (!$schedule) return 0;
 
-        $fecha           = Carbon::parse($record->fecha)->toDateString();
-        $entradaReal     = Carbon::parse($record->hora_entrada);
-        $salidaReal      = Carbon::parse($record->hora_salida);
-        $entradaProg     = Carbon::parse($fecha . ' ' . $schedule->hora_entrada);
-        $salidaProg      = Carbon::parse($fecha . ' ' . $schedule->hora_salida);
+        $fecha          = Carbon::parse($record->fecha)->toDateString();
+        $entradaReal    = Carbon::parse($record->hora_entrada);
+        $salidaReal     = Carbon::parse($record->hora_salida);
+        $entradaProg    = Carbon::parse($fecha . ' ' . $schedule->hora_entrada);
+        $salidaProg     = Carbon::parse($fecha . ' ' . $schedule->hora_salida);
 
         $entradaEfectiva = $entradaReal->gt($entradaProg) ? $entradaReal : $entradaProg;
         $salidaEfectiva  = $salidaReal->lt($salidaProg)  ? $salidaReal  : $salidaProg;
@@ -154,35 +105,27 @@ class SunafilExport implements
             'vacaciones' => 'Vacaciones',
         ];
 
-        $rows         = [];
-        $contador     = 0;
-        $currentDni   = null;
-        $acumMinutos  = 0;
-        $acumTardanza = 0;
-        $acumExtra25  = 0.0;
-        $acumExtra35  = 0.0;
-        $rowIndex     = 0;
+        $rows        = [];
+        $contador    = 0;
+        $currentDni  = null;
+        $acumMinutos = 0;
+        $rowIndex    = 0; // índice dentro del array de filas (sin headers)
 
         foreach ($this->sorted as $record) {
             $dni = $record->employee->dni ?? '';
 
             // Cambió de empleado → insertar fila de subtotal del anterior
             if ($currentDni !== null && $dni !== $currentDni) {
-                $rows[]               = $this->buildSubtotalRow($acumMinutos, $acumTardanza, $acumExtra25, $acumExtra35);
+                $subtotalRow = $this->buildSubtotalRow($acumMinutos);
+                $rows[]      = $subtotalRow;
                 $rowIndex++;
-                $this->subtotalRows[] = $rowIndex;
-                $acumMinutos  = 0;
-                $acumTardanza = 0;
-                $acumExtra25  = 0.0;
-                $acumExtra35  = 0.0;
+                $this->subtotalRows[] = $rowIndex; // guardar para estilos
+                $acumMinutos = 0;
             }
 
-            $currentDni    = $dni;
+            $currentDni = $dni;
             $contador++;
-            $acumMinutos  += $this->calcularMinutosTrabajados($record);
-            $acumTardanza += (int)   ($record->minutos_tarde        ?? 0);
-            $acumExtra25  += (float) ($record->horas_extra_diurnas  ?? 0);
-            $acumExtra35  += (float) ($record->horas_extra_nocturnas ?? 0);
+            $acumMinutos += $this->calcularMinutosTrabajados($record);
 
             $row = [
                 $contador,
@@ -212,13 +155,14 @@ class SunafilExport implements
                 $record->observacion ?? '',
             ]);
 
-            $rows[] = $row;
+            $rows[]  = $row;
             $rowIndex++;
         }
 
         // Subtotal del último empleado
         if ($currentDni !== null) {
-            $rows[]               = $this->buildSubtotalRow($acumMinutos, $acumTardanza, $acumExtra25, $acumExtra35);
+            $subtotalRow = $this->buildSubtotalRow($acumMinutos);
+            $rows[]      = $subtotalRow;
             $rowIndex++;
             $this->subtotalRows[] = $rowIndex;
         }
@@ -226,18 +170,19 @@ class SunafilExport implements
         return $rows;
     }
 
-    private function buildSubtotalRow(int $acumMinutos, int $acumTardanza, float $acumExtra25, float $acumExtra35): array
+    private function buildSubtotalRow(int $acumMinutos): array
     {
         $cols = $this->incluyeRefrigerio ? 11 : 9; // columnas antes de "Horas Trabajadas"
-        $row  = array_fill(0, $cols + 6, '');
+        $row  = array_fill(0, $cols, '');
+        $row[1] = 'TOTAL HORAS TRABAJADAS EN EL PERÍODO';
+        $row[$cols] = $this->minutosToHHMM($acumMinutos); // columna Horas Trabajadas
 
-        $row[1]         = 'TOTALES DEL PERÍODO';
-        $row[$cols]     = $this->minutosToHHMM($acumMinutos);       // Horas Trabajadas
-        $row[$cols + 1] = '';                                        // Estado (vacío)
-        $row[$cols + 2] = $this->minutosToHHMM($acumTardanza);      // Tardanza total
-        $row[$cols + 3] = $this->decimalToHHMM($acumExtra25);       // H. Extra 25%
-        $row[$cols + 4] = $this->decimalToHHMM($acumExtra35);       // H. Extra 35%
-        $row[$cols + 5] = '';                                        // Observación
+        // Rellenar columnas restantes (Estado, Tardanza, Extras, Obs)
+        $row[$cols + 1] = '';
+        $row[$cols + 2] = '';
+        $row[$cols + 3] = '';
+        $row[$cols + 4] = '';
+        $row[$cols + 5] = '';
 
         return $row;
     }
@@ -312,9 +257,9 @@ class SunafilExport implements
             ],
         ];
 
-        // Estilar filas de subtotal (offset +4: 3 filas de header insertadas + 1 fila de headings)
+        // Estilar filas de subtotal (offset +4 por los 3 headers insertados + 1 del heading)
         foreach ($this->subtotalRows as $rowIndex) {
-            $excelRow          = $rowIndex + 4;
+            $excelRow = $rowIndex + 4;
             $styles[$excelRow] = [
                 'font' => ['bold' => true, 'color' => ['rgb' => '1E3A5F']],
                 'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'D1E8FF']],

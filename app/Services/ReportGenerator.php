@@ -89,6 +89,8 @@ class ReportGenerator
             'empresa_direccion'    => $company?->direccion ?? '',
             'fecha_inicio'         => $desde->format('d/m/Y'),
             'fecha_fin'            => $hasta->format('d/m/Y'),
+            'fecha_inicio_raw'     => $desde->toDateString(),
+            'fecha_fin_raw'        => $hasta->toDateString(),
             'periodo_slug'         => $desde->format('Ym') . ($desde->format('Ym') !== $hasta->format('Ym') ? '_' . $hasta->format('Ym') : ''),
             'filtro_nombre'        => $filtroNombre ?: 'Todos',
             'filtro_slug'          => $filtroSlug,

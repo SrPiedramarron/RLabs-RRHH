@@ -28,13 +28,16 @@ class CheckinController extends Controller
             ->orderByDesc('fecha_hora')
             ->get();
 
-        $tieneEntrada = $checkinHoy->where('tipo', 'entrada')->isNotEmpty();
-        $tieneSalida  = $checkinHoy->where('tipo', 'salida')->isNotEmpty();
-
         // Registro de asistencia de hoy
         $recordHoy = AttendanceRecord::where('employee_id', $employee->id)
             ->where('fecha', today())
             ->first();
+
+        $tieneEntrada = $checkinHoy->where('tipo', 'entrada')->isNotEmpty()
+            || ($recordHoy && $recordHoy->hora_entrada !== null);
+
+        $tieneSalida = $checkinHoy->where('tipo', 'salida')->isNotEmpty()
+            || ($recordHoy && $recordHoy->hora_salida !== null);
 
         return view('checkin.home', compact(
             'employee', 'checkinHoy', 'tieneEntrada', 'tieneSalida', 'recordHoy'

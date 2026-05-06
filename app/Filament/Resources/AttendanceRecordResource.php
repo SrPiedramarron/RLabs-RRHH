@@ -38,7 +38,10 @@ class AttendanceRecordResource extends Resource
                     Forms\Components\DatePicker::make('fecha')
                         ->label('Fecha')
                         ->required()
-                        ->displayFormat('d/m/Y'),
+                        ->format('Y-m-d')
+                        ->displayFormat('d/m/Y')
+                        ->disabled(fn ($operation) => $operation === 'edit')
+                        ->dehydrated(fn ($operation) => $operation !== 'edit'),
 
                     Forms\Components\Select::make('estado')
                         ->label('Estado')
@@ -197,10 +200,16 @@ class AttendanceRecordResource extends Resource
                     ->form([
                         Forms\Components\DatePicker::make('desde')
                             ->label('Desde')
-                            ->displayFormat('d/m/Y'),
+                            ->format('Y-m-d')
+                        ->displayFormat('d/m/Y')
+                        ->disabled(fn ($operation) => $operation === 'edit')
+                        ->dehydrated(fn ($operation) => $operation !== 'edit'),
                         Forms\Components\DatePicker::make('hasta')
                             ->label('Hasta')
-                            ->displayFormat('d/m/Y'),
+                            ->format('Y-m-d')
+                        ->displayFormat('d/m/Y')
+                        ->disabled(fn ($operation) => $operation === 'edit')
+                        ->dehydrated(fn ($operation) => $operation !== 'edit'),
                     ])
                     ->query(function (Builder $query, array $data) {
                         return $query
