@@ -75,6 +75,7 @@ class LocationResource extends Resource
                         ->options([
                             'zkbio' => 'ZKBio HTTP API (Sede con túnel HTTP)',
                             'zksdk' => 'ZKTeco SDK (Protocolo nativo puerto 4370)',
+                            'zkadms' => 'ZKTeco ADMS (Push HTTP - modelos nuevos)',
                         ])
                         ->default('zkbio')
                         ->required(),

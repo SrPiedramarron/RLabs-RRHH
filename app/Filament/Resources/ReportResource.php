@@ -23,6 +23,8 @@ class ReportResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-document-chart-bar';
     protected static ?string $navigationLabel = 'Reportes SUNAFIL';
     protected static ?string $navigationGroup = 'Reportes';
+    protected static ?string $modelLabel = 'Reporte SUNAFIL';
+    protected static ?string $pluralModelLabel = 'Reportes SUNAFIL';
     protected static ?int $navigationSort = 1;
 
     public static function form(Form $form): Form
@@ -190,14 +192,6 @@ class ReportResource extends Resource
                         Forms\Components\Section::make('Opciones del Reporte')
                             ->columns(2)
                             ->schema([
-                                Forms\Components\Select::make('formato')
-                                    ->label('Formato de exportación')
-                                    ->options([
-                                        'pdf'   => 'PDF',
-                                        'excel' => 'Excel (.xlsx)',
-                                    ])
-                                    ->default('pdf')
-                                    ->required(),
 
                                 Forms\Components\Toggle::make('incluye_refrigerio')
                                     ->label('Incluir columnas de refrigerio')
@@ -244,7 +238,8 @@ class ReportResource extends Resource
                             'department_id'     => $data['department_id'] ?? null,
                         ];
 
-                        if ($data['formato'] === 'pdf') {
+                        // Siempre Excel
+                        if (false) {
                             return $reportGenerator->generatePdfSunafil($records, $options);
                         } else {
                             return $reportGenerator->generateExcelSunafil($records, $options);

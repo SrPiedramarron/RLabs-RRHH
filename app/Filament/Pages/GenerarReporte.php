@@ -119,14 +119,16 @@ class GenerarReporte extends Page implements HasForms
                 ->label('Vista Previa PDF')
                 ->icon('heroicon-o-eye')
                 ->color('gray')
-                ->action('mostrarPreviaPDF'),
+                ->action('mostrarPreviaPDF')
+                ->visible(false),
 
             // ── DESCARGAR PDF ─────────────────────────────────────────────
             Action::make('exportar_pdf')
                 ->label('Descargar PDF')
                 ->icon('heroicon-o-document')
                 ->color('danger')
-                ->action('exportarPDF'),
+                ->action('exportarPDF')
+                ->visible(false),
 
             // ── VISTA PREVIA EXCEL ────────────────────────────────────────
             Action::make('previa_excel')

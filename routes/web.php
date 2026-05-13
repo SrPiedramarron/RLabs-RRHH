@@ -2,9 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+Route::get('/', fn() => redirect('/admin'));
 
 require __DIR__.'/checkin.php';
 
@@ -13,3 +11,4 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::get('/select-company', [App\Http\Controllers\CompanySelectController::class, 'show'])->name('company.show');
     Route::post('/select-company', [App\Http\Controllers\CompanySelectController::class, 'select'])->name('company.select');
 });
+require __DIR__.'/adms.php';
