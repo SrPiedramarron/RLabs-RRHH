@@ -22,6 +22,9 @@ class SyncAttendanceJob implements ShouldQueue
         foreach ($locations as $location) {
             if ($location->reloj_tipo === 'zksdk') {
                 $zkSDKService->syncLocation($location);
+            } elseif ($location->reloj_tipo === 'zkadms') {
+                // ADMS es push — el reloj envía datos al servidor, no hay nada que pullear
+                continue;
             } else {
                 $zkService->syncLocation($location);
             }
