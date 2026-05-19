@@ -80,6 +80,17 @@ class Employee extends Model
         return $this->hasMany(RemoteCheckin::class);
     }
 
+
+    // ── Mutators: forzar mayúsculas ───────────────────────────────────────────
+    public function setNombresAttribute(string $value): void
+    {
+        $this->attributes['nombres'] = mb_strtoupper(trim($value));
+    }
+
+    public function setApellidosAttribute(string $value): void
+    {
+        $this->attributes['apellidos'] = mb_strtoupper(trim($value));
+    }
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     public function getNombreCompletoAttribute(): string

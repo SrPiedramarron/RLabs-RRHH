@@ -99,8 +99,9 @@ class ImportEmployeesFromZKBio extends Command
             ];
 
             if ($existe) {
-                $existe->update($datos);
-                $actualizados++;
+                $this->line("  → Ya existe, omitiendo: {$dni}");
+                $omitidos++;
+                continue;
             } else {
                 Employee::create($datos);
                 $creados++;

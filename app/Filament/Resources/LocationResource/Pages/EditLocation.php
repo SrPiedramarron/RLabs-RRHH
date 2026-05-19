@@ -1,22 +1,19 @@
 <?php
-
 namespace App\Filament\Resources\LocationResource\Pages;
-
 use App\Filament\Resources\LocationResource;
+use App\Jobs\SyncAttendanceJob;
 use App\Services\ZKTecoService;
+use App\Services\ZKTecoSDKService;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Notifications\Notification;
-
 class EditLocation extends EditRecord
 {
     protected static string $resource = LocationResource::class;
-
     protected function getHeaderActions(): array
     {
         return [
             Actions\DeleteAction::make(),
-
             Actions\Action::make('sincronizar')
                 ->label('Sincronizar Ahora')
                 ->icon('heroicon-o-arrow-path')
@@ -25,21 +22,25 @@ class EditLocation extends EditRecord
                 ->modalHeading('Sincronizar Reloj')
                 ->modalDescription('Se intentará conectar con el reloj de esta sede. ¿Continuar?')
                 ->action(function () {
-                    $zkService = app(ZKTecoService::class);
-                    $log = $zkService->syncLocation($this->record);
+                    $location = $this->record;
 
-                    if ($log->estado === 'completado') {
+                    if ($location->reloj_tipo === 'zkadms') {
                         Notification::make()
-                            ->title("Sincronización exitosa: {$log->registros_nuevos} registros nuevos")
-                            ->success()
+                            ->title('Reloj ADMS')
+                            ->body('Este reloj envía los registros automáticamente. No requiere sincronización manual.')
+                            ->info()
                             ->send();
-                    } else {
-                        Notification::make()
-                            ->title('Error de conexión')
-                            ->body($log->error_mensaje)
-                            ->danger()
-                            ->send();
+                        return;
                     }
+
+                    // Para zkbio y zksdk despachar en background
+                    SyncAttendanceJob::dispatch();
+
+                    Notification::make()
+                        ->title('Sincronización iniciada')
+                        ->body('El proceso corre en background. Los registros estarán disponibles en unos momentos.')
+                        ->success()
+                        ->send();
 
                     $this->refreshFormData([
                         'ultima_sync',
