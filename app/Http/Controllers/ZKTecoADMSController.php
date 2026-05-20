@@ -10,6 +10,13 @@ use Illuminate\Support\Facades\Log;
 
 class ZKTecoADMSController extends Controller
 {
+    private function getLocationBySN(string $sn): ?Location
+    {
+        return Location::where('reloj_sn', $sn)
+            ->where('reloj_activo', true)
+            ->first();
+    }
+
     public function handshake(Request $request)
     {
         $sn = $request->query('SN', '');
@@ -44,9 +51,7 @@ class ZKTecoADMSController extends Controller
         Log::info("[ADMS] POST cdata SN={$sn} table={$table}", ['body' => substr($content, 0, 500)]);
 
         if (strtolower($table) === 'attlog') {
-            $location = Location::where('reloj_tipo', 'zkadms')
-                ->where('reloj_activo', true)
-                ->first();
+            $location = $this->getLocationBySN($sn);
 
             if ($location) {
                 $nuevos = $this->parseAndStore($content, $location);
@@ -58,7 +63,7 @@ class ZKTecoADMSController extends Controller
                     'sync_error_msg' => null,
                 ]);
             } else {
-                Log::warning("[ADMS] No se encontró sede con reloj_tipo=zkadms activo");
+                Log::warning("[ADMS] No se encontró sede para SN={$sn}");
             }
         }
 
@@ -70,15 +75,13 @@ class ZKTecoADMSController extends Controller
         $sn = $request->query('SN', '');
         Log::info("[ADMS] getrequest SN={$sn}");
 
-        $location = Location::where('reloj_tipo', 'zkadms')
-            ->where('reloj_activo', true)
-            ->first();
+        $location = $this->getLocationBySN($sn);
 
         if (!$location) {
+            Log::warning("[ADMS] No se encontró sede para SN={$sn}");
             return response("OK", 200)->header('Content-Type', 'text/plain');
         }
 
-        // Obtener empleados activos de esta sede que tengan reloj_id
         $employees = Employee::where('location_id', $location->id)
             ->where('active', true)
             ->whereNotNull('reloj_id')
@@ -88,7 +91,6 @@ class ZKTecoADMSController extends Controller
             return response("OK", 200)->header('Content-Type', 'text/plain');
         }
 
-        // Construir comandos de usuario para el reloj
         $commands = [];
         foreach ($employees as $emp) {
             $pin  = $emp->reloj_id;
@@ -97,7 +99,7 @@ class ZKTecoADMSController extends Controller
         }
 
         $body = implode("\r\n", $commands);
-        Log::info("[ADMS] Enviando " . count($commands) . " usuarios al reloj SN={$sn}");
+        Log::info("[ADMS] Enviando " . count($commands) . " usuarios al reloj SN={$sn} sede={$location->nombre}");
 
         return response($body, 200)->header('Content-Type', 'text/plain');
     }
