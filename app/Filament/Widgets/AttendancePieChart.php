@@ -11,7 +11,8 @@ class AttendancePieChart extends ApexChartWidget
 {
     protected static ?string $chartId = 'attendancePieChart';
     protected static ?string $heading = 'Asistencia del Mes';
-    protected static ?int $sort = 1;
+    protected static ?int $sort = 3;
+    protected int | string | array $columnSpan = 1;
     protected static ?string $pollingInterval = null;
 
     protected function getOptions(): array

@@ -32,7 +32,7 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
 
             // ─── BRANDING ────────────────────────────────────────────────
-            ->brandName('SumaRH')
+            ->brandName('RLabs RH')
             ->brandLogo(asset('images/sumarh-logo.svg'))
             ->brandLogoHeight('2.5rem')
             ->favicon(asset('images/sumarh-favicon.svg'))
@@ -55,7 +55,7 @@ class AdminPanelProvider extends PanelProvider
                         border-top: 1px solid #e5e7eb;
                         background: #f9fafb;
                     ">
-                        © 2026 SumaRH &mdash;
+                        © 2026 RLabs RH &mdash;
                         <span style="color: #E30613; font-weight: 600;">Powered by RLabs</span>
                     </div>
                 '),

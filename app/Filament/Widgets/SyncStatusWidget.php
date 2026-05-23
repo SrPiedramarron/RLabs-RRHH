@@ -15,7 +15,7 @@ class SyncStatusWidget extends Widget
 
     public function getLocations()
     {
-        return Location::with('company')->where('active', true)->get();
+        return Location::with('company')->where('active', true)->where('company_id', session('active_company_id'))->get();
     }
 
     public function sincronizar(int $locationId): void
