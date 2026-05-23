@@ -24,7 +24,7 @@ class ZKTecoADMSController extends Controller
 
         $body = implode("\r\n", [
             "GET OPTION FROM: {$sn}",
-            "ATTLOGStamp=9999",
+            "ATTLOGStamp=0",
             "OPERLOGStamp=9999",
             "ATTPHOTOStamp=9999",
             "ErrorDelay=30",
