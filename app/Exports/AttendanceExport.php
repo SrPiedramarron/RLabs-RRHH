@@ -47,6 +47,32 @@ class AttendanceExport implements FromQuery, WithHeadings, WithMapping, WithStyl
         return sprintf('%02d:%02d', intdiv($total, 60), $total % 60);
     }
 
+    private function resolverOrigen(AttendanceRecord $record): string
+    {
+        if ($record->corregido_manualmente) {
+            $texto = 'Corrección manual';
+            if ($record->motivo_correccion) {
+                $texto .= ': ' . $record->motivo_correccion;
+            }
+            return $texto;
+        }
+
+        $entrada = $record->fuente_entrada ?? 'biometrico';
+        $salida  = $record->fuente_salida  ?? 'biometrico';
+
+        $labels = [
+            'biometrico' => 'Biométrico',
+            'remoto'     => 'App móvil',
+            'manual'     => 'Corrección manual',
+        ];
+
+        if ($entrada === $salida) {
+            return $labels[$entrada] ?? $entrada;
+        }
+
+        return ($labels[$entrada] ?? $entrada) . ' / ' . ($labels[$salida] ?? $salida);
+    }
+
     public function query()
     {
         return AttendanceRecord::with(['employee', 'location'])
@@ -68,6 +94,7 @@ class AttendanceExport implements FromQuery, WithHeadings, WithMapping, WithStyl
         $headers[] = 'HORAS LABORADAS';
         $headers[] = 'HORAS EXTRAS 25%';
         $headers[] = 'HORAS EXTRAS 35%';
+        $headers[] = 'ORIGEN';
         return $headers;
     }
 
@@ -91,23 +118,31 @@ class AttendanceExport implements FromQuery, WithHeadings, WithMapping, WithStyl
         $row[] = $this->decimalToHHMM($record->horas_ordinarias);
         $row[] = $this->decimalToHHMM($record->horas_extra_diurnas);
         $row[] = $this->decimalToHHMM($record->horas_extra_nocturnas);
+        $row[] = $this->resolverOrigen($record);
         return $row;
     }
 
     public function styles(Worksheet $sheet): array
     {
-        $sheet->mergeCells('A1:J1');
+        // Calcular última columna según configuración
+        // Sin refrigerio: N°, Nombres, DNI, Fecha, Ingreso, Salida, H.Lab, H.E.25%, H.E.35%, Origen = 10 cols → J
+        // Con refrigerio: +2 cols = 12 cols → L
+        $lastCol = $this->incluirRefrigerio ? 'L' : 'J';
+
+        $sheet->mergeCells("A1:{$lastCol}1");
         $sheet->setCellValue('A1', 'REGISTRO DE CONTROL DE ASISTENCIA');
         $sheet->getStyle('A1')->applyFromArray([
             'font'      => ['bold' => true, 'size' => 13],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
         ]);
-        $sheet->mergeCells('A2:J2');
+
+        $sheet->mergeCells("A2:{$lastCol}2");
         $sheet->setCellValue('A2', 'Res. Ministerial N° 020-2001-TR');
         $sheet->getStyle('A2')->applyFromArray([
             'font'      => ['italic' => true, 'size' => 9, 'color' => ['rgb' => '666666']],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
         ]);
+
         $sheet->setCellValue('A3', 'Razón Social:');
         $sheet->setCellValue('B3', $this->companyName);
         $sheet->setCellValue('A4', 'Sede:');
@@ -116,12 +151,12 @@ class AttendanceExport implements FromQuery, WithHeadings, WithMapping, WithStyl
         $sheet->setCellValue('B5', Carbon::parse($this->desde)->format('d/m/Y') . ' al ' . Carbon::parse($this->hasta)->format('d/m/Y'));
         $sheet->getStyle('A3:A5')->applyFromArray(['font' => ['bold' => true]]);
 
-        $lastCol = $this->incluirRefrigerio ? 'K' : 'I';
         $sheet->getStyle("A7:{$lastCol}7")->applyFromArray([
             'font'      => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
             'fill'      => ['fillType' => 'solid', 'startColor' => ['rgb' => 'C0392B']],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'wrapText' => true],
         ]);
+
         return [];
     }
 

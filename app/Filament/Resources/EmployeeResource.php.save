@@ -144,8 +144,8 @@ class EmployeeResource extends Resource
                         ->visible(fn(Get $get) => $get('exonerado_registro')),
                 ])->columns(2),
 
-	   // -- CONFIGURACI�N PLANILLA ------------------------------------------------
-Forms\Components\Section::make('Configuraci�n de Planilla')
+	   // -- CONFIGURACI�N PLANILLA ------------------------------------------------
+Forms\Components\Section::make('Configuraci�n de Planilla')
     ->icon('heroicon-o-banknotes')
     ->schema([
         Forms\Components\TextInput::make('sueldo_base')
@@ -170,13 +170,13 @@ Forms\Components\Section::make('Configuraci�n de Planilla')
             ->native(false),
 
         Forms\Components\Toggle::make('aplica_5ta_categoria')
-            ->label('Aplica descuento 5ta categor�a')
+            ->label('Aplica descuento 5ta categor�a')
             ->helperText('Impuesto a la renta para sueldos altos')
             ->default(false),
 
         Forms\Components\Toggle::make('aplica_comision')
             ->label('Aplica comisiones')
-            ->helperText('Incluir comisiones de ventas en la liquidaci�n mensual')
+            ->helperText('Incluir comisiones de ventas en la liquidaci�n mensual')
             ->default(false),
     ])->columns(2),
 
@@ -217,20 +217,12 @@ Forms\Components\Section::make('Configuraci�n de Planilla')
                         ->revealable()
                         ->minLength(6)
                         ->dehydrated(false)          // no se guarda directo en Employee
-                        ->nullable(),
-
-		   Forms\Components\Toggle::make('credential.resetear_dni')
-                        ->label('Resetear contraseña al DNI')
-                        ->helperText('Marca para restablecer la contraseña al DNI del empleado.')
-                        ->default(false)
-                        //->dehydrated(false)
-                        ->visibleOn('edit'),
-
+                        ->nullable()	
                     Forms\Components\Toggle::make('credential.active')
                         ->label('Acceso activo')
                         ->helperText('Desactiva para bloquear el acceso sin eliminar la contraseña.')
                         ->default(true)
-                        //->dehydrated(false)
+                        ->dehydrated(false)
                         ->visibleOn('edit'),
                 ])
                 ->columns(2)
@@ -355,20 +347,6 @@ Tables\Columns\TextColumn::make('sistema_pensiones')
             ->actions([
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
-                Tables\Actions\Action::make('resetear_dni')
-                    ->label('Resetear al DNI')
-                    ->icon('heroicon-o-key')
-                    ->color('warning')
-                    ->requiresConfirmation()
-                    ->modalHeading('Resetear contraseña')
-                    ->modalDescription(fn($record) => "Se reseteará la contraseña de {$record->nombre_completo} a su DNI ({$record->dni}).")
-                    ->action(function ($record): void {
-                        EmployeeCredential::updateOrCreate(
-                            ['employee_id' => $record->id],
-                            ['password' => Hash::make($record->dni), 'active' => true]
-                        );
-                    })
-                    ->successNotificationTitle('✅ Contraseña reseteada al DNI.'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -441,25 +419,24 @@ Tables\Columns\TextColumn::make('sistema_pensiones')
 
     protected function handleRecordUpdate(\Illuminate\Database\Eloquent\Model $record, array $data): \Illuminate\Database\Eloquent\Model
     {
-\Log::info('handleRecordUpdate data:', $data);
         // Extraemos los datos de credencial antes de guardar Employee
         $passwordNueva    = $data['credential']['password_nueva'] ?? null;
-        $credentialActive = $data['credential']['active'] ?? false;
-        $resetearDni      = $data['credential']['resetear_dni'] ?? false;
+        $credentialActive = $data['credential']['active'] ?? true;
+
         unset($data['credential']);
 
         $record->fill($data)->save();
 
-        // Solo tocamos credencial si hay algo que hacer
-        if ($passwordNueva || $resetearDni || $credentialActive || $record->credential) {
+        // Actualizamos credencial si corresponde
+        if ($passwordNueva || $record->credential || $credentialActive) {
             $credData = ['active' => $credentialActive];
-
             if ($passwordNueva) {
+                // Contraseña especificada manualmente
                 $credData['password'] = Hash::make($passwordNueva);
-            } elseif ($resetearDni || !$record->credential) {
+            } elseif (!$record->credential) {
+                // Nueva credencial sin contraseña → usar DNI como contraseña por defecto
                 $credData['password'] = Hash::make($record->dni);
             }
-
             EmployeeCredential::updateOrCreate(
                 ['employee_id' => $record->id],
                 $credData
