@@ -21,6 +21,7 @@ use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Illuminate\Support\Facades\Blade;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Leandrocfe\FilamentApexCharts\FilamentApexChartsPlugin;
+use Filament\Support\Facades\FilamentView;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -32,10 +33,21 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
 
             // ─── BRANDING ────────────────────────────────────────────────
-            ->brandName('RLabs RH')
-            ->brandLogo(asset('images/sumarh-logo.svg'))
+            ->brandName('RLabs RRHH')
+            ->brandLogo(fn () => request()->routeIs('filament.admin.auth.login')
+                ? asset('images/logo-light.svg')
+                : asset('images/logo-dark.svg')
+            )
             ->brandLogoHeight('2.5rem')
             ->favicon(asset('images/sumarh-favicon.svg'))
+            ->renderHook(
+                PanelsRenderHook::HEAD_END,
+                fn (): string => Blade::render('<style>
+                    .fi-simple-layout {
+                        background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #1a2456 100%) !important;
+                    }
+                </style>')
+            )
 
             // ─── COLORES ─────────────────────────────────────────────────
             ->colors([

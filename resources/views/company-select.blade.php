@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Seleccionar Empresa — SumaRH</title>
+    <title>Seleccionar Empresa — RLabsRH</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-50 min-h-screen flex items-center justify-center">
@@ -11,7 +11,7 @@
 
         {{-- Logo --}}
         <div class="text-center mb-8">
-            <img src="{{ asset('images/sumarh-logo.svg') }}" alt="SumaRH" class="h-12 mx-auto mb-3">
+            <img src="{{ asset('images/logo-dark.svg') }}" alt="RLabsRH" class="h-12 mx-auto mb-3">
             <h1 class="text-2xl font-bold text-gray-800">Selecciona la empresa</h1>
             <p class="text-gray-500 text-sm mt-1">¿Con qué empresa vas a trabajar hoy?</p>
         </div>
