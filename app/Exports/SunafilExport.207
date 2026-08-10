@@ -63,13 +63,12 @@ class SunafilExport implements
                         'hora_entrada' => null,
                         'hora_salida'  => null,
                         'estado'       => $fecha->isSunday() ? 'descanso' : 'ausente',
-                        'minutos_tarde'          => 0,
-                        'horas_ordinarias'       => 0,
-                        'horas_extra_diurnas'    => 0,
-                        'horas_extra_nocturnas'  => 0,
-                        'inicio_refrigerio'      => null,
-                        'fin_refrigerio'         => null,
-                        'observacion'            => null,
+                        'minutos_tarde' => 0,
+                        'horas_extra_diurnas'   => 0,
+                        'horas_extra_nocturnas' => 0,
+                        'inicio_refrigerio' => null,
+                        'fin_refrigerio'    => null,
+                        'observacion'       => null,
                     ]);
                     $dummy->setRelation('employee', $employee);
                     $expanded->push($dummy);
@@ -95,21 +94,50 @@ class SunafilExport implements
         return sprintf('%02d:%02d', intdiv($minutos, 60), $minutos % 60);
     }
 
-    /**
-     * Convierte horas_ordinarias (decimal en BD) a minutos enteros.
-     * Usa el valor ya procesado por AttendanceProcessor, que descuenta
-     * correctamente el refrigerio según el horario real del día.
-     */
-    private function horasOrdinariasAMinutos($record): int
+    private function calcularMinutosTrabajados($record): int
     {
-        $horas = (float) ($record->horas_ordinarias ?? 0);
-        if ($horas <= 0) return 0;
-        return (int) round($horas * 60);
+        if (!$record->hora_entrada || !$record->hora_salida) return 0;
+        if ($record->estado === 'ausente') return 0;
+
+        // Descanso/feriado con marcaciones: calcular directo sin horario
+        if (in_array($record->estado, ['descanso', 'feriado'])) {
+            return max(0, (int) Carbon::parse($record->hora_entrada)->diffInMinutes(Carbon::parse($record->hora_salida), true));
+        }
+
+        $schedule = $record->employee->schedule;
+        if (!$schedule) return 0;
+
+        $fecha           = Carbon::parse($record->fecha)->toDateString();
+        $entradaReal     = Carbon::parse($record->hora_entrada);
+        $salidaReal      = Carbon::parse($record->hora_salida);
+        $entradaProg     = Carbon::parse($fecha . ' ' . $schedule->hora_entrada);
+        $salidaProg      = Carbon::parse($fecha . ' ' . $schedule->hora_salida);
+
+        $entradaEfectiva = $entradaReal->gt($entradaProg) ? $entradaReal : $entradaProg;
+        $salidaEfectiva  = $salidaReal->lt($salidaProg)  ? $salidaReal  : $salidaProg;
+
+        if ($salidaEfectiva->lte($entradaEfectiva)) return 0;
+
+        $minutos = (int) $entradaEfectiva->diffInMinutes($salidaEfectiva, true);
+
+        if ($record->inicio_refrigerio && $record->fin_refrigerio) {
+            $iniRef  = Carbon::parse($record->inicio_refrigerio);
+            $finRef  = Carbon::parse($record->fin_refrigerio);
+            $minutos -= (int) $iniRef->diffInMinutes($finRef, true);
+        } elseif ($schedule->refrigerio_inicio && $schedule->refrigerio_fin) {
+            $refInicio = Carbon::parse($fecha . ' ' . $schedule->refrigerio_inicio);
+            $refFin    = Carbon::parse($fecha . ' ' . $schedule->refrigerio_fin);
+            if ($entradaEfectiva->lt($refFin) && $salidaEfectiva->gt($refInicio)) {
+                $minutos -= (int) $refInicio->diffInMinutes($refFin, true);
+            }
+        }
+
+        return max(0, $minutos);
     }
 
-    private function formatHorasTrabajadas($record): string
+    private function calcularHorasTrabajadas($record): string
     {
-        $minutos = $this->horasOrdinariasAMinutos($record);
+        $minutos = $this->calcularMinutosTrabajados($record);
         if ($minutos === 0) return '—';
         return sprintf('%02d:%02d', intdiv($minutos, 60), $minutos % 60);
     }
@@ -151,7 +179,7 @@ class SunafilExport implements
 
             $currentDni    = $dni;
             $contador++;
-            $acumMinutos  += $this->horasOrdinariasAMinutos($record);
+            $acumMinutos  += $this->calcularMinutosTrabajados($record);
             $acumTardanza += (int)   ($record->minutos_tarde        ?? 0);
             $acumExtra25  += (float) ($record->horas_extra_diurnas  ?? 0);
             $acumExtra35  += (float) ($record->horas_extra_nocturnas ?? 0);
@@ -174,7 +202,7 @@ class SunafilExport implements
             }
 
             $row = array_merge($row, [
-                $this->formatHorasTrabajadas($record),
+                $this->calcularHorasTrabajadas($record),
                 $estadoMap[$record->estado] ?? ucfirst($record->estado ?? '—'),
                 $record->minutos_tarde > 0
                     ? sprintf('%02d:%02d', intdiv($record->minutos_tarde, 60), $record->minutos_tarde % 60)
