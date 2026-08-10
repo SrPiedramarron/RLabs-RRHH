@@ -1,0 +1,35 @@
+[90m= [39m[34;4mIlluminate\Database\Eloquent\Collection[39;24m {#422
+    [34mall[39m: [
+      [34;4mApp\Models\EmployeeDevice[39;24m {#7675
+        [34mid[39m: [35m25[39m,
+        [34memployee_id[39m: [35m107[39m,
+        [34mlocation_id[39m: [35m1[39m,
+        [34mreloj_uid[39m: "[32m703516771[39m",
+        [34mreloj_id[39m: [36mnull[39m,
+        [34mactive[39m: [35m1[39m,
+        [34mcreated_at[39m: "[32m2026-07-20 17:24:07[39m",
+        [34mupdated_at[39m: "[32m2026-07-20 17:24:07[39m",
+      },
+      [34;4mApp\Models\EmployeeDevice[39;24m {#7673
+        [34mid[39m: [35m52[39m,
+        [34memployee_id[39m: [35m107[39m,
+        [34mlocation_id[39m: [35m2[39m,
+        [34mreloj_uid[39m: "[32m70351677[39m",
+        [34mreloj_id[39m: [35m70351677[39m,
+        [34mactive[39m: [35m1[39m,
+        [34mcreated_at[39m: "[32m2026-07-20 17:33:02[39m",
+        [34mupdated_at[39m: "[32m2026-07-20 17:33:02[39m",
+      },
+      [34;4mApp\Models\EmployeeDevice[39;24m {#7672
+        [34mid[39m: [35m57[39m,
+        [34memployee_id[39m: [35m107[39m,
+        [34mlocation_id[39m: [35m1[39m,
+        [34mreloj_uid[39m: "[32m70351677[39m",
+        [34mreloj_id[39m: [35m70351677[39m,
+        [34mactive[39m: [35m1[39m,
+        [34mcreated_at[39m: "[32m2026-07-20 17:37:25[39m",
+        [34mupdated_at[39m: "[32m2026-07-20 17:37:25[39m",
+      },
+    ],
+  }
+

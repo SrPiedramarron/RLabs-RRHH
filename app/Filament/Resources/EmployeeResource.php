@@ -107,6 +107,25 @@ class EmployeeResource extends Resource
                         ->preload()
                         ->helperText('Ej: horario de sábados u otros turnos especiales'),
 
+Forms\Components\Select::make('sedes_adicionales')
+                        ->label('Sedes Adicionales')
+                        ->multiple()
+                        ->searchable()
+                        ->preload()
+                        ->options(fn () => \App\Models\Location::pluck('nombre', 'id'))
+                        ->helperText('Sedes donde este empleado también puede marcar asistencia, además de su sede principal.')
+                        ->dehydrated(false) // no es una columna real de employees; se sincroniza aparte
+                        ->afterStateHydrated(function (Forms\Components\Select $component, $record) {
+                            if ($record) {
+                                $component->state(
+                                    $record->devices()
+                                        ->where('location_id', '!=', $record->location_id)
+                                        ->pluck('location_id')
+                                        ->toArray()
+                                );
+                            }
+                        }),
+
                     Forms\Components\TextInput::make('codigo_empleado')
                         ->label('Código')
                         ->maxLength(20),

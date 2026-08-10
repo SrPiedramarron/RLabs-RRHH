@@ -82,10 +82,35 @@ class ZKTecoADMSController extends Controller
             return response("OK", 200)->header('Content-Type', 'text/plain');
         }
 
-        $employees = Employee::where('location_id', $location->id)
-            ->where('active', true)
-            ->whereNotNull('reloj_id')
-            ->get();
+// Empleados con esta sede como principal (comportamiento legacy)
+$empleadosPrincipal = Employee::where('location_id', $location->id)
+    ->where('active', true)
+    ->whereNotNull('reloj_id')
+    ->get()
+    ->map(fn ($emp) => (object) [
+        'id'        => $emp->id,
+        'reloj_id'  => $emp->reloj_id,
+        'nombres'   => $emp->nombres,
+        'apellidos' => $emp->apellidos,
+    ]);
+
+// Empleados vinculados a esta sede vía employee_devices (multi-sede)
+$empleadosVinculados = \App\Models\EmployeeDevice::where('location_id', $location->id)
+    ->where('active', true)
+    ->with('employee')
+    ->get()
+    ->filter(fn ($device) => $device->employee && $device->employee->active)
+    ->map(fn ($device) => (object) [
+        'id'        => $device->employee->id,
+        'reloj_id'  => $device->reloj_id ?? $device->reloj_uid,
+        'nombres'   => $device->employee->nombres,
+        'apellidos' => $device->employee->apellidos,
+    ]);
+
+$employees = $empleadosVinculados
+    ->concat($empleadosPrincipal)
+    ->unique('id') // se queda con la primera ocurrencia por empleado: prioriza el vínculo específico de esta sede
+    ->values();
 
         if ($employees->isEmpty()) {
             return response("OK", 200)->header('Content-Type', 'text/plain');

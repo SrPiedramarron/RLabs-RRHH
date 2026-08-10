@@ -118,4 +118,9 @@ class Employee extends Model
     {
         return $this->credential !== null && $this->credential->active;
     }
+
+public function devices()
+{
+    return $this->hasMany(EmployeeDevice::class);
+}
 }
