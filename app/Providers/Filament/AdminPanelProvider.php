@@ -34,12 +34,13 @@ class AdminPanelProvider extends PanelProvider
 
             // ─── BRANDING ────────────────────────────────────────────────
             ->brandName('RLabs RRHH')
-            ->brandLogo(fn () => request()->routeIs('filament.admin.auth.login')
+            ->brandLogo(fn () => request()->routeIs('filament.*.auth.login')
                 ? asset('images/logo-light.svg')
                 : asset('images/logo-dark.svg')
             )
+            ->darkModeBrandLogo(asset('images/logo-light.svg'))
             ->brandLogoHeight('2.5rem')
-            ->favicon(asset('images/sumarh-favicon.svg'))
+            ->favicon(asset('images/favicon.ico'))
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
                 fn (): string => Blade::render('<style>
