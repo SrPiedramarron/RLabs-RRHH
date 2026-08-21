@@ -45,7 +45,7 @@ class PlanillaLiquidacionResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('nombre_completo')
                     ->label('Empleado')
-                    ->getStateUsing(fn ($r) => $r->apellidos . ', ' . $r->nombres)
+                    ->getStateUsing(fn ($record) => $record->apellidos . ', ' . $record->nombres)
                     ->searchable(query: fn ($q, $s) => $q->where('apellidos', 'like', "%$s%")->orWhere('nombres', 'like', "%$s%"))
                     ->sortable(['apellidos']),
 
@@ -181,6 +181,37 @@ class PlanillaLiquidacionResource extends Resource
                         }
                     }),
 
+
+                Tables\Actions\Action::make('generar_boletas')
+    ->label('Generar boletas')
+    ->icon('heroicon-o-document-duplicate')
+    ->color('warning')
+    ->form([
+        Forms\Components\Select::make('periodo')
+            ->label('Periodo')
+            ->options(function () {
+                if (!PlanillaLiquidacion::exists()) return [];
+                return PlanillaLiquidacion::distinct()
+                    ->orderByDesc('periodo')
+                    ->pluck('mes_nombre', 'periodo')
+                    ->toArray();
+            })
+            ->required()
+            ->native(false),
+
+        Forms\Components\Select::make('company_id')
+            ->label('Empresa')
+            ->relationship('company', 'razon_social')
+            ->required()
+            ->searchable(),
+    ])
+    ->action(function (array $data) {
+        return redirect()->route('boletas.exportar', [
+            'periodo'   => $data['periodo'],
+            'companyId' => $data['company_id'],
+        ]);
+    }),
+
                 Tables\Actions\Action::make('exportar')
                     ->label('Exportar Excel')
                     ->icon('heroicon-o-arrow-down-tray')
@@ -215,6 +246,12 @@ class PlanillaLiquidacionResource extends Resource
                     ->label('Detalle')
                     ->icon('heroicon-o-document-text')
                     ->url(fn ($record) => static::getUrl('detalle', ['record' => $record])),
+                Tables\Actions\Action::make('boleta_pdf')
+                    ->label('Boleta PDF')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->color('gray')
+                    ->url(fn ($record) => route('boletas.pdf', $record))
+                    ->openUrlInNewTab(),
 
                 Tables\Actions\EditAction::make()
                     ->label('Bono')
