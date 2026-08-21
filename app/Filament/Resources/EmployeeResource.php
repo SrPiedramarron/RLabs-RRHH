@@ -114,7 +114,7 @@ Forms\Components\Select::make('sedes_adicionales')
                         ->preload()
                         ->options(fn () => \App\Models\Location::pluck('nombre', 'id'))
                         ->helperText('Sedes donde este empleado también puede marcar asistencia, además de su sede principal.')
-                        ->dehydrated(false) // no es una columna real de employees; se sincroniza aparte
+                        
                         ->afterStateHydrated(function (Forms\Components\Select $component, $record) {
                             if ($record) {
                                 $component->state(
