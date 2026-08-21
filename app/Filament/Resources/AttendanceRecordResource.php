@@ -11,6 +11,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use App\Filament\Traits\HasCompanyScope;
+use App\Support\Tabla21Suspension;
 
 class AttendanceRecordResource extends Resource
 {
@@ -45,6 +46,7 @@ class AttendanceRecordResource extends Resource
 
                     Forms\Components\Select::make('estado')
                         ->label('Estado')
+                        ->live()
                         ->options([
                             'presente'   => 'Presente',
                             'tarde'      => 'Tarde',
@@ -97,7 +99,15 @@ class AttendanceRecordResource extends Resource
                 ->schema([
                     Forms\Components\Toggle::make('justificado')
                         ->label('Justificado')
+                        ->live()
                         ->default(false),
+
+                    Forms\Components\Select::make('motivo_suspension_plame')
+                        ->label('Motivo (Tabla 21 SUNAT)')
+                        ->options(Tabla21Suspension::OPCIONES)
+                        ->helperText('Obligatorio para que el día se declare correctamente en el archivo PLAME. Si es falta injustificada, el sistema asigna el código 7 automáticamente.')
+                        ->visible(fn (Forms\Get $get) => in_array($get('estado'), ['ausente', 'permiso', 'vacaciones']))
+                        ->searchable(),
 
                     Forms\Components\Toggle::make('corregido_manualmente')
                         ->label('Corregido Manualmente')

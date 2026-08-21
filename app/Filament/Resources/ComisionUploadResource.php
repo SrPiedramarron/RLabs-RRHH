@@ -100,7 +100,7 @@ class ComisionUploadResource extends Resource
     )
     ->color('warning')
     ->alignCenter()
-    ->placeholder('�'),
+    ->placeholder('�'),
 
                 Tables\Columns\TextColumn::make('total_base_cobrada')
                     ->label('Base cobrada (S/)')
@@ -180,13 +180,24 @@ class ComisionUploadResource extends Resource
             app(ComisionesService::class)->procesar(
                 $record,
                 Storage::disk('public')->path($record->archivo_cobranzas),
-		Storage::disk('public')->path($record->archivo_comisiones),
+                Storage::disk('public')->path($record->archivo_comisiones),
             );
 
-            Notification::make()
-                ->title('Reprocesado correctamente')
-                ->success()
-                ->send();
+            $record->refresh();
+
+            if ($record->vendedores_sin_match) {
+                Notification::make()
+                    ->title('Reprocesado con advertencias')
+                    ->body('No se encontró empleado para: ' . implode(', ', $record->vendedores_sin_match) . '. Sus comisiones no se sumarán a planilla hasta que el nombre coincida exactamente con el del empleado.')
+                    ->warning()
+                    ->persistent()
+                    ->send();
+            } else {
+                Notification::make()
+                    ->title('Reprocesado correctamente')
+                    ->success()
+                    ->send();
+            }
         } catch (\Throwable $e) {
             Notification::make()
                 ->title('Error al reprocesar')

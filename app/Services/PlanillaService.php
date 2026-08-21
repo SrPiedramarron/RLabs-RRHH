@@ -91,13 +91,17 @@ class PlanillaService
         $importeHEDiurnas   = $horasExtraDiurnas   * $valorHora * (1 + self::RECARGO_HE_DIURNA);
         $importeHENocturnas = $horasExtraNocturnas * $valorHora * (1 + self::RECARGO_HE_NOCTURNA);
 
-        // Comisiones (sin cambios — pendiente el fix de prorrateo por vendedor, ya reportado aparte)
+        // Comisiones del módulo (solo si el empleado aplica).
+        // Filtra por employee_id real — antes sumaba TODO el periodo a cada
+        // vendedor por igual, ahora cada uno recibe solo lo suyo.
         $comisiones = 0.0;
         if ($empleado->aplica_comision) {
             $uploadIds = \App\Models\ComisionUpload::where('periodo', $periodo)->pluck('id');
+
             if ($uploadIds->isNotEmpty()) {
                 $comisiones = floatval(
                     \App\Models\ComisionDetalle::whereIn('comision_upload_id', $uploadIds)
+                        ->where('employee_id', $empleado->id)
                         ->where('estado', 'cobrada')
                         ->sum('comision_calculada')
                 );

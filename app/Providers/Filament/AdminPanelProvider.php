@@ -69,7 +69,7 @@ class AdminPanelProvider extends PanelProvider
                         background: #f9fafb;
                     ">
                         © 2026 RLabs RH &mdash;
-                        <span style="color: #E30613; font-weight: 600;">Powered by RLabs</span>
+                        <span style="color: #E30613; font-weight: 600;">Desarrollado por <a href="https://rlabspe.com" target="_blank">RLabs</a></span>
                     </div>
                 '),
             )

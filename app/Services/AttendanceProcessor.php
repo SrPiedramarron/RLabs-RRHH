@@ -40,7 +40,7 @@ class AttendanceProcessor
 
     private function calcularYGuardar(Employee $employee, string $fecha, $logs): void
     {
-        // Buscar el horario correcto según el día de la semana
+        // Buscar el horario correcto segï¿½n el dï¿½a de la semana
         $diaSemana = (int) date('N', strtotime($fecha)); // 1=lun ... 7=dom
         $schedule  = $employee->schedule;
 
@@ -66,7 +66,7 @@ class AttendanceProcessor
                 });
         }
 
-        // Usar horario alternativo si el principal no cubre este día
+        // Usar horario alternativo si el principal no cubre este dï¿½a
         $diasPrincipal = is_array($schedule->dias_laborables)
             ? $schedule->dias_laborables
             : json_decode($schedule->dias_laborables, true);
@@ -75,11 +75,11 @@ class AttendanceProcessor
             $schedule = $scheduleAlternativo;
         }
 
-        // Refrigerio por tipo de marcación (4 = salida refrigerio, 5 = retorno refrigerio)
+        // Refrigerio por tipo de marcaciï¿½n (4 = salida refrigerio, 5 = retorno refrigerio)
         $salidasRefrigerio  = $logs->whereIn('tipo', [4])->sortBy('timestamp');
         $retornosRefrigerio = $logs->whereIn('tipo', [5])->sortBy('timestamp');
 
-        // Entrada = primer log del día, Salida = último log del día
+        // Entrada = primer log del dï¿½a, Salida = ï¿½ltimo log del dï¿½a
         // No confiamos en el tipo del reloj ZKBio (a veces marca entrada como tipo 1)
         $logEntrada = $logs->first();
         $logSalida  = $logs->count() > 1 ? $logs->last() : null;
@@ -99,30 +99,30 @@ class AttendanceProcessor
         $horaEntradaReal = $logEntrada ? $logEntrada->timestamp->timestamp : null;
         $horaSalidaReal  = $logSalida  ? $logSalida->timestamp->timestamp  : null;
 
-        // Cálculo de tardanza
+        // Cï¿½lculo de tardanza
         $minutosTarde = 0;
         if ($horaEntradaReal && $horaEntradaReal > ($horaEntradaProgramada + $toleranciaSegundos)) {
             $minutosTarde = (int)(($horaEntradaReal - $horaEntradaProgramada) / 60);
         }
 
-        // Cálculo de horas trabajadas y horas extra
+        // Cï¿½lculo de horas trabajadas y horas extra
         $minutosOrdinarios   = 0;
         $horasExtraDiurnas   = 0;
         $horasExtraNocturnas = 0;
 
         if ($horaEntradaReal && $horaSalidaReal) {
             // FIX: Los minutos "de sobra" antes de la hora programada no cuentan.
-            // El cómputo siempre arranca desde la hora programada de entrada.
+            // El cï¿½mputo siempre arranca desde la hora programada de entrada.
             $horaInicioComputo = max($horaEntradaReal, $horaEntradaProgramada);
             $minutosTrabajados = (int)(($horaSalidaReal - $horaInicioComputo) / 60);
 
-            // FIX: Sábados (y cualquier día cuya hora_salida_programada coincide con
+            // FIX: Sï¿½bados (y cualquier dï¿½a cuya hora_salida_programada coincide con
             // el inicio del refrigerio) NO descuentan refrigerio.
-            // La jornada termina justo cuando empieza el almuerzo, así que no aplica.
+            // La jornada termina justo cuando empieza el almuerzo, asï¿½ que no aplica.
             $jornadaTerminaEnRefrigerio = $schedule->refrigerio_inicio &&
                 $horaSalidaProgramada === strtotime($fecha . ' ' . $schedule->refrigerio_inicio);
 
-            // Minutos de refrigerio que se descontarán (para normalizar también la jornada)
+            // Minutos de refrigerio que se descontarï¿½n (para normalizar tambiï¿½n la jornada)
             $minutosRefrigerioDescontado = 0;
 
             if (!$jornadaTerminaEnRefrigerio) {
@@ -142,7 +142,7 @@ class AttendanceProcessor
                 }
             }
 
-            // FIX: La jornada normal neta también debe descontar el refrigerio programado,
+            // FIX: La jornada normal neta tambiï¿½n debe descontar el refrigerio programado,
             // ya que $minutosTrabajados ya lo tiene descontado. Sin este ajuste,
             // el tope siempre es mayor que lo trabajado y nunca se generan horas extra.
             $minutosJornadaBruta  = (int)(($horaSalidaProgramada - $horaEntradaProgramada) / 60);
@@ -180,19 +180,19 @@ class AttendanceProcessor
             default           => 'presente',
         };
 
-        // Resolver refrigerio: 1) marcación real tipo 4/5, 2) inferir de tipo 0, 3) fallback programado
+        // Resolver refrigerio: 1) marcaciï¿½n real tipo 4/5, 2) inferir de tipo 0, 3) fallback programado
         $inicioRefrigerio = $logInicioRefrigerio?->timestamp;
         $finRefrigerio    = $logFinRefrigerio?->timestamp;
 
         if (!$inicioRefrigerio && $schedule->refrigerio_inicio && $horaEntradaReal && $horaSalidaReal) {
 
             // Intentar inferir refrigerio de marcaciones tipo 0 intermedias
-            // La entrada real ya es el primer tipo 0 — buscar los siguientes en ventana de refrigerio
+            // La entrada real ya es el primer tipo 0 ï¿½ buscar los siguientes en ventana de refrigerio
             $ventanaInicio = strtotime($fecha . ' ' . $schedule->refrigerio_inicio) - 1800; // -30 min
             $ventanaFin    = strtotime($fecha . ' ' . $schedule->refrigerio_fin)    + 1800; // +30 min
 
             // Buscar logs tipo 0 dentro de la ventana de refrigerio
-            // Sin skip por posición — filtramos directamente por ventana horaria
+            // Sin skip por posiciï¿½n ï¿½ filtramos directamente por ventana horaria
             $candidatos = $logs->whereIn('tipo', [0])
                 ->sortBy('timestamp')
                 ->filter(function ($log) use ($ventanaInicio, $ventanaFin) {
@@ -225,12 +225,21 @@ class AttendanceProcessor
             ->first();
         if ($existente && $existente->corregido_manualmente) return;
 
+        // Auto-asignar cÃ³digo PLAME 7 (Falta no justificada) cuando el dÃ­a
+        // es ausente y nadie de RRHH lo marcÃ³ como justificado todavÃ­a.
+        // Si ya estÃ¡ justificado (RRHH eligiÃ³ vacaciones/licencia/etc. a mano),
+        // NO tocamos ese campo â€” se respeta lo que decidiÃ³ una persona.
+        $datosSuspension = [];
+        if ($estado === 'ausente' && !($existente && $existente->justificado)) {
+            $datosSuspension['motivo_suspension_plame'] = '7';
+        }
+
         AttendanceRecord::updateOrCreate(
             [
                 'employee_id' => $employee->id,
                 'fecha'       => $fecha,
             ],
-            [
+            array_merge([
                 'company_id'            => $employee->company_id,
                 'location_id'           => $employee->location_id,
                 'hora_entrada'          => $logEntrada?->timestamp,
@@ -243,7 +252,7 @@ class AttendanceProcessor
                 'horas_extra_diurnas'   => round($horasExtraDiurnas, 2),
                 'horas_extra_nocturnas' => round($horasExtraNocturnas, 2),
                 'estado'                => $estado,
-            ]
+            ], $datosSuspension)
         );
     }
 }
