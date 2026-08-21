@@ -21,6 +21,7 @@ use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Illuminate\Support\Facades\Blade;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Leandrocfe\FilamentApexCharts\FilamentApexChartsPlugin;
+use Filament\Support\Facades\FilamentView;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -32,10 +33,22 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
 
             // ─── BRANDING ────────────────────────────────────────────────
-            ->brandName('SumaRH')
-            ->brandLogo(asset('images/sumarh-logo.svg'))
+            ->brandName('RLabs RRHH')
+            ->brandLogo(fn () => request()->routeIs('filament.*.auth.login')
+                ? asset('images/logo-light.svg')
+                : asset('images/logo-dark.svg')
+            )
+            ->darkModeBrandLogo(asset('images/logo-light.svg'))
             ->brandLogoHeight('2.5rem')
-            ->favicon(asset('images/sumarh-favicon.svg'))
+            ->favicon(asset('images/favicon.ico'))
+            ->renderHook(
+                PanelsRenderHook::HEAD_END,
+                fn (): string => Blade::render('<style>
+                    .fi-simple-layout {
+                        background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #1a2456 100%) !important;
+                    }
+                </style>')
+            )
 
             // ─── COLORES ─────────────────────────────────────────────────
             ->colors([
@@ -55,7 +68,7 @@ class AdminPanelProvider extends PanelProvider
                         border-top: 1px solid #e5e7eb;
                         background: #f9fafb;
                     ">
-                        © 2026 SumaRH &mdash;
+                        © 2026 RLabs RH &mdash;
                         <span style="color: #E30613; font-weight: 600;">Powered by RLabs</span>
                     </div>
                 '),

@@ -18,6 +18,11 @@ Route::middleware(['web', 'auth'])->group(function () {
 Route::get('/planilla/exportar', [PlanillaExportController::class, 'exportar'])
     ->name('planilla.exportar')
     ->middleware(['auth']);
+Route::get('/boletas/exportar/{periodo}/{companyId}', [\App\Http\Controllers\BoletaExportController::class, 'exportarExcel'])
+    ->name('boletas.exportar');
+
+Route::get('/boletas/pdf/{liquidacion}', [\App\Http\Controllers\BoletaExportController::class, 'exportarPdf'])
+    ->name('boletas.pdf');
 
 
 });

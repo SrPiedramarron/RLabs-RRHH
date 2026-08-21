@@ -1,0 +1,358 @@
+diff --git a/app/Exports/SunafilExport.php b/app/Exports/SunafilExport.php
+old mode 100755
+new mode 100644
+index 3cdc7d5..4b395b5
+--- a/app/Exports/SunafilExport.php
++++ b/app/Exports/SunafilExport.php
+@@ -4,10 +4,9 @@
+ 
+ use Carbon\Carbon;
+ use Illuminate\Database\Eloquent\Collection;
+-use Maatwebsite\Excel\Concerns\FromCollection;
++use Maatwebsite\Excel\Concerns\FromArray;
+ use Maatwebsite\Excel\Concerns\ShouldAutoSize;
+ use Maatwebsite\Excel\Concerns\WithHeadings;
+-use Maatwebsite\Excel\Concerns\WithMapping;
+ use Maatwebsite\Excel\Concerns\WithStyles;
+ use Maatwebsite\Excel\Concerns\WithTitle;
+ use PhpOffice\PhpSpreadsheet\Style\Alignment;
+@@ -15,28 +14,72 @@
+ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+ 
+ class SunafilExport implements
+-    FromCollection,
++    FromArray,
+     WithHeadings,
+-    WithMapping,
+     WithStyles,
+     ShouldAutoSize,
+     WithTitle
+ {
+-    private Collection $sorted;
++    private \Illuminate\Support\Collection $sorted;
++    private array $subtotalRows = [];
+ 
+     public function __construct(
+         private Collection $records,
+         private array $meta,
+         private bool $incluyeRefrigerio = false
+     ) {
+-        // Ordenar por apellidos, nombres, fecha
+-        $this->sorted = $records->sortBy([
+-            fn($a, $b) => strcmp(
+-                ($a->employee->apellidos ?? '') . ($a->employee->nombres ?? ''),
+-                ($b->employee->apellidos ?? '') . ($b->employee->nombres ?? '')
+-            ),
+-            fn($a, $b) => strcmp($a->fecha, $b->fecha),
+-        ])->values();
++        // Construir colección expandida con todos los días del período por empleado
++        $desde = \Carbon\Carbon::parse($meta['fecha_inicio_raw']);
++        $hasta = \Carbon\Carbon::parse($meta['fecha_fin_raw']);
++
++        // Indexar registros reales por employee_id + fecha
++        $index = [];
++        foreach ($records as $record) {
++            $key = $record->employee_id . '_' . \Carbon\Carbon::parse($record->fecha)->toDateString();
++            $index[$key] = $record;
++        }
++
++        // Empleados únicos, ordenados por apellido
++        $empleados = $records->map(fn($r) => $r->employee)
++            ->unique('id')
++            ->sortBy(fn($e) => ($e->apellidos ?? '') . ($e->nombres ?? ''))
++            ->values();
++
++        $expanded = collect();
++
++        foreach ($empleados as $employee) {
++            $fecha = $desde->copy();
++            while ($fecha->lte($hasta)) {
++                $dateStr = $fecha->toDateString();
++                $key     = $employee->id . '_' . $dateStr;
++
++                if (isset($index[$key])) {
++                    $expanded->push($index[$key]);
++                } else {
++                    // Crear registro vacío
++                    $dummy = new \App\Models\AttendanceRecord([
++                        'employee_id'  => $employee->id,
++                        'fecha'        => $dateStr,
++                        'hora_entrada' => null,
++                        'hora_salida'  => null,
++                        'estado'       => $fecha->isSunday() ? 'descanso' : 'ausente',
++                        'minutos_tarde'          => 0,
++                        'horas_ordinarias'       => 0,
++                        'horas_extra_diurnas'    => 0,
++                        'horas_extra_nocturnas'  => 0,
++                        'inicio_refrigerio'      => null,
++                        'fin_refrigerio'         => null,
++                        'observacion'            => null,
++                    ]);
++                    $dummy->setRelation('employee', $employee);
++                    $expanded->push($dummy);
++                }
++
++                $fecha->addDay();
++            }
++        }
++
++        $this->sorted = $expanded;
+     }
+ 
+     private function decimalToHHMM(?float $decimal): string
+@@ -46,52 +89,129 @@ private function decimalToHHMM(?float $decimal): string
+         return sprintf('%02d:%02d', intdiv($total, 60), $total % 60);
+     }
+ 
+-    private function calcularHorasTrabajadas($record): string
++    private function minutosToHHMM(int $minutos): string
+     {
+-        if (!$record->hora_entrada || !$record->hora_salida) return '—';
+-        if (in_array($record->estado, ['ausente', 'descanso', 'feriado'])) return '—';
+-
+-        $schedule  = $record->employee->schedule;
+-        if (!$schedule) return '—';
+-
+-        $fecha     = Carbon::parse($record->fecha)->toDateString();
+-        $entradaReal    = Carbon::parse($record->hora_entrada);
+-        $salidaReal     = Carbon::parse($record->hora_salida);
+-        $entradaProg    = Carbon::parse($fecha . ' ' . $schedule->hora_entrada);
+-        $salidaProg     = Carbon::parse($fecha . ' ' . $schedule->hora_salida);
+-
+-        // Entrada efectiva: la más tardía entre entrada real y programada
+-        // (si llegó antes, no se cuenta el tiempo extra al inicio)
+-        $entradaEfectiva = $entradaReal->gt($entradaProg) ? $entradaReal : $entradaProg;
+-
+-        // Salida efectiva: la más temprana entre salida real y programada
+-        // (horas extra se calculan aparte)
+-        $salidaEfectiva = $salidaReal->lt($salidaProg) ? $salidaReal : $salidaProg;
+-
+-        if ($salidaEfectiva->lte($entradaEfectiva)) return '—';
+-
+-        $minutos = $salidaEfectiva->diffInMinutes($entradaEfectiva);
+-
+-        // Descontar refrigerio
+-        if ($record->inicio_refrigerio && $record->fin_refrigerio) {
+-            $iniRef = Carbon::parse($record->inicio_refrigerio);
+-            $finRef = Carbon::parse($record->fin_refrigerio);
+-            $minutos -= $finRef->diffInMinutes($iniRef);
+-        } elseif ($schedule->refrigerio_inicio && $schedule->refrigerio_fin) {
+-            $refInicio = Carbon::parse($fecha . ' ' . $schedule->refrigerio_inicio);
+-            $refFin    = Carbon::parse($fecha . ' ' . $schedule->refrigerio_fin);
+-            if ($entradaEfectiva->lt($refFin) && $salidaEfectiva->gt($refInicio)) {
+-                $minutos -= $refFin->diffInMinutes($refInicio);
++        if ($minutos <= 0) return '00:00';
++        return sprintf('%02d:%02d', intdiv($minutos, 60), $minutos % 60);
++    }
++
++    /**
++     * Convierte horas_ordinarias (decimal en BD) a minutos enteros.
++     * Usa el valor ya procesado por AttendanceProcessor, que descuenta
++     * correctamente el refrigerio según el horario real del día.
++     */
++    private function horasOrdinariasAMinutos($record): int
++    {
++        $horas = (float) ($record->horas_ordinarias ?? 0);
++        if ($horas <= 0) return 0;
++        return (int) round($horas * 60);
++    }
++
++    private function formatHorasTrabajadas($record): string
++    {
++        $minutos = $this->horasOrdinariasAMinutos($record);
++        if ($minutos === 0) return '—';
++        return sprintf('%02d:%02d', intdiv($minutos, 60), $minutos % 60);
++    }
++
++    public function array(): array
++    {
++        $estadoMap = [
++            'presente'   => 'Presente',
++            'tarde'      => 'Tarde',
++            'ausente'    => 'Ausente',
++            'descanso'   => 'Descanso',
++            'feriado'    => 'Feriado',
++            'permiso'    => 'Permiso',
++            'vacaciones' => 'Vacaciones',
++        ];
++
++        $rows         = [];
++        $contador     = 0;
++        $currentDni   = null;
++        $acumMinutos  = 0;
++        $acumTardanza = 0;
++        $acumExtra25  = 0.0;
++        $acumExtra35  = 0.0;
++        $rowIndex     = 0;
++
++        foreach ($this->sorted as $record) {
++            $dni = $record->employee->dni ?? '';
++
++            // Cambió de empleado → insertar fila de subtotal del anterior
++            if ($currentDni !== null && $dni !== $currentDni) {
++                $rows[]               = $this->buildSubtotalRow($acumMinutos, $acumTardanza, $acumExtra25, $acumExtra35);
++                $rowIndex++;
++                $this->subtotalRows[] = $rowIndex;
++                $acumMinutos  = 0;
++                $acumTardanza = 0;
++                $acumExtra25  = 0.0;
++                $acumExtra35  = 0.0;
+             }
++
++            $currentDni    = $dni;
++            $contador++;
++            $acumMinutos  += $this->horasOrdinariasAMinutos($record);
++            $acumTardanza += (int)   ($record->minutos_tarde        ?? 0);
++            $acumExtra25  += (float) ($record->horas_extra_diurnas  ?? 0);
++            $acumExtra35  += (float) ($record->horas_extra_nocturnas ?? 0);
++
++            $row = [
++                $contador,
++                trim(($record->employee->apellidos ?? '') . ', ' . ($record->employee->nombres ?? '')),
++                $dni,
++                $record->employee->department->nombre ?? '—',
++                $record->employee->location->nombre   ?? '—',
++                Carbon::parse($record->fecha)->format('d/m/Y'),
++                Carbon::parse($record->fecha)->locale('es')->isoFormat('dddd'),
++                $record->hora_entrada ? Carbon::parse($record->hora_entrada)->format('H:i') : '—',
++                $record->hora_salida  ? Carbon::parse($record->hora_salida)->format('H:i')  : '—',
++            ];
++
++            if ($this->incluyeRefrigerio) {
++                $row[] = $record->inicio_refrigerio ? Carbon::parse($record->inicio_refrigerio)->format('H:i') : '—';
++                $row[] = $record->fin_refrigerio    ? Carbon::parse($record->fin_refrigerio)->format('H:i')    : '—';
++            }
++
++            $row = array_merge($row, [
++                $this->formatHorasTrabajadas($record),
++                $estadoMap[$record->estado] ?? ucfirst($record->estado ?? '—'),
++                $record->minutos_tarde > 0
++                    ? sprintf('%02d:%02d', intdiv($record->minutos_tarde, 60), $record->minutos_tarde % 60)
++                    : '—',
++                $this->decimalToHHMM($record->horas_extra_diurnas),
++                $this->decimalToHHMM($record->horas_extra_nocturnas),
++                $record->observacion ?? '',
++            ]);
++
++            $rows[] = $row;
++            $rowIndex++;
+         }
+ 
+-        $minutos = max(0, $minutos);
+-        return sprintf('%02d:%02d', intdiv($minutos, 60), $minutos % 60);
++        // Subtotal del último empleado
++        if ($currentDni !== null) {
++            $rows[]               = $this->buildSubtotalRow($acumMinutos, $acumTardanza, $acumExtra25, $acumExtra35);
++            $rowIndex++;
++            $this->subtotalRows[] = $rowIndex;
++        }
++
++        return $rows;
+     }
+ 
+-    public function collection(): Collection
++    private function buildSubtotalRow(int $acumMinutos, int $acumTardanza, float $acumExtra25, float $acumExtra35): array
+     {
+-        return $this->sorted;
++        $cols = $this->incluyeRefrigerio ? 11 : 9; // columnas antes de "Horas Trabajadas"
++        $row  = array_fill(0, $cols + 6, '');
++
++        $row[1]         = 'TOTALES DEL PERÍODO';
++        $row[$cols]     = $this->minutosToHHMM($acumMinutos);       // Horas Trabajadas
++        $row[$cols + 1] = '';                                        // Estado (vacío)
++        $row[$cols + 2] = $this->minutosToHHMM($acumTardanza);      // Tardanza total
++        $row[$cols + 3] = $this->decimalToHHMM($acumExtra25);       // H. Extra 25%
++        $row[$cols + 4] = $this->decimalToHHMM($acumExtra35);       // H. Extra 35%
++        $row[$cols + 5] = '';                                        // Observación
++
++        return $row;
+     }
+ 
+     public function title(): string
+@@ -118,58 +238,14 @@ public function headings(): array
+             $headers[] = 'Fin Refrigerio';
+         }
+ 
+-        $headers = array_merge($headers, [
++        return array_merge($headers, [
+             'Horas Trabajadas',
+             'Estado',
+-            'Tardanza (min)',
++            'Tardanza (hh:mm)',
+             'H. Extra 25%',
+             'H. Extra 35%',
+             'Observación',
+         ]);
+-
+-        return $headers;
+-    }
+-
+-    public function map($record): array
+-    {
+-        static $contador = 0;
+-        $contador++;
+-
+-        $estadoMap = [
+-            'presente' => 'Presente',
+-            'tarde'    => 'Tarde',
+-            'ausente'  => 'Ausente',
+-            'descanso' => 'Descanso',
+-            'feriado'  => 'Feriado',
+-        ];
+-
+-        $row = [
+-            $contador,
+-            trim(($record->employee->apellidos ?? '') . ', ' . ($record->employee->nombres ?? '')),
+-            $record->employee->dni ?? '',
+-            $record->employee->department->nombre ?? '—',
+-            $record->employee->location->nombre ?? '—',
+-            Carbon::parse($record->fecha)->format('d/m/Y'),
+-            Carbon::parse($record->fecha)->locale('es')->isoFormat('dddd'),
+-            $record->hora_entrada ? Carbon::parse($record->hora_entrada)->format('H:i') : '—',
+-            $record->hora_salida  ? Carbon::parse($record->hora_salida)->format('H:i')  : '—',
+-        ];
+-
+-        if ($this->incluyeRefrigerio) {
+-            $row[] = $record->inicio_refrigerio ? Carbon::parse($record->inicio_refrigerio)->format('H:i') : '—';
+-            $row[] = $record->fin_refrigerio    ? Carbon::parse($record->fin_refrigerio)->format('H:i')    : '—';
+-        }
+-
+-        $row = array_merge($row, [
+-            $this->calcularHorasTrabajadas($record),
+-            $estadoMap[$record->estado] ?? ucfirst($record->estado ?? '—'),
+-            $record->minutos_tarde > 0 ? $record->minutos_tarde : '—',
+-            $this->decimalToHHMM($record->horas_extra_diurnas),
+-            $this->decimalToHHMM($record->horas_extra_nocturnas),
+-            $record->observacion ?? '',
+-        ]);
+-
+-        return $row;
+     }
+ 
+     public function styles(Worksheet $sheet): array
+@@ -187,7 +263,7 @@ public function styles(Worksheet $sheet): array
+         $sheet->mergeCells('A2:' . $lastCol . '2');
+         $sheet->mergeCells('A3:' . $lastCol . '3');
+ 
+-        return [
++        $styles = [
+             1 => [
+                 'font'      => ['bold' => true, 'size' => 13],
+                 'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+@@ -207,5 +283,16 @@ public function styles(Worksheet $sheet): array
+                 'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+             ],
+         ];
++
++        // Estilar filas de subtotal (offset +4: 3 filas de header insertadas + 1 fila de headings)
++        foreach ($this->subtotalRows as $rowIndex) {
++            $excelRow          = $rowIndex + 4;
++            $styles[$excelRow] = [
++                'font' => ['bold' => true, 'color' => ['rgb' => '1E3A5F']],
++                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'D1E8FF']],
++            ];
++        }
++
++        return $styles;
+     }
+ }

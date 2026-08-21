@@ -9,7 +9,8 @@ class HoursPieChart extends ApexChartWidget
 {
     protected static ?string $chartId = 'hoursPieChart';
     protected static ?string $heading = 'Horas Ordinarias vs Extras';
-    protected static ?int $sort = 2;
+    protected static ?int $sort = 4;
+    protected int | string | array $columnSpan = 1;
     protected static ?string $pollingInterval = null;
 
     protected function getOptions(): array
