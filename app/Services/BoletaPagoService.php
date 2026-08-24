@@ -42,7 +42,7 @@ class BoletaPagoService
             'jornada_horas'     => 8,
             'jornada_minutos'   => 0,
             'sobretiempo_horas'   => (int) floor($l->horas_extra_diurnas + $l->horas_extra_nocturnas),
-            'sobretiempo_minutos' => (int) round((($l->horas_extra_diurnas + $l->horas_extra_nocturnas) % 1) * 60),
+            'sobretiempo_minutos' => (int) round(fmod($l->horas_extra_diurnas + $l->horas_extra_nocturnas, 1) * 60),
 
             // ── Ingresos (código PLAME => [concepto, monto]) ───────────────────
             'ingresos' => array_filter([
@@ -53,8 +53,8 @@ class BoletaPagoService
                 '0106' => $l->horas_extra_nocturnas > 0
                     ? ['TRABAJO EN SOBRETIEMPO (HORAS EXTRAS) 35%', $l->importe_horas_extra_nocturnas]
                     : null,
-                '0111' => $l->comisiones > 0
-                    ? ['PREMIOS POR VENTAS', $l->comisiones]
+                '0103' => $l->comisiones > 0
+                    ? ['COMISIONES O DESTAJO', $l->comisiones]
                     : null,
                 '0403' => $l->bonos_especiales > 0
                     ? ['GRATIFICACIONES EXTRAORDINARIAS', $l->bonos_especiales]
