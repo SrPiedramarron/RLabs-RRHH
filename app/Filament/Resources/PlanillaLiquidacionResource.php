@@ -211,6 +211,41 @@ class PlanillaLiquidacionResource extends Resource
             'companyId' => $data['company_id'],
         ]);
     }),
+     
+Tables\Actions\Action::make('exportar_plame')
+    ->label('Exportar PLAME')
+    ->icon('heroicon-o-document-arrow-down')
+    ->color('gray')
+    ->form([
+        Forms\Components\Select::make('periodo')
+            ->label('Periodo')
+            ->options(function () {
+                if (!PlanillaLiquidacion::exists()) return [];
+                return PlanillaLiquidacion::distinct()
+                    ->orderByDesc('periodo')
+                    ->pluck('mes_nombre', 'periodo')
+                    ->toArray();
+            })
+            ->required()
+            ->native(false),
+ 
+        Forms\Components\Select::make('company_id')
+            ->label('Empresa')
+            ->relationship('company', 'razon_social')
+            ->required()
+            ->searchable(),
+ 
+        Forms\Components\Placeholder::make('aviso')
+            ->label('')
+            ->content('⚠️ Antes de subir este archivo al PDT PLAME, ábrelo primero como prueba en un entorno de práctica de SUNAT. Varios conceptos (gratificaciones, CTS, utilidades) aún se declaran en 0 porque esos módulos están pendientes de implementar.'),
+    ])
+    ->action(function (array $data) {
+        return redirect()->route('plame.exportar', [
+            'periodo'   => $data['periodo'],
+            'companyId' => $data['company_id'],
+        ]);
+    }),
+ 
 
                 Tables\Actions\Action::make('exportar')
                     ->label('Exportar Excel')
