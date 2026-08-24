@@ -25,3 +25,6 @@ Thumbs.db
 lang/vendor/
 "check_*.php" 
 "limpiar_*.php" 
+"*.jor" 
+"*.rem" 
+"*.rem.txt" 
