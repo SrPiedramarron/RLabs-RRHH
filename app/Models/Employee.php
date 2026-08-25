@@ -31,6 +31,7 @@ class Employee extends Model
         'aplica_comision',
         'aplica_asignacion_familiar',
         'movilidad_diaria',
+        'monto_eps_mensual_con_igv',
         'active',
         'foto_perfil',          // ← nuevo
     ];

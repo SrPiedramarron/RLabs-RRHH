@@ -25,7 +25,7 @@ class PlanillaLiquidacion extends Model
         'afp_comision_flujo', 'afp_prima_seguro', 'afp_aporte_obligatorio',
         'descuento_5ta_categoria',
         'total_descuentos', 'neto_pagar',
-        'essalud_empleador', 'seguro_vida_empleador',
+        'essalud_empleador', 'eps_credito', 'eps_aporte_empresa', 'eps_descuento_trabajador', 'seguro_vida_empleador',
         'calculado_por', 'calculado_at',
     ];
 

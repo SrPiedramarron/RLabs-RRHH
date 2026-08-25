@@ -75,6 +75,9 @@ class BoletaPagoService
                 '0705' => $l->descuento_faltas > 0
                     ? ['INASISTENCIAS', $l->descuento_faltas]
                     : null,
+                '0706' => $l->eps_descuento_trabajador > 0
+                    ? ['DESCUENTO EPS (70% TRABAJADOR)', $l->eps_descuento_trabajador]
+                    : null,
             ]),
 
             // ── Aportes del trabajador ────────────────────────────────────────

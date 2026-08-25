@@ -210,6 +210,14 @@ Forms\Components\Section::make('Configuraci�n de Planilla')
         ->default(0)
         ->helperText('Monto por día efectivamente trabajado. 0 = no aplica. No afecta EsSalud ni AFP/ONP, solo entra a la base de 5ta categoría.'),
 
+        Forms\Components\TextInput::make('monto_eps_mensual_con_igv')
+        ->label('Plan EPS mensual con IGV (S/)')
+        ->numeric()
+        ->prefix('S/')
+        ->default(0)
+        ->helperText('Costo del plan EPS (Sanitas Perú) tal como factura el proveedor, CON IGV. 0 = no tiene EPS, va 100% por EsSalud.'),
+
+        
     ])->columns(2),
         
             // ── RELOJ BIOMÉTRICO ──────────────────────────────────────────────
