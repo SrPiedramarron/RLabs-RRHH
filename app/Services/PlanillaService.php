@@ -111,10 +111,23 @@ class PlanillaService
         $descuentoTardanzas = round($valorMinuto * $totalMinutosTarde, 2);
         $descuentoFaltas    = round($valorDia    * $diasFalta, 2);
 
+        // Asignación familiar: monto fijo = 10% de la RMV, solo si el
+        // empleado tiene el switch activado (hijos menores de 18, o hasta
+        // 24 si estudian). Se recalcula sola si cambia RMV_2026.
+        $asignacionFamiliar = $empleado->aplica_asignacion_familiar
+            ? round(self::RMV_2026 * 0.10, 2)
+            : 0.0;
+
+        // Bono de movilidad: prorrateado por día trabajado. NO entra a
+        // remuneración bruta — no afecta EsSalud ni AFP/ONP (confirmado con
+        // RRHH). Sí afecta la base de 5ta categoría y sí se paga (neto).
+        $bonoMovilidad = round(floatval($empleado->movilidad_diaria) * $diasTrabajados, 2);
+
         $bruto = $sueldoProporcional
                + $importeHEDiurnas
                + $importeHENocturnas
                + $comisiones
+               + $asignacionFamiliar
                + $bonoEspecial
                - $descuentoTardanzas;
 
@@ -156,12 +169,12 @@ class PlanillaService
         if ($empleado->aplica_5ta_categoria) {
             $uit2026       = 5350;
             $minimoMensual = ($uit2026 * 7) / 12;
-            $baseImponible = max(0, $bruto - $minimoMensual);
+            $baseImponible = max(0, ($bruto + $bonoMovilidad) - $minimoMensual);
             $descuento5ta  = round($baseImponible * 0.08, 2);
         }
 
         $totalDescuentos = $descuentoPension + $descuento5ta;
-        $netoPagar       = round($bruto - $totalDescuentos, 2);
+        $netoPagar       = round($bruto - $totalDescuentos + $bonoMovilidad, 2);
 
         // ── Aportes de empleador (no descuentan al trabajador) ─────────────────
         // EsSalud: base mínima es la RMV, aunque el sueldo real sea menor.
@@ -197,6 +210,8 @@ class PlanillaService
                 'importe_horas_extra_diurnas'   => round($importeHEDiurnas, 2),
                 'importe_horas_extra_nocturnas' => round($importeHENocturnas, 2),
                 'comisiones'                    => round($comisiones, 2),
+                'asignacion_familiar'           => $asignacionFamiliar,
+                'bono_movilidad'                => $bonoMovilidad,
                 'bonos_especiales'              => round($bonoEspecial, 2),
                 'descuento_tardanzas'           => $descuentoTardanzas,
                 'descuento_faltas'              => $descuentoFaltas,

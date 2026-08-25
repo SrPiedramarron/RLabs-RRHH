@@ -29,6 +29,8 @@ class Employee extends Model
         'sistema_pensiones',
         'aplica_5ta_categoria',
         'aplica_comision',
+        'aplica_asignacion_familiar',
+        'movilidad_diaria',
         'active',
         'foto_perfil',          // ← nuevo
     ];

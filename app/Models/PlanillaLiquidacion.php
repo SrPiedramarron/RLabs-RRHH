@@ -18,7 +18,7 @@ class PlanillaLiquidacion extends Model
         'horas_extra_diurnas', 'horas_extra_nocturnas',
         'sueldo_proporcional',
         'importe_horas_extra_diurnas', 'importe_horas_extra_nocturnas',
-        'comisiones', 'bonos_especiales',
+        'comisiones', 'asignacion_familiar', 'bono_movilidad', 'bonos_especiales',
         'descuento_tardanzas', 'descuento_faltas',
         'remuneracion_bruta',
         'porcentaje_pension', 'descuento_pension',

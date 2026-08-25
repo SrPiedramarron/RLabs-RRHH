@@ -56,6 +56,12 @@ class BoletaPagoService
                 '0103' => $l->comisiones > 0
                     ? ['COMISIONES O DESTAJO', $l->comisiones]
                     : null,
+                '0201' => $l->asignacion_familiar > 0
+                    ? ['ASIGNACIÓN FAMILIAR', $l->asignacion_familiar]
+                    : null,
+                '0909' => $l->bono_movilidad > 0
+                    ? ['MOV SUPEDIT A ASIST CUBRE TRASLADO', $l->bono_movilidad]
+                    : null,
                 '0403' => $l->bonos_especiales > 0
                     ? ['GRATIFICACIONES EXTRAORDINARIAS', $l->bonos_especiales]
                     : null,

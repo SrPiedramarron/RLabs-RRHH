@@ -197,8 +197,21 @@ Forms\Components\Section::make('Configuraci�n de Planilla')
             ->label('Aplica comisiones')
             ->helperText('Incluir comisiones de ventas en la liquidaci�n mensual')
             ->default(false),
-    ])->columns(2),
 
+        Forms\Components\Toggle::make('aplica_asignacion_familiar')
+            ->label('Asignación Familiar')
+            ->helperText('Activar si el trabajador tiene hijos menores de 18 años (o hasta 24 si estudian). Monto: 10% de la RMV, calculado automáticamente.')
+            ->default(false),
+
+        Forms\Components\TextInput::make('movilidad_diaria')
+        ->label('Movilidad diaria (S/)')
+        ->numeric()
+        ->prefix('S/')
+        ->default(0)
+        ->helperText('Monto por día efectivamente trabajado. 0 = no aplica. No afecta EsSalud ni AFP/ONP, solo entra a la base de 5ta categoría.'),
+
+    ])->columns(2),
+        
             // ── RELOJ BIOMÉTRICO ──────────────────────────────────────────────
             Forms\Components\Section::make('Reloj Biométrico')
                 ->schema([
