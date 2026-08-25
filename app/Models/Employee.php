@@ -25,6 +25,10 @@ class Employee extends Model
         'motivo_exoneracion',
         'reloj_uid',
         'reloj_id',
+        'sueldo_base',
+        'sistema_pensiones',
+        'aplica_5ta_categoria',
+        'aplica_comision',
         'active',
         'foto_perfil',          // ← nuevo
     ];

@@ -9,6 +9,7 @@ class ComisionDetalle extends Model
 {
     protected $fillable = [
         'comision_upload_id',
+        'employee_id',
         'periodo',
         'vendedor',
         'numdoc',
