@@ -217,7 +217,13 @@ Forms\Components\Section::make('Configuraci�n de Planilla')
         ->default(0)
         ->helperText('Costo del plan EPS (Sanitas Perú) tal como factura el proveedor, CON IGV. 0 = no tiene EPS, va 100% por EsSalud.'),
 
-        
+        Forms\Components\TextInput::make('bono_encargatura')
+        ->label('Bono por encargatura (S/)')
+        ->numeric()
+        ->prefix('S/')
+        ->default(0)
+        ->helperText('Monto fijo mensual por encargatura de cargo. A diferencia de movilidad, SÍ afecta EsSalud y AFP/ONP. Código PLAME 1007.'),
+
     ])->columns(2),
         
             // ── RELOJ BIOMÉTRICO ──────────────────────────────────────────────

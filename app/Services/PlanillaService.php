@@ -128,11 +128,17 @@ class PlanillaService
         // RRHH). Sí afecta la base de 5ta categoría y sí se paga (neto).
         $bonoMovilidad = round(floatval($empleado->movilidad_diaria) * $diasTrabajados, 2);
 
+        // Bono por encargatura: monto fijo mensual. A diferencia de movilidad,
+        // SÍ afecta EsSalud y AFP/ONP (código PLAME 1007, confirmado con RRHH
+        // y con el catálogo registrado en SUNAT para InProcess).
+        $bonoEncargatura = round(floatval($empleado->bono_encargatura), 2);
+
         $bruto = $sueldoProporcional
                + $importeHEDiurnas
                + $importeHENocturnas
                + $comisiones
                + $asignacionFamiliar
+               + $bonoEncargatura
                + $bonoEspecial
                - $descuentoTardanzas;
 
@@ -235,6 +241,7 @@ class PlanillaService
                 'comisiones'                    => round($comisiones, 2),
                 'asignacion_familiar'           => $asignacionFamiliar,
                 'bono_movilidad'                => $bonoMovilidad,
+                'bono_encargatura'               => $bonoEncargatura,
                 'bonos_especiales'              => round($bonoEspecial, 2),
                 'descuento_tardanzas'           => $descuentoTardanzas,
                 'descuento_faltas'              => $descuentoFaltas,

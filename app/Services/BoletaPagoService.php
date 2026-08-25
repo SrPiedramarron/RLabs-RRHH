@@ -62,6 +62,9 @@ class BoletaPagoService
                 '0909' => $l->bono_movilidad > 0
                     ? ['MOV SUPEDIT A ASIST CUBRE TRASLADO', $l->bono_movilidad]
                     : null,
+                '1007' => $l->bono_encargatura > 0
+                    ? ['BONO POR ENCARGATURA', $l->bono_encargatura]
+                    : null,
                 '0403' => $l->bonos_especiales > 0
                     ? ['GRATIFICACIONES EXTRAORDINARIAS', $l->bonos_especiales]
                     : null,

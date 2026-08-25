@@ -113,6 +113,7 @@ class PlameExportService
         // 1000 - Otros conceptos (personalizados de InProcess)
         '1001', // Reintegros [SIN CALCULAR HOY]
         '1002', // Devolución 5ta categoría [SIN CALCULAR HOY]
+        '1007', // Bono por encargatura
     ];
 
     /**
