@@ -42,7 +42,7 @@ class BoletaPagoService
             'jornada_horas'     => 8,
             'jornada_minutos'   => 0,
             'sobretiempo_horas'   => (int) floor($l->horas_extra_diurnas + $l->horas_extra_nocturnas),
-            'sobretiempo_minutos' => (int) round((($l->horas_extra_diurnas + $l->horas_extra_nocturnas) % 1) * 60),
+            'sobretiempo_minutos' => (int) round(fmod($l->horas_extra_diurnas + $l->horas_extra_nocturnas, 1) * 60),
 
             // ── Ingresos (código PLAME => [concepto, monto]) ───────────────────
             'ingresos' => array_filter([
@@ -53,8 +53,17 @@ class BoletaPagoService
                 '0106' => $l->horas_extra_nocturnas > 0
                     ? ['TRABAJO EN SOBRETIEMPO (HORAS EXTRAS) 35%', $l->importe_horas_extra_nocturnas]
                     : null,
-                '0111' => $l->comisiones > 0
-                    ? ['PREMIOS POR VENTAS', $l->comisiones]
+                '0103' => $l->comisiones > 0
+                    ? ['COMISIONES O DESTAJO', $l->comisiones]
+                    : null,
+                '0201' => $l->asignacion_familiar > 0
+                    ? ['ASIGNACIÓN FAMILIAR', $l->asignacion_familiar]
+                    : null,
+                '0909' => $l->bono_movilidad > 0
+                    ? ['MOV SUPEDIT A ASIST CUBRE TRASLADO', $l->bono_movilidad]
+                    : null,
+                '1007' => $l->bono_encargatura > 0
+                    ? ['BONO POR ENCARGATURA', $l->bono_encargatura]
                     : null,
                 '0403' => $l->bonos_especiales > 0
                     ? ['GRATIFICACIONES EXTRAORDINARIAS', $l->bonos_especiales]
@@ -68,6 +77,12 @@ class BoletaPagoService
                     : null,
                 '0705' => $l->descuento_faltas > 0
                     ? ['INASISTENCIAS', $l->descuento_faltas]
+                    : null,
+                '0706' => $l->eps_descuento_trabajador > 0
+                    ? ['DESCUENTO EPS (70% TRABAJADOR)', $l->eps_descuento_trabajador]
+                    : null,
+                '0701' => $l->otros_descuentos > 0
+                    ? ['ADELANTO / PRÉSTAMO / OTROS', $l->otros_descuentos]
                     : null,
             ]),
 

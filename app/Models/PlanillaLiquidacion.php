@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PlanillaLiquidacion extends Model
 {
-    protected $table = 'planilla_liquidaciones'; // ? agregar esta línea
+    protected $table = 'planilla_liquidaciones'; // ? agregar esta lÃ­nea
 
     protected $fillable = [
         'employee_id', 'company_id', 'periodo', 'mes_nombre',
@@ -18,12 +18,14 @@ class PlanillaLiquidacion extends Model
         'horas_extra_diurnas', 'horas_extra_nocturnas',
         'sueldo_proporcional',
         'importe_horas_extra_diurnas', 'importe_horas_extra_nocturnas',
-        'comisiones', 'bonos_especiales',
+        'comisiones', 'asignacion_familiar', 'bono_movilidad', 'bono_encargatura', 'bonos_especiales', 'otros_descuentos',
         'descuento_tardanzas', 'descuento_faltas',
         'remuneracion_bruta',
         'porcentaje_pension', 'descuento_pension',
+        'afp_comision_flujo', 'afp_prima_seguro', 'afp_aporte_obligatorio',
         'descuento_5ta_categoria',
         'total_descuentos', 'neto_pagar',
+        'essalud_empleador', 'eps_credito', 'eps_aporte_empresa', 'eps_descuento_trabajador', 'seguro_vida_empleador',
         'calculado_por', 'calculado_at',
     ];
 

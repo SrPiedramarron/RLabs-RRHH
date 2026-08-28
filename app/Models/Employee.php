@@ -25,6 +25,16 @@ class Employee extends Model
         'motivo_exoneracion',
         'reloj_uid',
         'reloj_id',
+        'sueldo_base',
+        'sistema_pensiones',
+        'aplica_comision_flujo_afp',
+        'movilidad_mensual_maxima',
+        'aplica_5ta_categoria',
+        'aplica_comision',
+        'aplica_asignacion_familiar',
+        'movilidad_diaria',
+        'monto_eps_mensual_con_igv',
+        'bono_encargatura',
         'active',
         'foto_perfil',          // ← nuevo
     ];

@@ -26,7 +26,12 @@ class PlanillaService
     const RMV_2026            = 1130;   // Remuneración Mínima Vital vigente — VERIFICAR antes de correr
     const TASA_SEGURO_VIDA_EMPLEADO = 0.0053; // 0.53% empleados (D.Leg 688). Obreros: 0.71%/1.46% — no soportado aún.
 
-    public function calcularPeriodo(int $companyId, string $periodo, array $bonosEspeciales = []): Collection
+    // ── EPS (Sanitas Perú) ────────────────────────────────────────────────
+    const IGV                   = 0.18;
+    const CREDITO_EPS_PORCENTAJE = 0.25;
+    const APORTE_EMPRESA_EPS     = 0.30; // el trabajador asume el 70% restante
+
+    public function calcularPeriodo(int $companyId, string $periodo, array $bonosEspeciales = [], array $otrosDescuentos = []): Collection
     {
         [$year, $month] = explode('-', $periodo);
 
@@ -38,7 +43,7 @@ class PlanillaService
 
         $liquidaciones = collect();
 
-        DB::transaction(function () use ($empleados, $companyId, $periodo, $year, $month, $bonosEspeciales, &$liquidaciones) {
+        DB::transaction(function () use ($empleados, $companyId, $periodo, $year, $month, $bonosEspeciales, $otrosDescuentos, &$liquidaciones) {
             foreach ($empleados as $empleado) {
                 $liquidacion = $this->calcularEmpleado(
                     $empleado,
@@ -47,6 +52,7 @@ class PlanillaService
                     (int) $year,
                     (int) $month,
                     $bonosEspeciales[$empleado->id] ?? 0,
+                    $otrosDescuentos[$empleado->id] ?? 0,
                 );
                 $liquidaciones->push($liquidacion);
             }
@@ -62,6 +68,7 @@ class PlanillaService
         int $year,
         int $month,
         float $bonoEspecial = 0,
+        float $otroDescuento = 0,
     ): PlanillaLiquidacion {
 
         $mesNombre     = $this->periodoANombre($periodo);
@@ -111,10 +118,33 @@ class PlanillaService
         $descuentoTardanzas = round($valorMinuto * $totalMinutosTarde, 2);
         $descuentoFaltas    = round($valorDia    * $diasFalta, 2);
 
+        // Asignación familiar: monto fijo = 10% de la RMV, solo si el
+        // empleado tiene el switch activado (hijos menores de 18, o hasta
+        // 24 si estudian). Se recalcula sola si cambia RMV_2026.
+        $asignacionFamiliar = $empleado->aplica_asignacion_familiar
+            ? round(self::RMV_2026 * 0.10, 2)
+            : 0.0;
+
+        // Bono de movilidad: monto MÁXIMO mensual, prorrateado por asistencia
+        // real. Si trabajó todos los días laborables del periodo, recibe el
+        // máximo completo; si faltó, se prorratea hacia abajo (confirmado
+        // con RRHH, ago 2026). NO entra a remuneración bruta — no afecta
+        // EsSalud ni AFP/ONP. Sí afecta la base de 5ta categoría y el neto.
+        $bonoMovilidad = $diasLaborables > 0
+            ? round((floatval($empleado->movilidad_mensual_maxima) / $diasLaborables) * $diasTrabajados, 2)
+            : 0.0;
+
+        // Bono por encargatura: monto fijo mensual. A diferencia de movilidad,
+        // SÍ afecta EsSalud y AFP/ONP (código PLAME 1007, confirmado con RRHH
+        // y con el catálogo registrado en SUNAT para InProcess).
+        $bonoEncargatura = round(floatval($empleado->bono_encargatura), 2);
+
         $bruto = $sueldoProporcional
                + $importeHEDiurnas
                + $importeHENocturnas
                + $comisiones
+               + $asignacionFamiliar
+               + $bonoEncargatura
                + $bonoEspecial
                - $descuentoTardanzas;
 
@@ -143,7 +173,12 @@ class PlanillaService
             $baseAsegurable = min($bruto, floatval($tasaAfp->tope_remuneracion_asegurable));
 
             $afpAporteObligatorio = round($bruto * floatval($tasaAfp->aporte_obligatorio), 2);
-            $afpComisionFlujo     = round($baseAsegurable * floatval($tasaAfp->comision_flujo), 2);
+            // Comisión sobre flujo: SOLO para afiliados pre-2013 (Ley 29903).
+            // Los post-2013 en "comisión mixta" no la pagan vía planilla —
+            // la AFP cobra su parte directo de la cuenta del afiliado.
+            $afpComisionFlujo = $empleado->aplica_comision_flujo_afp
+                ? round($baseAsegurable * floatval($tasaAfp->comision_flujo), 2)
+                : 0.0;
             $afpPrimaSeguro       = round($baseAsegurable * floatval($tasaAfp->prima_seguro), 2);
 
             $descuentoPension = $afpAporteObligatorio + $afpComisionFlujo + $afpPrimaSeguro;
@@ -156,17 +191,35 @@ class PlanillaService
         if ($empleado->aplica_5ta_categoria) {
             $uit2026       = 5350;
             $minimoMensual = ($uit2026 * 7) / 12;
-            $baseImponible = max(0, $bruto - $minimoMensual);
+            $baseImponible = max(0, ($bruto + $bonoMovilidad) - $minimoMensual);
             $descuento5ta  = round($baseImponible * 0.08, 2);
         }
 
-        $totalDescuentos = $descuentoPension + $descuento5ta;
-        $netoPagar       = round($bruto - $totalDescuentos, 2);
-
-        // ── Aportes de empleador (no descuentan al trabajador) ─────────────────
-        // EsSalud: base mínima es la RMV, aunque el sueldo real sea menor.
+        // ── EsSalud (empleador) — se calcula ANTES del neto porque el crédito
+        // EPS depende de este monto. Base mínima es la RMV.
         $baseEssalud      = max($bruto, self::RMV_2026);
         $essaludEmpleador = round($baseEssalud * self::TASA_ESSALUD, 2);
+
+        // ── EPS: solo si el trabajador tiene plan asignado (monto > 0).
+        // Fórmula validada con RRHH (ago 2026):
+        //   1) quitar IGV del costo del plan
+        //   2) restar crédito EPS (25% del EsSalud que le correspondería)
+        //   3) repartir el resto 30% empresa / 70% trabajador
+        $epsCredito             = 0.0;
+        $epsAporteEmpresa       = 0.0;
+        $epsDescuentoTrabajador = 0.0;
+
+        if (floatval($empleado->monto_eps_mensual_con_igv) > 0) {
+            $importeEpsSinIgv = round(floatval($empleado->monto_eps_mensual_con_igv) / (1 + self::IGV), 2);
+            $epsCredito       = round($essaludEmpleador * self::CREDITO_EPS_PORCENTAJE, 2);
+            $importeEpsNeto   = max(0, $importeEpsSinIgv - $epsCredito);
+
+            $epsAporteEmpresa       = round($importeEpsNeto * self::APORTE_EMPRESA_EPS, 2);
+            $epsDescuentoTrabajador = round($importeEpsNeto * (1 - self::APORTE_EMPRESA_EPS), 2);
+        }
+
+        $totalDescuentos = $descuentoPension + $descuento5ta + $epsDescuentoTrabajador;
+        $netoPagar       = round($bruto - $totalDescuentos + $bonoMovilidad - $otroDescuento, 2);
 
         // Seguro vida ley: solo aplica desde 3 meses de servicio (D.Leg 688).
         $seguroVidaEmpleador = 0.0;
@@ -197,7 +250,11 @@ class PlanillaService
                 'importe_horas_extra_diurnas'   => round($importeHEDiurnas, 2),
                 'importe_horas_extra_nocturnas' => round($importeHENocturnas, 2),
                 'comisiones'                    => round($comisiones, 2),
+                'asignacion_familiar'           => $asignacionFamiliar,
+                'bono_movilidad'                => $bonoMovilidad,
+                'bono_encargatura'               => $bonoEncargatura,
                 'bonos_especiales'              => round($bonoEspecial, 2),
+                'otros_descuentos'              => round($otroDescuento, 2),
                 'descuento_tardanzas'           => $descuentoTardanzas,
                 'descuento_faltas'              => $descuentoFaltas,
                 'remuneracion_bruta'            => $bruto,
@@ -210,6 +267,9 @@ class PlanillaService
                 'total_descuentos'              => round($totalDescuentos, 2),
                 'neto_pagar'                    => $netoPagar,
                 'essalud_empleador'             => $essaludEmpleador,
+                'eps_credito'                    => $epsCredito,
+                'eps_aporte_empresa'             => $epsAporteEmpresa,
+                'eps_descuento_trabajador'       => $epsDescuentoTrabajador,
                 'seguro_vida_empleador'         => $seguroVidaEmpleador,
                 'calculado_por'                 => Auth::id(),
                 'calculado_at'                  => now(),

@@ -21,6 +21,7 @@ class ComisionUpload extends Model
         'total_base_cobrada',
         'total_comision',
         'procesado_por',
+        'vendedores_sin_match',
     ];
 
     protected $casts = [

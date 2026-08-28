@@ -20,7 +20,8 @@ Route::get('/planilla/exportar', [PlanillaExportController::class, 'exportar'])
     ->middleware(['auth']);
 Route::get('/boletas/exportar/{periodo}/{companyId}', [\App\Http\Controllers\BoletaExportController::class, 'exportarExcel'])
     ->name('boletas.exportar');
-
+Route::get('/plame/exportar/{periodo}/{companyId}', [\App\Http\Controllers\PlameExportController::class, 'exportarZip'])
+    ->name('plame.exportar');
 Route::get('/boletas/pdf/{liquidacion}', [\App\Http\Controllers\BoletaExportController::class, 'exportarPdf'])
     ->name('boletas.pdf');
 

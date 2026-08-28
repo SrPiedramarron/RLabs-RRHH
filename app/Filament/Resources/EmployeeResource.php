@@ -187,7 +187,12 @@ Forms\Components\Section::make('Configuraci�n de Planilla')
             ->required()
             ->default('onp')
             ->native(false),
-
+        Forms\Components\Toggle::make('aplica_comision_flujo_afp')
+            ->label('Paga comisión sobre flujo AFP')
+            ->default(true)
+            ->helperText('Activo = afiliado a su AFP ANTES de feb-2013 (comisión flujo completa vía planilla). Desactivar si se afilió DESPUÉS (comisión mixta — la AFP cobra su parte directo de la cuenta, no vía planilla). El aporte obligatorio y la prima de seguro siempre aplican, sin importar este switch.')
+            ->visible(fn (Forms\Get $get) => str_starts_with($get('sistema_pensiones') ?? '', 'afp_')),
+            
         Forms\Components\Toggle::make('aplica_5ta_categoria')
             ->label('Aplica descuento 5ta categor�a')
             ->helperText('Impuesto a la renta para sueldos altos')
@@ -197,8 +202,35 @@ Forms\Components\Section::make('Configuraci�n de Planilla')
             ->label('Aplica comisiones')
             ->helperText('Incluir comisiones de ventas en la liquidaci�n mensual')
             ->default(false),
-    ])->columns(2),
 
+        Forms\Components\Toggle::make('aplica_asignacion_familiar')
+            ->label('Asignación Familiar')
+            ->helperText('Activar si el trabajador tiene hijos menores de 18 años (o hasta 24 si estudian). Monto: 10% de la RMV, calculado automáticamente.')
+            ->default(false),
+
+    Forms\Components\TextInput::make('movilidad_mensual_maxima')
+        ->label('Movilidad — máximo mensual (S/)')
+        ->numeric()
+        ->prefix('S/')
+        ->default(0)
+        ->helperText('Monto MÁXIMO si trabaja todo el mes. Se prorratea automáticamente según días efectivamente trabajados: (máximo ÷ días laborables) × días trabajados. 0 = no aplica.'),
+
+        Forms\Components\TextInput::make('monto_eps_mensual_con_igv')
+        ->label('Plan EPS mensual con IGV (S/)')
+        ->numeric()
+        ->prefix('S/')
+        ->default(0)
+        ->helperText('Costo del plan EPS (Sanitas Perú) tal como factura el proveedor, CON IGV. 0 = no tiene EPS, va 100% por EsSalud.'),
+
+        Forms\Components\TextInput::make('bono_encargatura')
+        ->label('Bono por encargatura (S/)')
+        ->numeric()
+        ->prefix('S/')
+        ->default(0)
+        ->helperText('Monto fijo mensual por encargatura de cargo. A diferencia de movilidad, SÍ afecta EsSalud y AFP/ONP. Código PLAME 1007.'),
+
+    ])->columns(2),
+        
             // ── RELOJ BIOMÉTRICO ──────────────────────────────────────────────
             Forms\Components\Section::make('Reloj Biométrico')
                 ->schema([
