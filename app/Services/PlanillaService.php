@@ -31,7 +31,7 @@ class PlanillaService
     const CREDITO_EPS_PORCENTAJE = 0.25;
     const APORTE_EMPRESA_EPS     = 0.30; // el trabajador asume el 70% restante
 
-    public function calcularPeriodo(int $companyId, string $periodo, array $bonosEspeciales = []): Collection
+    public function calcularPeriodo(int $companyId, string $periodo, array $bonosEspeciales = [], array $otrosDescuentos = []): Collection
     {
         [$year, $month] = explode('-', $periodo);
 
@@ -43,7 +43,7 @@ class PlanillaService
 
         $liquidaciones = collect();
 
-        DB::transaction(function () use ($empleados, $companyId, $periodo, $year, $month, $bonosEspeciales, &$liquidaciones) {
+        DB::transaction(function () use ($empleados, $companyId, $periodo, $year, $month, $bonosEspeciales, $otrosDescuentos, &$liquidaciones) {
             foreach ($empleados as $empleado) {
                 $liquidacion = $this->calcularEmpleado(
                     $empleado,
@@ -52,6 +52,7 @@ class PlanillaService
                     (int) $year,
                     (int) $month,
                     $bonosEspeciales[$empleado->id] ?? 0,
+                    $otrosDescuentos[$empleado->id] ?? 0,
                 );
                 $liquidaciones->push($liquidacion);
             }
@@ -67,6 +68,7 @@ class PlanillaService
         int $year,
         int $month,
         float $bonoEspecial = 0,
+        float $otroDescuento = 0,
     ): PlanillaLiquidacion {
 
         $mesNombre     = $this->periodoANombre($periodo);
@@ -123,10 +125,14 @@ class PlanillaService
             ? round(self::RMV_2026 * 0.10, 2)
             : 0.0;
 
-        // Bono de movilidad: prorrateado por día trabajado. NO entra a
-        // remuneración bruta — no afecta EsSalud ni AFP/ONP (confirmado con
-        // RRHH). Sí afecta la base de 5ta categoría y sí se paga (neto).
-        $bonoMovilidad = round(floatval($empleado->movilidad_diaria) * $diasTrabajados, 2);
+        // Bono de movilidad: monto MÁXIMO mensual, prorrateado por asistencia
+        // real. Si trabajó todos los días laborables del periodo, recibe el
+        // máximo completo; si faltó, se prorratea hacia abajo (confirmado
+        // con RRHH, ago 2026). NO entra a remuneración bruta — no afecta
+        // EsSalud ni AFP/ONP. Sí afecta la base de 5ta categoría y el neto.
+        $bonoMovilidad = $diasLaborables > 0
+            ? round((floatval($empleado->movilidad_mensual_maxima) / $diasLaborables) * $diasTrabajados, 2)
+            : 0.0;
 
         // Bono por encargatura: monto fijo mensual. A diferencia de movilidad,
         // SÍ afecta EsSalud y AFP/ONP (código PLAME 1007, confirmado con RRHH
@@ -167,7 +173,12 @@ class PlanillaService
             $baseAsegurable = min($bruto, floatval($tasaAfp->tope_remuneracion_asegurable));
 
             $afpAporteObligatorio = round($bruto * floatval($tasaAfp->aporte_obligatorio), 2);
-            $afpComisionFlujo     = round($baseAsegurable * floatval($tasaAfp->comision_flujo), 2);
+            // Comisión sobre flujo: SOLO para afiliados pre-2013 (Ley 29903).
+            // Los post-2013 en "comisión mixta" no la pagan vía planilla —
+            // la AFP cobra su parte directo de la cuenta del afiliado.
+            $afpComisionFlujo = $empleado->aplica_comision_flujo_afp
+                ? round($baseAsegurable * floatval($tasaAfp->comision_flujo), 2)
+                : 0.0;
             $afpPrimaSeguro       = round($baseAsegurable * floatval($tasaAfp->prima_seguro), 2);
 
             $descuentoPension = $afpAporteObligatorio + $afpComisionFlujo + $afpPrimaSeguro;
@@ -208,7 +219,7 @@ class PlanillaService
         }
 
         $totalDescuentos = $descuentoPension + $descuento5ta + $epsDescuentoTrabajador;
-        $netoPagar       = round($bruto - $totalDescuentos + $bonoMovilidad, 2);
+        $netoPagar       = round($bruto - $totalDescuentos + $bonoMovilidad - $otroDescuento, 2);
 
         // Seguro vida ley: solo aplica desde 3 meses de servicio (D.Leg 688).
         $seguroVidaEmpleador = 0.0;
@@ -243,6 +254,7 @@ class PlanillaService
                 'bono_movilidad'                => $bonoMovilidad,
                 'bono_encargatura'               => $bonoEncargatura,
                 'bonos_especiales'              => round($bonoEspecial, 2),
+                'otros_descuentos'              => round($otroDescuento, 2),
                 'descuento_tardanzas'           => $descuentoTardanzas,
                 'descuento_faltas'              => $descuentoFaltas,
                 'remuneracion_bruta'            => $bruto,

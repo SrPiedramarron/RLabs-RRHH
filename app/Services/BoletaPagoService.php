@@ -81,6 +81,9 @@ class BoletaPagoService
                 '0706' => $l->eps_descuento_trabajador > 0
                     ? ['DESCUENTO EPS (70% TRABAJADOR)', $l->eps_descuento_trabajador]
                     : null,
+                '0701' => $l->otros_descuentos > 0
+                    ? ['ADELANTO / PRÉSTAMO / OTROS', $l->otros_descuentos]
+                    : null,
             ]),
 
             // ── Aportes del trabajador ────────────────────────────────────────

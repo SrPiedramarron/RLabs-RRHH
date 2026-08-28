@@ -152,11 +152,36 @@ class PlanillaLiquidacionResource extends Resource
                             ->defaultItems(0)
                             ->addActionLabel('Agregar bono')
                             ->collapsible(),
+                        
+                        Forms\Components\Repeater::make('descuentos_varios')
+                        ->label('Descuentos varios (préstamos, adelantos, quincenas)')
+                        ->schema([
+                            Forms\Components\Select::make('employee_id')
+                                ->label('Empleado')
+                                ->relationship('employee', 'apellidos')
+                                ->searchable()
+                                ->required(),
+                            Forms\Components\TextInput::make('monto')
+                                ->label('Monto S/')
+                                ->numeric()
+                                ->prefix('S/')
+                                ->required(),
+                        ])
+                        ->columns(2)
+                        ->defaultItems(0)
+                        ->addActionLabel('Agregar descuento')
+                        ->collapsible()
+                        ->helperText('No afecta EsSalud, AFP/ONP ni 5ta categoría — se resta directo del neto a pagar.'),
+
                     ])
                     ->action(function (array $data) {
                         $bonos = collect($data['bonos'] ?? [])
                             ->keyBy('employee_id')
                             ->map(fn ($b) => floatval($b['monto']))
+                            ->toArray();
+                        $descuentos = collect($data['descuentos_varios'] ?? [])
+                            ->keyBy('employee_id')
+                            ->map(fn ($d) => floatval($d['monto']))
                             ->toArray();
 
                         try {
@@ -164,6 +189,7 @@ class PlanillaLiquidacionResource extends Resource
                                 $data['company_id'],
                                 $data['periodo'],
                                 $bonos,
+                                $descuentos,
                             );
 
                             Notification::make()
