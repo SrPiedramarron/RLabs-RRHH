@@ -95,6 +95,14 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->plugin(FilamentShieldPlugin::make())
             ->plugin(FilamentApexChartsPlugin::make())
+
+            // ─── MENÚ DE USUARIO: ACERCA DE ────────────────────────────────
+            ->userMenuItems([
+                'acerca_de' => \Filament\Navigation\MenuItem::make()
+                    ->label('Acerca de')
+                    ->icon('heroicon-o-information-circle')
+                    ->url(fn (): string => route('about')),
+            ])
             
             // ─── MIDDLEWARE ───────────────────────────────────────────────
             ->middleware([
