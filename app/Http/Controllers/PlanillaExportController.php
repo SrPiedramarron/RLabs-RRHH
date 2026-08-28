@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\PlanillaLiquidacion;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
@@ -12,8 +13,13 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class PlanillaExportController extends Controller
 {
-    public function exportar(string $periodo, int $companyId): Response
+    public function exportar(Request $request): Response
     {
+        $periodo   = $request->query('periodo');
+        $companyId = (int) $request->query('company_id');
+
+        abort_if(empty($periodo) || empty($companyId), 400, 'Faltan parámetros periodo o company_id.');
+
         $liquidaciones = PlanillaLiquidacion::where('periodo', $periodo)
             ->where('company_id', $companyId)
             ->orderBy('apellidos')
@@ -26,13 +32,11 @@ class PlanillaExportController extends Controller
         $mesNombre   = $liquidaciones->first()->mes_nombre;
         $ws->setTitle($mesNombre);
 
-        // ── Titulo ────────────────────────────────────────────────────────────
         $ws->setCellValue('A1', 'PLANILLA DE REMUNERACIONES - ' . $mesNombre);
         $ws->mergeCells('A1:R1');
         $ws->getStyle('A1')->getFont()->setBold(true)->setSize(14);
         $ws->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
-        // ── Encabezados ───────────────────────────────────────────────────────
         $headers = [
             'A' => 'Apellidos y Nombres',
             'B' => 'DNI',
@@ -66,7 +70,6 @@ class PlanillaExportController extends Controller
         ]);
         $ws->getRowDimension($headerRow)->setRowHeight(30);
 
-        // ── Datos ─────────────────────────────────────────────────────────────
         $row = $headerRow + 1;
         foreach ($liquidaciones as $l) {
             $ws->setCellValue('A' . $row, $l->apellidos . ', ' . $l->nombres);
@@ -88,7 +91,6 @@ class PlanillaExportController extends Controller
             $ws->setCellValue('Q' . $row, $l->descuento_5ta_categoria);
             $ws->setCellValue('R' . $row, $l->neto_pagar);
 
-            // Alternar fila
             if ($row % 2 === 0) {
                 $ws->getStyle('A' . $row . ':R' . $row)
                    ->getFill()->setFillType(Fill::FILL_SOLID)
@@ -98,7 +100,6 @@ class PlanillaExportController extends Controller
             $row++;
         }
 
-        // ── Fila totales ──────────────────────────────────────────────────────
         $row++;
         $ws->setCellValue('A' . $row, 'TOTALES');
         $ws->setCellValue('N' . $row, "=SUM(N4:N" . ($row - 2) . ")");
@@ -111,7 +112,6 @@ class PlanillaExportController extends Controller
             'fill' => ['fillType' => Fill::FILL_SOLID, 'fgColor' => ['rgb' => 'DDEEFF']],
         ]);
 
-        // ── Formato moneda ────────────────────────────────────────────────────
         $moneyFormat = '"S/ "#,##0.00';
         $moneyCols   = ['D', 'I', 'J', 'K', 'L', 'M', 'N', 'P', 'Q', 'R'];
         foreach ($moneyCols as $col) {
@@ -119,12 +119,10 @@ class PlanillaExportController extends Controller
                ->getNumberFormat()->setFormatCode($moneyFormat);
         }
 
-        // ── Bordes ────────────────────────────────────────────────────────────
         $ws->getStyle('A' . $headerRow . ':R' . $row)
            ->getBorders()->getAllBorders()
            ->setBorderStyle(Border::BORDER_THIN);
 
-        // ── Anchos ────────────────────────────────────────────────────────────
         $ws->getColumnDimension('A')->setWidth(35);
         $ws->getColumnDimension('B')->setWidth(12);
         $ws->getColumnDimension('C')->setWidth(20);
@@ -139,7 +137,6 @@ class PlanillaExportController extends Controller
 
         $ws->freezePane('A4');
 
-        // ── Output ────────────────────────────────────────────────────────────
         $writer   = new Xlsx($spreadsheet);
         $filename = 'Planilla_' . str_replace('-', '_', $periodo) . '.xlsx';
 

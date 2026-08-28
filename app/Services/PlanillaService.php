@@ -71,6 +71,26 @@ class PlanillaService
         float $otroDescuento = 0,
     ): PlanillaLiquidacion {
 
+        // Si no se pasó un valor nuevo (default 0), preservar lo que ya
+        // estaba guardado — evita perder bonos/descuentos manuales cada vez
+        // que se recalcula la planilla (ej. al editar un registro de
+        // asistencia y volver a calcular). Para poner explícitamente en 0,
+        // hay que borrar la liquidación o escribir 0 a mano en el Repeater.
+        if ($bonoEspecial == 0.0 || $otroDescuento == 0.0) {
+            $existente = PlanillaLiquidacion::where('employee_id', $empleado->id)
+                ->where('periodo', $periodo)
+                ->first();
+
+            if ($existente) {
+                if ($bonoEspecial == 0.0 && $existente->bonos_especiales > 0) {
+                    $bonoEspecial = (float) $existente->bonos_especiales;
+                }
+                if ($otroDescuento == 0.0 && $existente->otros_descuentos > 0) {
+                    $otroDescuento = (float) $existente->otros_descuentos;
+                }
+            }
+        }
+
         $mesNombre     = $this->periodoANombre($periodo);
         $sueldo        = floatval($empleado->sueldo_base);
         $inicioPeriodo = Carbon::create($year, $month, 1)->startOfMonth();
