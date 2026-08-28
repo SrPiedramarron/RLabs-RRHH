@@ -5,7 +5,7 @@
             <img src="{{ asset('images/logo-light.svg') }}" alt="RLabs" class="h-12 mx-auto mb-4 hidden dark:block" />
 
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">RLabs RRHH</h2>
-            <p class="text-sm text-gray-400">Versión {{ config('app.version', '1.0.0') }}</p>
+            <p class="text-sm text-gray-400">Versión {{ config('app.version', '4.0.0') }}</p>
 
             <div class="border-t border-gray-100 dark:border-gray-700 my-4"></div>
 
