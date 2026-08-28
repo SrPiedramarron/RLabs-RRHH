@@ -10,14 +10,14 @@
             <div class="border-t border-gray-100 dark:border-gray-700 my-4"></div>
 
             <div class="text-sm text-gray-600 dark:text-gray-300">
-                <strong>Empresa activa:</strong> {{ \App\Helpers\CompanyContext::company()?->razon_social ?? '—' }}
+                <strong>Empresa activa:</strong> {{ $this->getCompany()?->razon_social ?? '—' }}
             </div>
 
             <div class="border-t border-gray-100 dark:border-gray-700 my-4"></div>
 
             <div class="text-xs text-gray-500 dark:text-gray-400 space-y-1">
                 <p class="font-semibold text-gray-900 dark:text-white">RLabs</p>
-                <p>info@rlabspe.com</p>
+                <p>contacto@rlabspe.com</p>
                 <p>www.rlabspe.com</p>
             </div>
         </div>

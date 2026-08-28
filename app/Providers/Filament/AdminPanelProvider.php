@@ -101,7 +101,7 @@ class AdminPanelProvider extends PanelProvider
                 'acerca_de' => \Filament\Navigation\MenuItem::make()
                     ->label('Acerca de')
                     ->icon('heroicon-o-information-circle')
-                    ->url(fn (): string => route('about')),
+                    ->url(fn (): string => \App\Filament\Pages\About::getUrl()),
             ])
             
             // ─── MIDDLEWARE ───────────────────────────────────────────────

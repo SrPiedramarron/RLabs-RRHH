@@ -10,9 +10,6 @@ require __DIR__.'/checkin.php';
 
 // Selección de empresa
 Route::middleware(['web', 'auth'])->group(function () {
-    Route::get('/about', function () {
-        return view('about');
-    })->name('about');
     Route::get('/select-company', [App\Http\Controllers\CompanySelectController::class, 'show'])->name('company.show');
     Route::post('/select-company', [App\Http\Controllers\CompanySelectController::class, 'select'])->name('company.select');
     Route::get('/comisiones/{upload}/exportar', [ComisionesExportController::class, 'exportar'])
