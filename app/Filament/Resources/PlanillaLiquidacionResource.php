@@ -154,24 +154,33 @@ class PlanillaLiquidacionResource extends Resource
                             ->collapsible(),
                         
                         Forms\Components\Repeater::make('descuentos_varios')
-                        ->label('Descuentos varios (préstamos, adelantos, quincenas)')
-                        ->schema([
-                            Forms\Components\Select::make('employee_id')
-                                ->label('Empleado')
-                                ->relationship('employee', 'apellidos')
-                                ->searchable()
-                                ->required(),
-                            Forms\Components\TextInput::make('monto')
-                                ->label('Monto S/')
-                                ->numeric()
-                                ->prefix('S/')
-                                ->required(),
-                        ])
-                        ->columns(2)
-                        ->defaultItems(0)
-                        ->addActionLabel('Agregar descuento')
-                        ->collapsible()
-                        ->helperText('No afecta EsSalud, AFP/ONP ni 5ta categoría — se resta directo del neto a pagar.'),
+                            ->label('Descuentos varios')
+                            ->schema([
+                                Forms\Components\Select::make('employee_id')
+                                    ->label('Empleado')
+                                    ->relationship('employee', 'apellidos')
+                                    ->searchable()
+                                    ->required(),
+                                Forms\Components\Select::make('tipo')
+                                    ->label('Tipo')
+                                    ->options([
+                                        'adelanto' => 'Adelanto (código PLAME 0701)',
+                                        'otros'    => 'Préstamo / Otros (código PLAME 0706)',
+                                    ])
+                                    ->required()
+                                    ->native(false),
+                                Forms\Components\TextInput::make('monto')
+                                    ->label('Monto S/')
+                                    ->numeric()
+                                    ->prefix('S/')
+                                    ->required(),
+                            ])
+                            ->columns(3)
+                            ->defaultItems(0)
+                            ->addActionLabel('Agregar descuento')
+                            ->collapsible()
+                            ->helperText('No afecta EsSalud, AFP/ONP ni 5ta categoría — se resta directo del neto a pagar.'),
+
 
                     ])
                     ->action(function (array $data) {
@@ -180,16 +189,23 @@ class PlanillaLiquidacionResource extends Resource
                             ->map(fn ($b) => floatval($b['monto']))
                             ->toArray();
                         $descuentos = collect($data['descuentos_varios'] ?? [])
+                            ->where('tipo', 'otros')
                             ->keyBy('employee_id')
                             ->map(fn ($d) => floatval($d['monto']))
                             ->toArray();
 
+                        $adelantos = collect($data['descuentos_varios'] ?? [])
+                            ->where('tipo', 'adelanto')
+                            ->keyBy('employee_id')
+                            ->map(fn ($d) => floatval($d['monto']))
+                            ->toArray();
                         try {
                             $liquidaciones = app(PlanillaService::class)->calcularPeriodo(
                                 $data['company_id'],
                                 $data['periodo'],
                                 $bonos,
                                 $descuentos,
+                                $adelantos,
                             );
 
                             Notification::make()

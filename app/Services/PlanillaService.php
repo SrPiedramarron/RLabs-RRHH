@@ -31,7 +31,7 @@ class PlanillaService
     const CREDITO_EPS_PORCENTAJE = 0.25;
     const APORTE_EMPRESA_EPS     = 0.30; // el trabajador asume el 70% restante
 
-    public function calcularPeriodo(int $companyId, string $periodo, array $bonosEspeciales = [], array $otrosDescuentos = []): Collection
+    public function calcularPeriodo(int $companyId, string $periodo, array $bonosEspeciales = [], array $otrosDescuentos = [], array $adelantos = []): Collection
     {
         [$year, $month] = explode('-', $periodo);
 
@@ -43,7 +43,7 @@ class PlanillaService
 
         $liquidaciones = collect();
 
-        DB::transaction(function () use ($empleados, $companyId, $periodo, $year, $month, $bonosEspeciales, $otrosDescuentos, &$liquidaciones) {
+        DB::transaction(function () use ($empleados, $companyId, $periodo, $year, $month, $bonosEspeciales, $otrosDescuentos, $adelantos, &$liquidaciones) {
             foreach ($empleados as $empleado) {
                 $liquidacion = $this->calcularEmpleado(
                     $empleado,
@@ -53,6 +53,7 @@ class PlanillaService
                     (int) $month,
                     $bonosEspeciales[$empleado->id] ?? 0,
                     $otrosDescuentos[$empleado->id] ?? 0,
+                    $adelantos[$empleado->id] ?? 0,
                 );
                 $liquidaciones->push($liquidacion);
             }
@@ -69,6 +70,7 @@ class PlanillaService
         int $month,
         float $bonoEspecial = 0,
         float $otroDescuento = 0,
+        float $adelanto = 0,
     ): PlanillaLiquidacion {
 
         // Si no se pasó un valor nuevo (default 0), preservar lo que ya
@@ -76,7 +78,7 @@ class PlanillaService
         // que se recalcula la planilla (ej. al editar un registro de
         // asistencia y volver a calcular). Para poner explícitamente en 0,
         // hay que borrar la liquidación o escribir 0 a mano en el Repeater.
-        if ($bonoEspecial == 0.0 || $otroDescuento == 0.0) {
+        if ($bonoEspecial == 0.0 || $otroDescuento == 0.0 || $adelanto == 0.0) {
             $existente = PlanillaLiquidacion::where('employee_id', $empleado->id)
                 ->where('periodo', $periodo)
                 ->first();
@@ -88,8 +90,12 @@ class PlanillaService
                 if ($otroDescuento == 0.0 && $existente->otros_descuentos > 0) {
                     $otroDescuento = (float) $existente->otros_descuentos;
                 }
+                if ($adelanto == 0.0 && $existente->adelanto > 0) {
+                    $adelanto = (float) $existente->adelanto;
+                }
             }
         }
+
 
         $mesNombre     = $this->periodoANombre($periodo);
         $sueldo        = floatval($empleado->sueldo_base);
@@ -239,12 +245,15 @@ class PlanillaService
         }
 
         $totalDescuentos = $descuentoPension + $descuento5ta + $epsDescuentoTrabajador;
-        $netoPagar       = round($bruto - $totalDescuentos + $bonoMovilidad - $otroDescuento, 2);
+        $netoPagar       = round($bruto - $totalDescuentos + $bonoMovilidad - $otroDescuento - $adelanto, 2);
 
-        // Seguro vida ley: solo aplica desde 3 meses de servicio (D.Leg 688).
+        // Seguro vida ley: monto FIJO mensual (prima anual real ÷ 12, tal
+        // como factura la aseguradora), NO un porcentaje calculado — cambia
+        // solo cuando se renueva la póliza. Solo aplica desde 3 meses de
+        // servicio (D.Leg 688). Confirmado con RRHH, ago 2026.
         $seguroVidaEmpleador = 0.0;
         if ($empleado->fecha_ingreso && Carbon::parse($empleado->fecha_ingreso)->diffInMonths(now()) >= 3) {
-            $seguroVidaEmpleador = round($bruto * self::TASA_SEGURO_VIDA_EMPLEADO, 2);
+            $seguroVidaEmpleador = round(floatval($empleado->seguro_vida_mensual), 2);
         }
 
         $liquidacion = PlanillaLiquidacion::updateOrCreate(
@@ -275,6 +284,7 @@ class PlanillaService
                 'bono_encargatura'               => $bonoEncargatura,
                 'bonos_especiales'              => round($bonoEspecial, 2),
                 'otros_descuentos'              => round($otroDescuento, 2),
+                'adelanto'                       => round($adelanto, 2),
                 'descuento_tardanzas'           => $descuentoTardanzas,
                 'descuento_faltas'              => $descuentoFaltas,
                 'remuneracion_bruta'            => $bruto,

@@ -81,6 +81,18 @@
             <td class="right">S/ {{ number_format($d['neto_pagar'], 2) }}</td>
         </tr>
 
+        @if($d['eps'])
+        <tr><th colspan="3">EPS (Sanitas Perú) — informativo</th></tr>
+        <tr>
+            <td colspan="2">Descuento al trabajador (70%)</td>
+            <td class="right">S/ {{ number_format($d['eps']['descuento_trabajador'], 2) }}</td>
+        </tr>
+        <tr>
+            <td colspan="2">Aporte de la empresa (30%)</td>
+            <td class="right">S/ {{ number_format($d['eps']['aporte_empresa'], 2) }}</td>
+        </tr>
+        @endif
+
         <tr><th colspan="3">Aportes del Empleador (informativo)</th></tr>
         @foreach($d['aportes_empleador'] as $codigo => [$concepto, $monto])
             <tr>

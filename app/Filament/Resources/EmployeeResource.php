@@ -229,6 +229,13 @@ Forms\Components\Section::make('Configuraci�n de Planilla')
         ->default(0)
         ->helperText('Monto fijo mensual por encargatura de cargo. A diferencia de movilidad, SÍ afecta EsSalud y AFP/ONP. Código PLAME 1007.'),
 
+        Forms\Components\TextInput::make('seguro_vida_mensual')
+            ->label('Seguro vida ley — monto mensual (S/)')
+        ->numeric()
+        ->prefix('S/')
+        ->default(0)
+        ->helperText('Prima anual que paga la empresa ÷ 12. Cambia solo cuando se renueva la póliza. Aplica desde 3 meses de antigüedad. 100% costo de la empresa, no se descuenta al trabajador.'),
+
     ])->columns(2),
         
             // ── RELOJ BIOMÉTRICO ──────────────────────────────────────────────

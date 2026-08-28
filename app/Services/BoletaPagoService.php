@@ -78,11 +78,11 @@ class BoletaPagoService
                 '0705' => $l->descuento_faltas > 0
                     ? ['INASISTENCIAS', $l->descuento_faltas]
                     : null,
-                '0706' => $l->eps_descuento_trabajador > 0
-                    ? ['DESCUENTO EPS (70% TRABAJADOR)', $l->eps_descuento_trabajador]
+                '0706' => ($l->otros_descuentos + $l->eps_descuento_trabajador) > 0
+                    ? ['OTROS DESC NO DEDUC DE BASE IMPONIB (préstamos/otros/EPS)', $l->otros_descuentos + $l->eps_descuento_trabajador]
                     : null,
-                '0701' => $l->otros_descuentos > 0
-                    ? ['ADELANTO / PRÉSTAMO / OTROS', $l->otros_descuentos]
+                '0701' => $l->adelanto > 0
+                    ? ['ADELANTO', $l->adelanto]
                     : null,
             ]),
 
@@ -100,6 +100,15 @@ class BoletaPagoService
                     ? ['ESSALUD (REGULAR CBSSP AGRAR/AC) TRAB', $l->essalud_empleador]
                     : null,
             ]),
+
+            // EPS — sin código PLAME confirmado todavía (pendiente validar
+            // con el contador). Se muestra en la boleta pero NO se incluye
+            // en el archivo E18 hasta tener el código correcto.
+            'eps' => $l->eps_descuento_trabajador > 0 ? [
+                'descuento_trabajador' => $l->eps_descuento_trabajador,
+                'aporte_empresa'       => $l->eps_aporte_empresa,
+                'credito'              => $l->eps_credito,
+            ] : null,
         ];
     }
 

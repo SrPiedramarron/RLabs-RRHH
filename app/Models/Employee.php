@@ -35,6 +35,7 @@ class Employee extends Model
         'movilidad_diaria',
         'monto_eps_mensual_con_igv',
         'bono_encargatura',
+        'seguro_vida_mensual',
         'active',
         'foto_perfil',          // ← nuevo
     ];
