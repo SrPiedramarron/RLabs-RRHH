@@ -7,10 +7,10 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="SumaRH">
+    <meta name="apple-mobile-web-app-title" content="RLabsRRHH">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>@yield('title', 'SumaRH')</title>
+    <title>@yield('title', 'RLabsRRHH')</title>
 
     <link rel="manifest" href="/checkin/manifest.json">
     <link rel="apple-touch-icon" href="/images/checkin/icon-192.png">
@@ -271,7 +271,7 @@
                 </svg>
             </div>
             <div>
-                <h1>@yield('header-title', 'SumaRH')</h1>
+                <h1>@yield('header-title', 'RLabsRRHH')</h1>
                 @hasSection('header-subtitle')
                 <div class="subtitle">@yield('header-subtitle')</div>
                 @endif
