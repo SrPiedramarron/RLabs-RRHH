@@ -1,7 +1,7 @@
 @extends('checkin.layout')
 
-@section('title', 'Ingresar — AsistenciaRLabs')
-@section('header-title', 'AsistenciaRLabs')
+@section('title', 'Ingresar — RLabsRRHH')
+@section('header-title', 'RLabsRRHH')
 @section('header-subtitle', 'Control de Asistencia')
 
 @section('content')
