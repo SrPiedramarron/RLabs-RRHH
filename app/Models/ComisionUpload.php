@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class ComisionUpload extends Model
 {
     protected $fillable = [
+        'company_id',
         'periodo',
         'mes_nombre',
         'archivo_cobranzas',

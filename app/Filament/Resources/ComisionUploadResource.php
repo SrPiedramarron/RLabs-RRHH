@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\ComisionUploadResource\Pages;
+use App\Filament\Traits\HasCompanyScope;
 use App\Models\ComisionDetalle;
 use App\Models\ComisionUpload;
 use App\Services\ComisionesService;
@@ -18,6 +19,8 @@ use Illuminate\Support\Facades\Storage;
 
 class ComisionUploadResource extends Resource
 {
+    use HasCompanyScope;
+
     protected static ?string $model = ComisionUpload::class;
     protected static ?string $navigationIcon = 'heroicon-o-banknotes';
     protected static ?string $navigationLabel = 'Comisiones';
@@ -30,8 +33,15 @@ class ComisionUploadResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Section::make('Período')
+                Forms\Components\Section::make('Empresa y Período')
                     ->schema([
+                        Forms\Components\Select::make('company_id')
+                            ->label('Empresa')
+                            ->relationship('company', 'razon_social')
+                            ->required()
+                            ->searchable()
+                            ->default(fn () => \App\Helpers\CompanyContext::get()),
+
                         Forms\Components\Select::make('periodo')
                             ->label('Período')
                             ->options(static::generarOpcionesPeriodo())
@@ -39,7 +49,7 @@ class ComisionUploadResource extends Resource
                             ->unique(ignoreRecord: true)
                             ->helperText('Solo se puede subir una vez por período. Para corregir, elimine el registro anterior.'),
                     ])
-                    ->columns(1),
+                    ->columns(2),
 
                 Forms\Components\Section::make('Archivos Excel')
                     ->schema([

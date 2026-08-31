@@ -34,7 +34,7 @@ class ComisionesService
             $upload->update(['estado' => 'procesando']);
 
             $this->noMatcheados = [];
-            $this->construirMapaEmpleados();
+            $this->construirMapaEmpleados($upload->company_id);
 
             $cobranzas  = $this->leerCobranzas($pathCobranzas);
             $comisiones = $this->leerComisiones($pathComisiones);
@@ -81,11 +81,13 @@ class ComisionesService
      * Cubre "NOMBRES APELLIDOS" y "APELLIDOS NOMBRES" porque no sabemos en qué
      * orden viene el texto del Excel de comisiones.
      */
-    private function construirMapaEmpleados(): void
+    private function construirMapaEmpleados(?int $companyId): void
     {
         $this->mapaEmpleados = [];
 
-        Employee::where('active', true)->get(['id', 'nombres', 'apellidos'])->each(function ($e) {
+        Employee::where('active', true)
+            ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
+            ->get(['id', 'nombres', 'apellidos'])->each(function ($e) {
             $orden1 = $this->normalizarNombre($e->nombres . ' ' . $e->apellidos);
             $orden2 = $this->normalizarNombre($e->apellidos . ' ' . $e->nombres);
             $this->mapaEmpleados[$orden1] = $e->id;

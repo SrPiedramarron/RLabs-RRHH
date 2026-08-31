@@ -139,7 +139,9 @@ class PlanillaService
         // vendedor por igual, ahora cada uno recibe solo lo suyo.
         $comisiones = 0.0;
         if ($empleado->aplica_comision) {
-            $uploadIds = \App\Models\ComisionUpload::where('periodo', $periodo)->pluck('id');
+            $uploadIds = \App\Models\ComisionUpload::where('periodo', $periodo)
+                ->where('company_id', $companyId)
+                ->pluck('id');
 
             if ($uploadIds->isNotEmpty()) {
                 $comisiones = floatval(
