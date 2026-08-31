@@ -12,9 +12,12 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
+use App\Filament\Traits\HasCompanyScope;
 
 class PlanillaLiquidacionResource extends Resource
 {
+    use HasCompanyScope;
+    
     protected static ?string $model            = PlanillaLiquidacion::class;
     protected static ?string $navigationIcon   = 'heroicon-o-calculator';
     protected static ?string $navigationLabel  = 'Planilla';
