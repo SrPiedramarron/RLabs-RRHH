@@ -9,11 +9,31 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Role;
 
 class UserResource extends Resource
 {
+    /**
+     * NO usa el trait genérico HasCompanyScope a propósito: super_admin
+     * necesita ver usuarios de TODAS las empresas (no está atado a una),
+     * mientras que otros roles sí deben quedar filtrados por su empresa
+     * activa. El trait genérico no distingue esto.
+     */
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        if (auth()->user()?->hasRole('super_admin')) {
+            return $query;
+        }
+
+        $companyId = \App\Helpers\CompanyContext::get();
+
+        return $companyId ? $query->where('company_id', $companyId) : $query;
+    }
+
     protected static ?string $model = User::class;
     protected static ?string $navigationIcon = 'heroicon-o-users';
     protected static ?string $navigationLabel = 'Usuarios';
@@ -48,6 +68,16 @@ class UserResource extends Resource
                         ->minLength(8)
                         ->hint('Mínimo 8 caracteres. Dejar en blanco para no cambiar.'),
 
+                    // FALTABA POR COMPLETO — sin esto, un usuario nuevo se
+                    // creaba sin empresa asignada y quedaba visible/editable
+                    // desde cualquier empresa activa. OPCIONAL: un super_admin
+                    // puede dejarse sin empresa para tener acceso global.
+                    Forms\Components\Select::make('company_id')
+                        ->label('Empresa')
+                        ->relationship('company', 'razon_social')
+                        ->searchable()
+                        ->helperText('Dejar vacío solo para usuarios super_admin con acceso a todas las empresas.'),
+
                     Forms\Components\Toggle::make('active')
                         ->label('Activo')
                         ->default(true),
@@ -79,6 +109,11 @@ class UserResource extends Resource
                     ->label('Correo')
                     ->searchable()
                     ->sortable(),
+
+                Tables\Columns\TextColumn::make('company.razon_social')
+                    ->label('Empresa')
+                    ->badge()
+                    ->color('gray'),
 
                 Tables\Columns\TextColumn::make('roles.name')
                     ->label('Roles')

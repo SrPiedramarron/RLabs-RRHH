@@ -16,9 +16,12 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
 use App\Helpers\CompanyContext;
+use App\Filament\Traits\HasCompanyScope;
 
 class ReportResource extends Resource
 {
+    use HasCompanyScope;
+    
     protected static ?string $model = AttendanceRecord::class;
     protected static ?string $navigationIcon = 'heroicon-o-document-chart-bar';
     protected static ?string $navigationLabel = 'Reportes SUNAFIL';
