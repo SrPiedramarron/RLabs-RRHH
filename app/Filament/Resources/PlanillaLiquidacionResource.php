@@ -46,7 +46,7 @@ class PlanillaLiquidacionResource extends Resource
                 Tables\Columns\TextColumn::make('nombre_completo')
                     ->label('Empleado')
                     ->getStateUsing(fn ($record) => $record->apellidos . ', ' . $record->nombres)
-                    ->searchable(query: fn ($q, $s) => $q->where('apellidos', 'like', "%$s%")->orWhere('nombres', 'like', "%$s%"))
+                    ->searchable(query: fn ($query, $search) => $query->where('apellidos', 'like', "%$search%")->orWhere('nombres', 'like', "%$search%"))
                     ->sortable(['apellidos']),
 
                 Tables\Columns\TextColumn::make('mes_nombre')
