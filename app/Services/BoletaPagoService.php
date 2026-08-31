@@ -68,6 +68,12 @@ class BoletaPagoService
                 '0403' => $l->bonos_especiales > 0
                     ? ['GRATIFICACIONES EXTRAORDINARIAS', $l->bonos_especiales]
                     : null,
+                '0915' => $l->subsidio_maternidad > 0
+                    ? ['SUBSIDIOS POR MATERNIDAD', $l->subsidio_maternidad]
+                    : null,
+                '0916' => $l->subsidio_enfermedad > 0
+                    ? ['SUBSIDIO INCAPACIDAD POR ENFERMEDAD', $l->subsidio_enfermedad]
+                    : null,
             ]),
 
             // ── Descuentos ──────────────────────────────────────────────────

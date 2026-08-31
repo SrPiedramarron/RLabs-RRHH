@@ -31,7 +31,7 @@ class PlanillaService
     const CREDITO_EPS_PORCENTAJE = 0.25;
     const APORTE_EMPRESA_EPS     = 0.30; // el trabajador asume el 70% restante
 
-    public function calcularPeriodo(int $companyId, string $periodo, array $bonosEspeciales = [], array $otrosDescuentos = [], array $adelantos = []): Collection
+    public function calcularPeriodo(int $companyId, string $periodo, array $bonosEspeciales = [], array $otrosDescuentos = [], array $adelantos = [], array $subsidiosEnfermedad = [], array $subsidiosMaternidad = []): Collection
     {
         [$year, $month] = explode('-', $periodo);
 
@@ -43,7 +43,7 @@ class PlanillaService
 
         $liquidaciones = collect();
 
-        DB::transaction(function () use ($empleados, $companyId, $periodo, $year, $month, $bonosEspeciales, $otrosDescuentos, $adelantos, &$liquidaciones) {
+        DB::transaction(function () use ($empleados, $companyId, $periodo, $year, $month, $bonosEspeciales, $otrosDescuentos, $adelantos, $subsidiosEnfermedad, $subsidiosMaternidad, &$liquidaciones) {
             foreach ($empleados as $empleado) {
                 $liquidacion = $this->calcularEmpleado(
                     $empleado,
@@ -54,6 +54,8 @@ class PlanillaService
                     $bonosEspeciales[$empleado->id] ?? 0,
                     $otrosDescuentos[$empleado->id] ?? 0,
                     $adelantos[$empleado->id] ?? 0,
+                    $subsidiosEnfermedad[$empleado->id] ?? 0,
+                    $subsidiosMaternidad[$empleado->id] ?? 0,
                 );
                 $liquidaciones->push($liquidacion);
             }
@@ -71,6 +73,8 @@ class PlanillaService
         float $bonoEspecial = 0,
         float $otroDescuento = 0,
         float $adelanto = 0,
+        float $subsidioEnfermedad = 0,
+        float $subsidioMaternidad = 0,
     ): PlanillaLiquidacion {
 
         // Si no se pasó un valor nuevo (default 0), preservar lo que ya
@@ -78,7 +82,7 @@ class PlanillaService
         // que se recalcula la planilla (ej. al editar un registro de
         // asistencia y volver a calcular). Para poner explícitamente en 0,
         // hay que borrar la liquidación o escribir 0 a mano en el Repeater.
-        if ($bonoEspecial == 0.0 || $otroDescuento == 0.0 || $adelanto == 0.0) {
+        if ($bonoEspecial == 0.0 || $otroDescuento == 0.0 || $adelanto == 0.0 || $subsidioEnfermedad == 0.0 || $subsidioMaternidad == 0.0) {
             $existente = PlanillaLiquidacion::where('employee_id', $empleado->id)
                 ->where('periodo', $periodo)
                 ->first();
@@ -92,6 +96,12 @@ class PlanillaService
                 }
                 if ($adelanto == 0.0 && $existente->adelanto > 0) {
                     $adelanto = (float) $existente->adelanto;
+                }
+                if ($subsidioEnfermedad == 0.0 && $existente->subsidio_enfermedad > 0) {
+                    $subsidioEnfermedad = (float) $existente->subsidio_enfermedad;
+                }
+                if ($subsidioMaternidad == 0.0 && $existente->subsidio_maternidad > 0) {
+                    $subsidioMaternidad = (float) $existente->subsidio_maternidad;
                 }
             }
         }
@@ -179,6 +189,11 @@ class PlanillaService
         // ── Descuento de pensión: ONP fijo, o desglose AFP real ────────────────
         $esAfp = str_starts_with($empleado->sistema_pensiones, 'afp_');
 
+        // Subsidios EsSalud: NO afectan EsSalud ni ONP, pero SÍ afectan la
+        // base de AFP (aporte, comisión, prima). Confirmado con RRHH.
+        $subsidioTotal = $subsidioEnfermedad + $subsidioMaternidad;
+        $baseAfp       = $bruto + ($esAfp ? $subsidioTotal : 0.0);
+
         $afpComisionFlujo    = 0.0;
         $afpPrimaSeguro      = 0.0;
         $afpAporteObligatorio = 0.0;
@@ -195,10 +210,11 @@ class PlanillaService
                 );
             }
 
-            // Prima de seguro y comisión se calculan sobre el bruto, con tope asegurable
-            $baseAsegurable = min($bruto, floatval($tasaAfp->tope_remuneracion_asegurable));
+            // Prima de seguro y comisión se calculan sobre la base AFP
+            // (incluye subsidios), con tope asegurable.
+            $baseAsegurable = min($baseAfp, floatval($tasaAfp->tope_remuneracion_asegurable));
 
-            $afpAporteObligatorio = round($bruto * floatval($tasaAfp->aporte_obligatorio), 2);
+            $afpAporteObligatorio = round($baseAfp * floatval($tasaAfp->aporte_obligatorio), 2);
             // Comisión sobre flujo: SOLO para afiliados pre-2013 (Ley 29903).
             // Los post-2013 en "comisión mixta" no la pagan vía planilla —
             // la AFP cobra su parte directo de la cuenta del afiliado.
@@ -210,6 +226,8 @@ class PlanillaService
             $descuentoPension = $afpAporteObligatorio + $afpComisionFlujo + $afpPrimaSeguro;
             $tasaPension      = floatval($tasaAfp->aporte_obligatorio) + floatval($tasaAfp->comision_flujo) + floatval($tasaAfp->prima_seguro);
         } else {
+            // ONP: subsidios NO afectan esta base — se calcula sobre $bruto
+            // puro, sin sumar subsidios (a diferencia de AFP).
             $descuentoPension = round($bruto * self::TASA_ONP, 2);
         }
 
@@ -245,7 +263,7 @@ class PlanillaService
         }
 
         $totalDescuentos = $descuentoPension + $descuento5ta + $epsDescuentoTrabajador;
-        $netoPagar       = round($bruto - $totalDescuentos + $bonoMovilidad - $otroDescuento - $adelanto, 2);
+        $netoPagar       = round($bruto - $totalDescuentos + $bonoMovilidad - $otroDescuento - $adelanto + $subsidioTotal, 2);
 
         // Seguro vida ley: monto FIJO mensual (prima anual real ÷ 12, tal
         // como factura la aseguradora), NO un porcentaje calculado — cambia
@@ -285,6 +303,8 @@ class PlanillaService
                 'bonos_especiales'              => round($bonoEspecial, 2),
                 'otros_descuentos'              => round($otroDescuento, 2),
                 'adelanto'                       => round($adelanto, 2),
+                'subsidio_enfermedad'            => round($subsidioEnfermedad, 2),
+                'subsidio_maternidad'            => round($subsidioMaternidad, 2),
                 'descuento_tardanzas'           => $descuentoTardanzas,
                 'descuento_faltas'              => $descuentoFaltas,
                 'remuneracion_bruta'            => $bruto,

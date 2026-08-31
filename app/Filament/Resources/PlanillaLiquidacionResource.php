@@ -180,6 +180,33 @@ class PlanillaLiquidacionResource extends Resource
                             ->addActionLabel('Agregar descuento')
                             ->collapsible()
                             ->helperText('No afecta EsSalud, AFP/ONP ni 5ta categoría — se resta directo del neto a pagar.'),
+                        Forms\Components\Repeater::make('subsidios')
+                            ->label('Subsidios EsSalud')
+                            ->schema([
+                                Forms\Components\Select::make('employee_id')
+                                    ->label('Empleado')
+                                    ->relationship('employee', 'apellidos')
+                                    ->searchable()
+                                    ->required(),
+                                Forms\Components\Select::make('tipo')
+                                    ->label('Tipo')
+                                    ->options([
+                                        'enfermedad' => 'Subsidio por enfermedad (código 0916)',
+                                        'maternidad' => 'Subsidio por maternidad (código 0915)',
+                                    ])
+                                    ->required()
+                                    ->native(false),
+                                Forms\Components\TextInput::make('monto')
+                                    ->label('Monto S/')
+                                    ->numeric()
+                                    ->prefix('S/')
+                                    ->required(),
+                            ])
+                            ->columns(3)
+                            ->defaultItems(0)
+                            ->addActionLabel('Agregar subsidio')
+                            ->collapsible()
+                            ->helperText('No afecta EsSalud ni ONP — SÍ afecta la base de AFP (aporte, comisión, prima).'),
 
 
                     ])
@@ -199,6 +226,19 @@ class PlanillaLiquidacionResource extends Resource
                             ->keyBy('employee_id')
                             ->map(fn ($d) => floatval($d['monto']))
                             ->toArray();
+                        
+                            $subsidiosEnfermedad = collect($data['subsidios'] ?? [])
+                            ->where('tipo', 'enfermedad')
+                            ->keyBy('employee_id')
+                            ->map(fn ($s) => floatval($s['monto']))
+                            ->toArray();
+
+                        $subsidiosMaternidad = collect($data['subsidios'] ?? [])
+                            ->where('tipo', 'maternidad')
+                            ->keyBy('employee_id')
+                            ->map(fn ($s) => floatval($s['monto']))
+                            ->toArray();
+
                         try {
                             $liquidaciones = app(PlanillaService::class)->calcularPeriodo(
                                 $data['company_id'],
@@ -206,6 +246,8 @@ class PlanillaLiquidacionResource extends Resource
                                 $bonos,
                                 $descuentos,
                                 $adelantos,
+                                $subsidiosEnfermedad,
+                                $subsidiosMaternidad,
                             );
 
                             Notification::make()
