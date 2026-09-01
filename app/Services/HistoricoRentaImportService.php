@@ -15,18 +15,12 @@ class HistoricoRentaImportService
         'NOVIEMBRE' => '11', 'DICIEMBRE' => '12',
     ];
 
-    /** Mapa normalizado nombre => employee_id, filtrado por empresa. */
-    private array $mapaEmpleados = [];
+    /** Lista de empleados normalizados, para matching parcial (contiene). */
+    private array $empleadosNormalizados = [];
 
-    /**
-     * Importa una hoja del Excel histórico. Devuelve un reporte detallado
-     * para verificar visualmente antes de confiar en los datos.
-     *
-     * Formato esperado: fila 4 = nombres, fila 5 = apellidos (a partir de
-     * la columna indicada), luego bloques por mes: una fila con el nombre
-     * del mes, seguida de N filas de conceptos con montos por empleado,
-     * terminando en una fila vacía antes del siguiente mes.
-     */
+    /** Alias manuales para typos conocidos del Excel: "NOMBRE APELLIDO" => employee_id */
+    private array $aliasManual = [];
+
     public function importarHoja(
         string $path,
         string $sheetName,
@@ -36,19 +30,22 @@ class HistoricoRentaImportService
         int $filaApellidos = 5,
         int $colInicioEmpleados = 3, // C=3
         int $filaInicioDatos = 6,
+        array $aliasManual = [], // "NOMBRE EXCEL COMO APARECE" => employee_id, para typos conocidos
     ): array {
-        $this->construirMapaEmpleados($companyId);
+        $this->construirListaEmpleados($companyId);
+        $this->aliasManual = array_change_key_case($aliasManual, CASE_UPPER);
 
-        $spreadsheet = IOFactory::load($path);
+        $reader = IOFactory::createReaderForFile($path);
+        $reader->setReadDataOnly(true);
+        $reader->setLoadSheetsOnly([$sheetName]);
+        $spreadsheet = $reader->load($path);
         $ws          = $spreadsheet->getSheetByName($sheetName);
 
         if (!$ws) {
             return ['error' => "No se encontró la hoja '{$sheetName}' en el archivo."];
         }
 
-        // Detectar columnas de empleados: desde $colInicioEmpleados hasta
-        // encontrar la columna "TOTALES" (o una celda vacía sostenida).
-        $columnasEmpleado = []; // colIndex => ['nombre_normalizado' => ..., 'employee_id' => ...|null, 'nombre_original' => ...]
+        $columnasEmpleado = [];
         $highestCol = $ws->getHighestDataColumn();
         $highestColIndex = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($highestCol);
 
@@ -65,11 +62,19 @@ class HistoricoRentaImportService
                 continue;
             }
 
-            $normalizado = $this->normalizarNombre($nombreCompleto);
+            [$employeeId, $estado] = $this->buscarEmpleadoPorNombreCorto($nombre, $apellido);
+
+            // Alias manual tiene prioridad (para typos conocidos del Excel)
+            $claveAlias = strtoupper(trim($nombreCompleto));
+            if (isset($this->aliasManual[$claveAlias])) {
+                $employeeId = $this->aliasManual[$claveAlias];
+                $estado     = 'ok_alias';
+            }
+
             $columnasEmpleado[$col] = [
                 'nombre_original' => $nombreCompleto,
-                'normalizado'     => $normalizado,
-                'employee_id'     => $this->mapaEmpleados[$normalizado] ?? null,
+                'employee_id'     => $employeeId,
+                'estado_match'    => $estado, // 'ok' | 'sin_match' | 'ambiguo'
             ];
         }
 
@@ -131,12 +136,20 @@ class HistoricoRentaImportService
                     'empleado'     => $info['nombre_original'],
                     'monto'        => $monto,
                     'matched'      => $info['employee_id'] !== null,
+                    'estado_match' => $info['estado_match'],
                 ];
             }
         }
 
-        $noMatcheados = collect($columnasEmpleado)
-            ->filter(fn ($i) => $i['employee_id'] === null)
+        $sinMatch = collect($columnasEmpleado)
+            ->filter(fn ($i) => $i['estado_match'] === 'sin_match')
+            ->pluck('nombre_original')
+            ->unique()
+            ->values()
+            ->toArray();
+
+        $ambiguos = collect($columnasEmpleado)
+            ->filter(fn ($i) => $i['estado_match'] === 'ambiguo')
             ->pluck('nombre_original')
             ->unique()
             ->values()
@@ -145,22 +158,56 @@ class HistoricoRentaImportService
         return [
             'hoja'              => $sheetName,
             'empleados_en_hoja' => count($columnasEmpleado),
-            'empleados_sin_matchear' => $noMatcheados,
+            'empleados_sin_matchear' => $sinMatch,
+            'empleados_ambiguos'     => $ambiguos,
             'filas_importadas'  => $importados,
             'detalle'           => $lineasProcesadas,
         ];
     }
 
-    private function construirMapaEmpleados(int $companyId): void
+    private function construirListaEmpleados(int $companyId): void
     {
-        $this->mapaEmpleados = [];
+        $this->empleadosNormalizados = Employee::where('company_id', $companyId)
+            ->get(['id', 'nombres', 'apellidos'])
+            ->map(fn ($e) => [
+                'id'        => $e->id,
+                'nombres'   => $this->normalizarNombre($e->nombres),
+                'apellidos' => $this->normalizarNombre($e->apellidos),
+                'original'  => $e->nombres . ' ' . $e->apellidos,
+            ])
+            ->all();
+    }
 
-        Employee::where('company_id', $companyId)->get(['id', 'nombres', 'apellidos'])->each(function ($e) {
-            $orden1 = $this->normalizarNombre($e->nombres . ' ' . $e->apellidos);
-            $orden2 = $this->normalizarNombre($e->apellidos . ' ' . $e->nombres);
-            $this->mapaEmpleados[$orden1] = $e->id;
-            $this->mapaEmpleados[$orden2] = $e->id;
-        });
+    /**
+     * Matching PARCIAL: el primer nombre y primer apellido del Excel deben
+     * estar CONTENIDOS dentro del nombre/apellido completo del sistema
+     * (que puede tener segundo nombre y segundo apellido). Si hay más de
+     * un empleado que calza, se reporta como 'ambiguo' — mejor pedir
+     * confirmación manual que asignar mal un histórico de sueldos.
+     */
+    private function buscarEmpleadoPorNombreCorto(string $primerNombre, string $primerApellido): array
+    {
+        $pn = $this->normalizarNombre($primerNombre);
+        $pa = $this->normalizarNombre($primerApellido);
+
+        if (empty($pn) || empty($pa)) {
+            return [null, 'sin_match'];
+        }
+
+        $coincidencias = array_filter(
+            $this->empleadosNormalizados,
+            fn ($e) => str_contains($e['nombres'], $pn) && str_contains($e['apellidos'], $pa)
+        );
+
+        if (count($coincidencias) === 1) {
+            return [array_values($coincidencias)[0]['id'], 'ok'];
+        }
+
+        if (count($coincidencias) > 1) {
+            return [null, 'ambiguo'];
+        }
+
+        return [null, 'sin_match'];
     }
 
     private function normalizarNombre(string $nombre): string
