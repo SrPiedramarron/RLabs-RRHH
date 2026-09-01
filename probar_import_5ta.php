@@ -33,6 +33,14 @@ $aliasManual = array_filter([
 $reporteVendedores = $service->importarHoja($path, 'RTA 5TA VTAS', $companyId, 2026);
 $reporteResto       = $service->importarHoja($path, 'RTA 5TA', $companyId, 2026, aliasManual: $aliasManual);
 
+// Importar también las RETENCIONES ya aplicadas (necesarias para la fórmula real)
+$reporteRetVendedores = $service->importarRetenciones($path, 'RTA 5TA VTAS', $companyId, 2026);
+$reporteRetResto       = $service->importarRetenciones($path, 'RTA 5TA', $companyId, 2026, aliasManual: $aliasManual);
+
+echo "=== Retenciones importadas ===" . PHP_EOL;
+echo "Vendedores: {$reporteRetVendedores['filas_importadas']} filas" . PHP_EOL;
+echo "Resto: {$reporteRetResto['filas_importadas']} filas" . PHP_EOL . PHP_EOL;
+
 foreach ([$reporteVendedores, $reporteResto] as $r) {
     echo "=== Hoja: {$r['hoja']} ===" . PHP_EOL;
     echo "Empleados en la hoja: {$r['empleados_en_hoja']}" . PHP_EOL;

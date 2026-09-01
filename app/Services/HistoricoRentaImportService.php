@@ -165,6 +165,135 @@ class HistoricoRentaImportService
         ];
     }
 
+    /**
+     * Importa la sección "RETENCIONES" (lo que YA se retuvo mes a mes),
+     * distinta de la sección de ingresos. Estructura más simple: una fila
+     * por mes directamente (sin sub-filas de concepto), empezando después
+     * de la etiqueta "RETENCIONES" y terminando en "RETENCIONES APLICADAS".
+     * Ignora filas intermedias que no sean nombre de mes (ej. "UTILIDADES"
+     * insertada como separador en el Excel real de InProcess).
+     */
+    public function importarRetenciones(
+        string $path,
+        string $sheetName,
+        int $companyId,
+        int $anio,
+        int $filaNombres = 4,
+        int $filaApellidos = 5,
+        int $colInicioEmpleados = 3,
+        array $aliasManual = [],
+    ): array {
+        $this->construirListaEmpleados($companyId);
+        $this->aliasManual = array_change_key_case($aliasManual, CASE_UPPER);
+
+        $reader = IOFactory::createReaderForFile($path);
+        $reader->setReadDataOnly(true);
+        $reader->setLoadSheetsOnly([$sheetName]);
+        $spreadsheet = $reader->load($path);
+        $ws          = $spreadsheet->getSheetByName($sheetName);
+
+        if (!$ws) {
+            return ['error' => "No se encontró la hoja '{$sheetName}'."];
+        }
+
+        $columnasEmpleado = [];
+        $highestCol = $ws->getHighestDataColumn();
+        $highestColIndex = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($highestCol);
+
+        for ($col = $colInicioEmpleados; $col <= $highestColIndex; $col++) {
+            $nombre   = trim((string) $ws->getCellByColumnAndRow($col, $filaNombres)->getValue());
+            $apellido = trim((string) $ws->getCellByColumnAndRow($col, $filaApellidos)->getValue());
+
+            if (strtoupper($nombre) === 'TOTALES' || (empty($nombre) && empty($apellido))) {
+                continue;
+            }
+
+            $nombreCompleto = trim($nombre . ' ' . $apellido);
+            [$employeeId, $estado] = $this->buscarEmpleadoPorNombreCorto($nombre, $apellido);
+
+            $claveAlias = strtoupper($nombreCompleto);
+            if (isset($this->aliasManual[$claveAlias])) {
+                $employeeId = $this->aliasManual[$claveAlias];
+                $estado     = 'ok_alias';
+            }
+
+            $columnasEmpleado[$col] = [
+                'nombre_original' => $nombreCompleto,
+                'employee_id'     => $employeeId,
+                'estado_match'    => $estado,
+            ];
+        }
+
+        // Buscar la fila donde dice "RETENCIONES" (marca de inicio)
+        $highestRow  = $ws->getHighestDataRow();
+        $filaInicio  = null;
+        for ($row = 1; $row <= $highestRow; $row++) {
+            $val = trim((string) $ws->getCellByColumnAndRow(2, $row)->getValue());
+            if (strtoupper($val) === 'RETENCIONES') {
+                $filaInicio = $row + 1;
+                break;
+            }
+        }
+
+        if (!$filaInicio) {
+            return ['error' => "No se encontró la sección 'RETENCIONES' en la hoja."];
+        }
+
+        $importados = 0;
+        $lineasProcesadas = [];
+
+        for ($row = $filaInicio; $row <= $highestRow; $row++) {
+            $etiqueta = trim((string) $ws->getCellByColumnAndRow(2, $row)->getValue());
+
+            if (strtoupper($etiqueta) === 'RETENCIONES APLICADAS' || empty($etiqueta) && $row > $filaInicio + 15) {
+                break; // fin de la sección
+            }
+
+            $mes = self::MESES[strtoupper($etiqueta)] ?? null;
+            if (!$mes) {
+                continue; // fila ruido (ej. "UTILIDADES" insertada), se ignora
+            }
+
+            $periodo = "{$anio}-{$mes}";
+
+            foreach ($columnasEmpleado as $col => $info) {
+                $valor = $ws->getCellByColumnAndRow($col, $row)->getValue();
+                $monto = is_numeric($valor) ? (float) $valor : 0.0;
+
+                if ($monto <= 0 || !$info['employee_id']) {
+                    if ($monto > 0 && !$info['employee_id']) {
+                        $lineasProcesadas[] = [
+                            'periodo' => $periodo, 'empleado' => $info['nombre_original'],
+                            'monto' => $monto, 'matched' => false,
+                        ];
+                    }
+                    continue;
+                }
+
+                IngresoHistorico5ta::updateOrCreate(
+                    [
+                        'employee_id' => $info['employee_id'],
+                        'periodo'     => $periodo,
+                        'concepto'    => 'RETENCION_5TA_APLICADA',
+                    ],
+                    ['company_id' => $companyId, 'monto' => $monto, 'fuente' => 'import_excel_retenciones_' . $sheetName]
+                );
+                $importados++;
+
+                $lineasProcesadas[] = [
+                    'periodo' => $periodo, 'empleado' => $info['nombre_original'],
+                    'monto' => $monto, 'matched' => true,
+                ];
+            }
+        }
+
+        return [
+            'hoja' => $sheetName,
+            'filas_importadas' => $importados,
+            'detalle' => $lineasProcesadas,
+        ];
+    }
+
     private function construirListaEmpleados(int $companyId): void
     {
         $this->empleadosNormalizados = Employee::where('company_id', $companyId)

@@ -235,10 +235,13 @@ class PlanillaService
 
         $descuento5ta = 0.0;
         if ($empleado->aplica_5ta_categoria) {
-            $uit2026       = 5500; // UIT 2026 oficial (DS N° 301-2025-EF), corregido — antes tenía la UIT 2025 (5350) por error
-            $minimoMensual = ($uit2026 * 7) / 12;
-            $baseImponible = max(0, ($bruto + $bonoMovilidad) - $minimoMensual);
-            $descuento5ta  = round($baseImponible * 0.08, 2);
+            $detalle5ta   = app(\App\Services\Renta5taCalculator::class)->calcular(
+                $empleado,
+                $bruto + $bonoMovilidad,
+                $year,
+                $month,
+            );
+            $descuento5ta = $detalle5ta['cuota_mensual'];
         }
 
         // ── EsSalud (empleador) — se calcula ANTES del neto porque el crédito
