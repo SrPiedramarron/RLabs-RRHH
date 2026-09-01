@@ -374,6 +374,47 @@ Tables\Actions\Action::make('exportar_plame')
                     ->color('gray')
                     ->url(fn ($record) => route('boletas.pdf', $record))
                     ->openUrlInNewTab(),
+                Tables\Actions\Action::make('subir_firmada')
+        ->label(fn ($record) => $record->tiene_boleta_firmada ? 'Reemplazar firmada' : 'Subir boleta firmada')
+        ->icon('heroicon-o-pencil-square')
+        ->color(fn ($record) => $record->tiene_boleta_firmada ? 'gray' : 'warning')
+        ->form([
+            Forms\Components\FileUpload::make('archivo')
+                ->label('PDF firmado con DNIe')
+                ->acceptedFileTypes(['application/pdf'])
+                ->directory('boletas-firmadas')
+                ->required()
+                ->helperText('Sube el mismo PDF de la boleta, ya firmado digitalmente por el gerente general con su DNIe.'),
+        ])
+        ->action(function (\App\Models\PlanillaLiquidacion $record, array $data) {
+            $record->update([
+                'boleta_firmada_path' => $data['archivo'],
+                'boleta_firmada_at'   => now(),
+                'boleta_firmada_por'  => auth()->id(),
+            ]);
+ 
+            \Filament\Notifications\Notification::make()
+                ->title('Boleta firmada guardada')
+                ->success()
+                ->send();
+        }),
+ 
+    Tables\Actions\Action::make('descargar_firmada')
+        ->label('Descargar firmada')
+        ->icon('heroicon-o-shield-check')
+        ->color('success')
+        ->visible(fn ($record) => $record->tiene_boleta_firmada)
+        ->url(fn ($record) => \Illuminate\Support\Facades\Storage::disk('public')->url($record->boleta_firmada_path))
+        ->openUrlInNewTab(),
+
+                Tables\Columns\IconColumn::make('tiene_boleta_firmada')
+                    ->label('Firmada')
+                    ->boolean()
+                    ->trueIcon('heroicon-o-shield-check')
+                    ->falseIcon('heroicon-o-shield-exclamation')
+                    ->trueColor('success')
+                    ->falseColor('gray'),
+            
 
                 Tables\Actions\EditAction::make()
                     ->label('Bono')

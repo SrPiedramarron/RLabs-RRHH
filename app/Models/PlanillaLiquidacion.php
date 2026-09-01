@@ -27,6 +27,7 @@ class PlanillaLiquidacion extends Model
         'total_descuentos', 'neto_pagar',
         'essalud_empleador', 'eps_credito', 'eps_aporte_empresa', 'eps_descuento_trabajador', 'seguro_vida_empleador',
         'calculado_por', 'calculado_at',
+        'boleta_firmada_path', 'boleta_firmada_at', 'boleta_firmada_por',
     ];
 
     protected $casts = [
@@ -59,5 +60,10 @@ class PlanillaLiquidacion extends Model
             'afp_profuturo' => 'AFP Profuturo',
             default         => $this->sistema_pensiones,
         };
+    }
+
+    public function getTieneBoletaFirmadaAttribute(): bool
+    {
+        return !empty($this->boleta_firmada_path);
     }
 }
