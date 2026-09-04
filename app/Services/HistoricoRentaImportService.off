@@ -107,7 +107,7 @@ class HistoricoRentaImportService
             $periodo  = "{$anio}-{$mesActual}";
 
             foreach ($columnasEmpleado as $col => $info) {
-                $valor = $ws->getCellByColumnAndRow($col, $row)->getCalculatedValue();
+                $valor = $ws->getCellByColumnAndRow($col, $row)->getValue();
                 $monto = is_numeric($valor) ? (float) $valor : 0.0;
 
                 if ($monto <= 0) {
@@ -257,7 +257,7 @@ class HistoricoRentaImportService
             $periodo = "{$anio}-{$mes}";
 
             foreach ($columnasEmpleado as $col => $info) {
-                $valor = $ws->getCellByColumnAndRow($col, $row)->getCalculatedValue();
+                $valor = $ws->getCellByColumnAndRow($col, $row)->getValue();
                 $monto = is_numeric($valor) ? (float) $valor : 0.0;
 
                 if ($monto <= 0 || !$info['employee_id']) {
@@ -292,132 +292,6 @@ class HistoricoRentaImportService
             'filas_importadas' => $importados,
             'detalle' => $lineasProcesadas,
         ];
-    }
-
-    /**
-     * Importa la tabla auxiliar de SOLO comisiones (una fila por mes,
-     * valores limpios, sin fórmulas rotas entre hojas) — la que InProcess
-     * usa internamente para armar el promedio de 3 meses. Es más confiable
-     * que la sección principal de ingresos para el concepto "COMISIONES"
-     * específicamente, porque ahí algunas celdas son fórmulas cruzadas a
-     * otra hoja que no se resuelven al cargar una sola hoja por memoria.
-     */
-    public function importarComisionesAuxiliar(
-        string $path,
-        string $sheetName,
-        int $companyId,
-        int $anio,
-        int $filaNombres = 4,
-        int $filaApellidos = 5,
-        int $colInicioEmpleados = 3,
-        array $aliasManual = [],
-    ): array {
-        $this->construirListaEmpleados($companyId);
-        $this->aliasManual = array_change_key_case($aliasManual, CASE_UPPER);
-
-        $reader = IOFactory::createReaderForFile($path);
-        $reader->setReadDataOnly(true);
-        $reader->setLoadSheetsOnly([$sheetName]);
-        $spreadsheet = $reader->load($path);
-        $ws          = $spreadsheet->getSheetByName($sheetName);
-
-        if (!$ws) {
-            return ['error' => "No se encontró la hoja '{$sheetName}'."];
-        }
-
-        $columnasEmpleado = [];
-        $highestCol = $ws->getHighestDataColumn();
-        $highestColIndex = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($highestCol);
-
-        for ($col = $colInicioEmpleados; $col <= $highestColIndex; $col++) {
-            $nombre   = trim((string) $ws->getCellByColumnAndRow($col, $filaNombres)->getValue());
-            $apellido = trim((string) $ws->getCellByColumnAndRow($col, $filaApellidos)->getValue());
-
-            if (strtoupper($nombre) === 'TOTALES' || (empty($nombre) && empty($apellido))) {
-                continue;
-            }
-
-            $nombreCompleto = trim($nombre . ' ' . $apellido);
-            [$employeeId, $estado] = $this->buscarEmpleadoPorNombreCorto($nombre, $apellido);
-
-            $claveAlias = strtoupper($nombreCompleto);
-            if (isset($this->aliasManual[$claveAlias])) {
-                $employeeId = $this->aliasManual[$claveAlias];
-            }
-
-            $columnasEmpleado[$col] = ['nombre_original' => $nombreCompleto, 'employee_id' => $employeeId];
-        }
-
-        // Anclar la búsqueda en "ULTIMO SS" (única en la hoja) y subir desde
-        // ahí — evita confundir esta tabla con la de RETENCIONES, que tiene
-        // el mismo patrón "ENERO, FEBRERO..." consecutivo más arriba.
-        $highestRow = $ws->getHighestDataRow();
-        $filaUltimoSS = null;
-
-        for ($row = 1; $row <= $highestRow; $row++) {
-            if (strtoupper(trim((string) $ws->getCellByColumnAndRow(2, $row)->getValue())) === 'ULTIMO SS') {
-                $filaUltimoSS = $row;
-                break;
-            }
-        }
-
-        if (!$filaUltimoSS) {
-            return ['error' => "No se encontró 'ULTIMO SS' como ancla para ubicar la tabla auxiliar."];
-        }
-
-        // Subir desde ahí hasta encontrar dónde empieza el bloque de meses
-        $filaInicio = null;
-        for ($row = $filaUltimoSS - 1; $row >= 1; $row--) {
-            $etiqueta = strtoupper(trim((string) $ws->getCellByColumnAndRow(2, $row)->getValue()));
-            if ($etiqueta === 'ENERO') {
-                $filaInicio = $row;
-                break;
-            }
-            if (!isset(self::MESES[$etiqueta]) && $etiqueta !== '') {
-                break; // topamos con algo que no es mes, dejar de subir
-            }
-        }
-
-        if (!$filaInicio) {
-            return ['error' => "No se encontró el inicio de la tabla auxiliar (buscando 'ENERO' antes de 'ULTIMO SS')."];
-        }
-
-        $importados = 0;
-        $lineasProcesadas = [];
-
-        for ($row = $filaInicio; $row <= $highestRow; $row++) {
-            $etiqueta = strtoupper(trim((string) $ws->getCellByColumnAndRow(2, $row)->getValue()));
-            $mes      = self::MESES[$etiqueta] ?? null;
-
-            if (!$mes) {
-                break; // fin de la tabla auxiliar
-            }
-
-            $periodo = "{$anio}-{$mes}";
-
-            foreach ($columnasEmpleado as $col => $info) {
-                if (!$info['employee_id']) {
-                    continue;
-                }
-
-                $valor = $ws->getCellByColumnAndRow($col, $row)->getCalculatedValue();
-                $monto = is_numeric($valor) ? (float) $valor : 0.0;
-
-                if ($monto <= 0) {
-                    continue;
-                }
-
-                IngresoHistorico5ta::updateOrCreate(
-                    ['employee_id' => $info['employee_id'], 'periodo' => $periodo, 'concepto' => 'COMISIONES'],
-                    ['company_id' => $companyId, 'monto' => $monto, 'fuente' => 'import_excel_aux_' . $sheetName]
-                );
-                $importados++;
-
-                $lineasProcesadas[] = ['periodo' => $periodo, 'empleado' => $info['nombre_original'], 'monto' => $monto];
-            }
-        }
-
-        return ['hoja' => $sheetName, 'filas_importadas' => $importados, 'detalle' => $lineasProcesadas];
     }
 
     private function construirListaEmpleados(int $companyId): void

@@ -235,12 +235,12 @@ class PlanillaService
 
         $descuento5ta = 0.0;
         if ($empleado->aplica_5ta_categoria) {
-            $calculadora5ta = app(\App\Services\Renta5taCalculator::class);
-
-            $detalle5ta = $empleado->aplica_comision
-                ? $calculadora5ta->calcular($empleado, $comisiones, $year, $month)
-                : $calculadora5ta->calcularNoComisionado($empleado, $sueldo, $year, $month);
-
+            $detalle5ta   = app(\App\Services\Renta5taCalculator::class)->calcular(
+                $empleado,
+                $comisiones,
+                $year,
+                $month,
+            );
             $descuento5ta = $detalle5ta['cuota_mensual'];
         }
 
