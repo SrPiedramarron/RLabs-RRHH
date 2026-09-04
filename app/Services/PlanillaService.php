@@ -237,7 +237,7 @@ class PlanillaService
         if ($empleado->aplica_5ta_categoria) {
             $detalle5ta   = app(\App\Services\Renta5taCalculator::class)->calcular(
                 $empleado,
-                $bruto + $bonoMovilidad,
+                $comisiones,
                 $year,
                 $month,
             );
