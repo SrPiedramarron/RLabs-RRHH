@@ -278,7 +278,7 @@ class PlanillaService
 
             $detalle5ta = $empleado->aplica_comision
                 ? $calculadora5ta->calcular($empleado, $comisiones, $year, $month)
-                : $calculadora5ta->calcularNoComisionado($empleado, $sueldo, $year, $month);
+                : $calculadora5ta->calcularNoComisionado($empleado, $sueldo + $asignacionFamiliar, $year, $month);
 
             $descuento5ta = $detalle5ta['cuota_mensual'];
         }

@@ -59,8 +59,12 @@ class Renta5taCalculator
 
         if ($ultimoSueldo <= 0) {
             // No hay histórico del mes anterior (ej. el propio sistema ya
-            // lo calculó) — usar el sueldo_base actual como aproximación.
-            $ultimoSueldo = floatval($empleado->sueldo_base);
+            // lo calculó) — usar sueldo_base + asignación familiar (si
+            // aplica) como aproximación, consistente con el concepto
+            // combinado "SUELDO + ASIG FAM" que trae el histórico importado.
+            // NOTA: 113 = RMV_2026 (1130) × 10%, mismo cálculo que usa
+            // PlanillaService — si cambia la RMV, actualizar aquí también.
+            $ultimoSueldo = floatval($empleado->sueldo_base) + ($empleado->aplica_asignacion_familiar ? 113.0 : 0);
         }
 
         // ── Promedio de comisiones de los últimos 3 meses (incluye el actual) ──
