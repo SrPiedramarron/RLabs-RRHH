@@ -120,6 +120,7 @@ class PlanillaService
 
         $diasTrabajados      = $asistencias->whereIn('estado', ['presente', 'tarde'])->count();
         $diasFalta           = $asistencias->where('estado', 'ausente')->where('justificado', false)->count();
+        $diasVacaciones      = $asistencias->where('estado', 'vacaciones')->count();
         $diasJustificados    = $asistencias->where('justificado', true)->count();
         $totalMinutosTarde   = $asistencias->sum('minutos_tarde');
         $horasExtraDiurnas   = floatval($asistencias->sum('horas_extra_diurnas'));
@@ -129,7 +130,44 @@ class PlanillaService
         $valorHora   = $sueldo / 30 / 8;
         $valorMinuto = $sueldo / 30 / 8 / 60;
 
-        $sueldoProporcional = $sueldo - ($valorDia * $diasFalta);
+        // El sueldo de los días de vacaciones se saca de aquí (0121) y se
+        // mueve a 0118, para no duplicar — confirmado con RRHH.
+        $sueldoProporcional = $sueldo - ($valorDia * $diasFalta) - ($valorDia * $diasVacaciones);
+
+        // Remuneración vacacional (0118): sueldo de esos días (mismo valorDia
+        // de arriba) + promedio de COMISIONES de los últimos 6 meses ANTES
+        // del mes actual, prorrateado por los días de vacaciones tomados.
+        // Confirmado con RRHH: "x" = solo comisiones, no otras variables.
+        $sueldoVacacional     = round($valorDia * $diasVacaciones, 2);
+        $comisionesVacaciones = 0.0;
+
+        if ($diasVacaciones > 0) {
+            $sumaComisiones6m = 0.0;
+            for ($i = 1; $i <= 6; $i++) {
+                $m = $month - $i;
+                $y = $year;
+                while ($m <= 0) { $m += 12; $y -= 1; }
+                $periodoHist = sprintf('%04d-%02d', $y, $m);
+
+                $montoMes = (float) \App\Models\IngresoHistorico5ta::where('employee_id', $empleado->id)
+                    ->where('periodo', $periodoHist)
+                    ->where('concepto', 'COMISIONES')
+                    ->value('monto');
+
+                if ($montoMes <= 0) {
+                    $montoMes = (float) \App\Models\PlanillaLiquidacion::where('employee_id', $empleado->id)
+                        ->where('periodo', $periodoHist)
+                        ->value('comisiones');
+                }
+
+                $sumaComisiones6m += $montoMes;
+            }
+
+            $promedioDiarioComisiones = $sumaComisiones6m / 6 / 30;
+            $comisionesVacaciones     = round($promedioDiarioComisiones * $diasVacaciones, 2);
+        }
+
+        $vacacionesTotal = round($sueldoVacacional + $comisionesVacaciones, 2);
 
         $importeHEDiurnas   = $horasExtraDiurnas   * $valorHora * (1 + self::RECARGO_HE_DIURNA);
         $importeHENocturnas = $horasExtraNocturnas * $valorHora * (1 + self::RECARGO_HE_NOCTURNA);
@@ -183,6 +221,7 @@ class PlanillaService
                + $comisiones
                + $asignacionFamiliar
                + $bonoEncargatura
+               + $vacacionesTotal
                + $bonoEspecial
                - $descuentoTardanzas;
 
@@ -305,6 +344,8 @@ class PlanillaService
                 'asignacion_familiar'           => $asignacionFamiliar,
                 'bono_movilidad'                => $bonoMovilidad,
                 'bono_encargatura'               => $bonoEncargatura,
+                'dias_vacaciones'                => $diasVacaciones,
+                'vacaciones'                     => $vacacionesTotal,
                 'bonos_especiales'              => round($bonoEspecial, 2),
                 'otros_descuentos'              => round($otroDescuento, 2),
                 'adelanto'                       => round($adelanto, 2),

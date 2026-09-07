@@ -407,13 +407,6 @@ Tables\Actions\Action::make('exportar_plame')
         ->url(fn ($record) => \Illuminate\Support\Facades\Storage::disk('public')->url($record->boleta_firmada_path))
         ->openUrlInNewTab(),
 
-                Tables\Columns\IconColumn::make('tiene_boleta_firmada')
-                    ->label('Firmada')
-                    ->boolean()
-                    ->trueIcon('heroicon-o-shield-check')
-                    ->falseIcon('heroicon-o-shield-exclamation')
-                    ->trueColor('success')
-                    ->falseColor('gray'),
             
 
                 Tables\Actions\EditAction::make()

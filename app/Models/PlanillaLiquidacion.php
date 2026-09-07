@@ -15,6 +15,7 @@ class PlanillaLiquidacion extends Model
         'sistema_pensiones', 'aplica_5ta_categoria',
         'dias_laborables', 'dias_trabajados', 'dias_falta',
         'dias_justificados', 'total_minutos_tarde',
+	'dias_vacaciones', 'vacaciones',
         'horas_extra_diurnas', 'horas_extra_nocturnas',
         'sueldo_proporcional',
         'importe_horas_extra_diurnas', 'importe_horas_extra_nocturnas',

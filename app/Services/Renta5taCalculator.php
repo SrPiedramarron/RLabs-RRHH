@@ -81,11 +81,12 @@ class Renta5taCalculator
         $ssPromCom = $ultimoSueldo + $promComisiones3Ult;
 
         // ── Gratificaciones pendientes este año (julio y/o diciembre) ───────
-        $gratificacionesPendientes = match (true) {
-            $month < 7   => 2, // faltan julio y diciembre
-            $month < 12  => 1, // solo falta diciembre
-            default      => 0, // diciembre: ya no hay ninguna pendiente
-        };
+        // CORREGIDO (verificado contra archivo real de agosto): se mantienen
+        // 2 gratificaciones en la proyección durante casi todo el año, NO
+        // se reduce a 1 después de julio como se asumió originalmente.
+        // Diciembre sin confirmar todavía — se deja en 0 por precaución
+        // hasta tener evidencia real de ese mes.
+        $gratificacionesPendientes = ($month === 12) ? 0 : 2;
 
         // ── Total ya percibido este año, ANTES del mes actual (SIN utilidades) ──
         $totalPercibido = (float) IngresoHistorico5ta::where('employee_id', $empleado->id)
@@ -166,11 +167,10 @@ class Renta5taCalculator
         $periodoActual  = sprintf('%04d-%02d', $year, $month);
         $mesesRestantes = 13 - $month;
 
-        $gratificacionesPendientes = match (true) {
-            $month < 7   => 2,
-            $month < 12  => 1,
-            default      => 0,
-        };
+        // CORREGIDO (verificado contra archivo real de agosto): se
+        // mantienen 2 gratificaciones en la proyección durante casi todo
+        // el año. Diciembre sin confirmar, se deja en 0 por precaución.
+        $gratificacionesPendientes = ($month === 12) ? 0 : 2;
 
         $gratificacionUnitaria = $sueldoMesActual * 1.09;
 

@@ -47,6 +47,9 @@ class BoletaPagoService
             // ── Ingresos (código PLAME => [concepto, monto]) ───────────────────
             'ingresos' => array_filter([
                 '0121' => ['REMUNERACIÓN O JORNAL BÁSICO', $l->sueldo_proporcional],
+                '0118' => $l->vacaciones > 0
+                    ? ['REMUNERACIÓN VACACIONAL', $l->vacaciones]
+                    : null,
                 '0105' => $l->horas_extra_diurnas > 0
                     ? ['TRABAJO EN SOBRETIEMPO (HORAS EXTRAS) 25%', $l->importe_horas_extra_diurnas]
                     : null,
@@ -120,19 +123,26 @@ class BoletaPagoService
 
     private function aportesTrabajador(PlanillaLiquidacion $l): array
     {
+        $aportes = [];
+
         if (str_starts_with($l->sistema_pensiones, 'afp_')) {
-            return array_filter([
+            $aportes = array_filter([
                 '0601' => $l->afp_comision_flujo > 0 ? ['COMISIÓN AFP PORCENTUAL', $l->afp_comision_flujo] : null,
                 '0606' => $l->afp_prima_seguro > 0   ? ['PRIMA DE SEGURO AFP', $l->afp_prima_seguro] : null,
                 '0608' => $l->afp_aporte_obligatorio > 0 ? ['SPP - APORTACIÓN OBLIGATORIA', $l->afp_aporte_obligatorio] : null,
             ]);
+        } else {
+            $aportes = array_filter([
+                '0607' => $l->descuento_pension > 0 ? ['SISTEMA NACIONAL DE PENSIONES - DL 19990', $l->descuento_pension] : null,
+            ]);
         }
 
-        // ONP: todo va en un solo concepto (código 0607, no está en la plantilla
-        // por defecto pero se puede agregar si el cliente lo pide).
-        return array_filter([
-            '0607' => $l->descuento_pension > 0 ? ['SISTEMA NACIONAL DE PENSIONES - DL 19990', $l->descuento_pension] : null,
-        ]);
+        // Renta 5ta (0605) — aplica a AMBOS regímenes, faltaba antes.
+        if ($l->descuento_5ta_categoria > 0) {
+            $aportes['0605'] = ['RENTA QUINTA CATEGORÍA - RETENCIONES', $l->descuento_5ta_categoria];
+        }
+
+        return $aportes;
     }
 
     private function periodoFormato(string $periodo): string
