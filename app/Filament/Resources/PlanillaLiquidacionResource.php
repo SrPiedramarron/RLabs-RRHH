@@ -37,7 +37,7 @@ class PlanillaLiquidacionResource extends Resource
                         ->numeric()
                         ->prefix('S/')
                         ->default(0)
-                        ->helperText('Ingreso extraordinario para este empleado en el periodo.'),
+                        ->helperText('Ingreso extraordinario para este trabajador en el periodo.'),
                 ]),
         ]);
     }
@@ -47,7 +47,7 @@ class PlanillaLiquidacionResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('nombre_completo')
-                    ->label('Empleado')
+                    ->label('Trabajador')
                     ->getStateUsing(fn ($record) => $record->apellidos . ', ' . $record->nombres)
                     ->searchable(query: fn ($query, $search) => $query->where('apellidos', 'like', "%$search%")->orWhere('nombres', 'like', "%$search%"))
                     ->sortable(['apellidos']),
@@ -141,7 +141,7 @@ class PlanillaLiquidacionResource extends Resource
                             ->label('Bonos especiales (opcional)')
                             ->schema([
                                 Forms\Components\Select::make('employee_id')
-                                    ->label('Empleado')
+                                    ->label('Trabajador')
                                     ->relationship('employee', 'apellidos')
                                     ->searchable()
                                     ->required(),
@@ -160,7 +160,7 @@ class PlanillaLiquidacionResource extends Resource
                             ->label('Descuentos varios')
                             ->schema([
                                 Forms\Components\Select::make('employee_id')
-                                    ->label('Empleado')
+                                    ->label('Trabajador')
                                     ->relationship('employee', 'apellidos')
                                     ->searchable()
                                     ->required(),
@@ -187,7 +187,7 @@ class PlanillaLiquidacionResource extends Resource
                             ->label('Subsidios EsSalud')
                             ->schema([
                                 Forms\Components\Select::make('employee_id')
-                                    ->label('Empleado')
+                                    ->label('Trabajador')
                                     ->relationship('employee', 'apellidos')
                                     ->searchable()
                                     ->required(),
@@ -255,7 +255,7 @@ class PlanillaLiquidacionResource extends Resource
 
                             Notification::make()
                                 ->title('Planilla calculada')
-                                ->body("{$liquidaciones->count()} empleados procesados.")
+                                ->body("{$liquidaciones->count()} trabajadores procesados.")
                                 ->success()
                                 ->send();
 

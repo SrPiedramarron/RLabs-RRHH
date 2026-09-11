@@ -21,6 +21,7 @@ class Employee extends Model
         'cargo',
         'fecha_ingreso',
         'fecha_cese',
+	'fecha_ultima_vacacion', 'dias_tomados',
         'exonerado_registro',
         'motivo_exoneracion',
         'reloj_uid',
@@ -41,10 +42,11 @@ class Employee extends Model
     ];
 
     protected $casts = [
-        'fecha_ingreso'      => 'date',
-        'fecha_cese'         => 'date',
-        'exonerado_registro' => 'boolean',
-        'active'             => 'boolean',
+        'fecha_ingreso'         => 'date',
+        'fecha_cese'            => 'date',
+        'fecha_ultima_vacacion' => 'date',
+        'exonerado_registro'    => 'boolean',
+        'active'                => 'boolean',
     ];
 
     // ── Relaciones existentes ─────────────────────────────────────────────────

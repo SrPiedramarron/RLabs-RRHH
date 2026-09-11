@@ -20,8 +20,8 @@ use Illuminate\Support\Facades\DB;
 /**
  * TRES VISTAS EN UN SOLO RESOURCE:
  *   /statistics            → Ranking de tardanzas
- *   /statistics/by-employee → Detalle días tarde vs temprano por empleado
- *   /statistics/no-checkout → Empleados sin marcación de salida
+ *   /statistics/by-employee → Detalle días tarde vs temprano por trabajador
+ *   /statistics/no-checkout → Trabajadores sin marcación de salida
  */
 class StatisticsResource extends Resource
 {
@@ -45,7 +45,7 @@ class StatisticsResource extends Resource
 
         return $table
             ->query(
-                // Agrupa por empleado y calcula métricas de tardanza
+                // Agrupa por trabajador y calcula métricas de tardanza
                 AttendanceRecord::query()
                     ->select([
                         'employee_id',
@@ -64,10 +64,10 @@ class StatisticsResource extends Resource
                     ->orderByDesc('total_minutos_tarde')
             )
             ->heading('Ranking de Tardanzas')
-            ->description('Empleados ordenados por mayor acumulado de minutos tarde')
+            ->description('Trabajadores ordenados por mayor acumulado de minutos tarde')
             ->columns([
                 Tables\Columns\TextColumn::make('employee.nombre_completo')
-                    ->label('Empleado')
+                    ->label('Trabajador')
                     ->searchable(['employees.nombres', 'employees.apellidos']),
 
                 Tables\Columns\TextColumn::make('employee.location.nombre')

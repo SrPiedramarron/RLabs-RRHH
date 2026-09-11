@@ -27,7 +27,7 @@ class ControlVacacionesResource extends Resource
 
     public static function canCreate(): bool
     {
-        return false; // solo lectura, el saldo se carga por import
+        return false;
     }
 
     public static function table(Table $table): Table
@@ -38,53 +38,47 @@ class ControlVacacionesResource extends Resource
                     ->when(\App\Helpers\CompanyContext::get(), fn ($q) => $q->where('company_id', \App\Helpers\CompanyContext::get()))
             )
             ->columns([
+                // 1. Trabajador
                 Tables\Columns\TextColumn::make('nombre_completo')
-                    ->label('Empleado')
+                    ->label('Trabajador')
                     ->getStateUsing(fn ($record) => $record->apellidos . ', ' . $record->nombres)
-                    ->searchable(query: fn ($query, $search) => $query->where('apellidos', 'like', "%$search%")->orWhere('nombres', 'like', "%$search%")),
+                    ->searchable(['apellidos', 'nombres'])
+                    ->sortable(['apellidos']),
 
-                Tables\Columns\TextColumn::make('saldo_vacaciones_inicial')
-                    ->label('Saldo inicial')
-                    ->numeric(1)
-                    ->suffix(' días')
-                    ->toggleable(isToggledHiddenByDefault: true),
-
-                Tables\Columns\TextColumn::make('fecha_saldo_vacaciones')
-                    ->label('Corte')
+                // 2. Fecha de la Última vacación
+                Tables\Columns\TextColumn::make('fecha_ultima_vacacion')
+                    ->label('Fecha de la Última vacación')
                     ->date('d/m/Y')
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->placeholder('Nunca (desde ingreso)')
+                    ->sortable(),
 
-                Tables\Columns\TextColumn::make('dias_generados')
-                    ->label('Generados desde corte')
-                    ->getStateUsing(function ($record) {
-                        $r = app(VacacionesService::class)->calcularSaldo($record);
-                        return $r['dias_generados'] ?? '—';
-                    })
-                    ->suffix(' días'),
-
+                // 3. Días tomados
                 Tables\Columns\TextColumn::make('dias_tomados')
-                    ->label('Tomados desde corte')
-                    ->getStateUsing(function ($record) {
-                        $r = app(VacacionesService::class)->calcularSaldo($record);
-                        return $r['dias_tomados'] ?? '—';
-                    })
-                    ->suffix(' días')
-                    ->color('warning'),
+                    ->label('Días tomados')
+                    ->getStateUsing(fn ($record) => (int) round($record->dias_tomados ?? 0))
+                    ->alignCenter()
+                    ->sortable(),
 
-                Tables\Columns\TextColumn::make('saldo_actual')
-                    ->label('Saldo actual')
+                // 4. Saldo de días por tomar
+                Tables\Columns\TextColumn::make('saldo_dias')
+                    ->label('Saldo de días por tomar')
                     ->getStateUsing(function ($record) {
-                        $r = app(VacacionesService::class)->calcularSaldo($record);
-                        return $r['saldo_actual'] ?? 'Sin cargar';
+                        $saldo = app(VacacionesService::class)->calcularSaldo($record);
+
+                        return $saldo['saldo_actual'] ?? '—';
                     })
-                    ->suffix(fn ($state) => $state !== 'Sin cargar' ? ' días' : '')
-                    ->weight('bold')
-                    ->color(fn ($state) => match (true) {
-                        $state === 'Sin cargar' => 'gray',
-                        (float) $state <= 0     => 'danger',
-                        (float) $state < 15      => 'warning',
-                        default                   => 'success',
-                    }),
+                    ->badge()
+                    ->color(function ($state) {
+                        if (! is_numeric($state)) return 'gray';
+                        return match (true) {
+                            $state < 0  => 'danger',
+                            $state == 0 => 'gray',
+                            $state < 15 => 'warning',
+                            default     => 'success',
+                        };
+                    })
+                    ->alignCenter()
+                    ->weight('bold'),
             ])
             ->actions([
                 Tables\Actions\Action::make('registrar_vacaciones')
@@ -93,21 +87,21 @@ class ControlVacacionesResource extends Resource
                     ->color('primary')
                     ->form([
                         Forms\Components\DatePicker::make('fecha_inicio')
-                            ->label('Desde')
+                            ->label('Fecha de inicio')
                             ->required()
                             ->displayFormat('d/m/Y'),
+
                         Forms\Components\DatePicker::make('fecha_fin')
-                            ->label('Hasta')
+                            ->label('Fecha de fin')
                             ->required()
                             ->displayFormat('d/m/Y')
                             ->afterOrEqual('fecha_inicio'),
                     ])
-                    ->modalDescription('Se cuentan TODOS los días calendario del rango (incluye sábados y domingos), tal como corresponde legalmente.')
                     ->action(function (Employee $record, array $data) {
                         $inicio = \Carbon\Carbon::parse($data['fecha_inicio']);
                         $fin    = \Carbon\Carbon::parse($data['fecha_fin']);
 
-                        $dias = 0;
+                        // Marca cada día del rango como 'vacaciones' en asistencia.
                         $fecha = $inicio->copy();
                         while ($fecha->lte($fin)) {
                             AttendanceRecord::updateOrCreate(
@@ -128,19 +122,21 @@ class ControlVacacionesResource extends Resource
                                     'observacion'           => 'Vacaciones registradas desde Control de Vacaciones ' . now()->format('d/m/Y H:i'),
                                 ]
                             );
-                            $dias++;
                             $fecha->addDay();
                         }
 
-                        // Informa el saldo resultante, sin bloquear aunque quede negativo.
+                        // Actualiza fecha_ultima_vacacion (fecha de vuelta) y el contador histórico,
+                        // y con eso el saldo vuelve a arrancar en 0 desde la fecha de vuelta.
+                        $dias = app(VacacionesService::class)->registrarVacacion($record, $inicio, $fin);
+
                         $saldo = app(VacacionesService::class)->calcularSaldo($record->fresh());
 
                         Notification::make()
                             ->title("Vacaciones registradas: {$dias} días")
                             ->body(isset($saldo['saldo_actual'])
-                                ? "Saldo resultante: {$saldo['saldo_actual']} días" . ($saldo['saldo_actual'] < 0 ? ' — ⚠️ QUEDÓ NEGATIVO' : '')
+                                ? "Nuevo saldo: {$saldo['saldo_actual']} días, contando desde " . \Carbon\Carbon::parse($saldo['fecha_corte'])->format('d/m/Y')
                                 : ($saldo['error'] ?? ''))
-                            ->color(($saldo['saldo_actual'] ?? 0) < 0 ? 'warning' : 'success')
+                            ->color('success')
                             ->send();
                     }),
             ])

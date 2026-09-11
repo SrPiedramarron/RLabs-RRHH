@@ -29,7 +29,7 @@ class AttendanceRecordResource extends Resource
             Forms\Components\Section::make('Datos del Registro')
                 ->schema([
                     Forms\Components\Select::make('employee_id')
-                        ->label('Empleado')
+                        ->label('Trabajador')
                         ->relationship('employee', 'apellidos')
                         ->getOptionLabelFromRecordUsing(fn($record) => $record->nombre_completo)
                         ->required()
@@ -131,7 +131,7 @@ class AttendanceRecordResource extends Resource
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('employee.nombre_completo')
-                    ->label('Empleado')
+                    ->label('Trabajador')
                     ->getStateUsing(fn($record) => $record->employee->nombre_completo)
                     ->searchable(query: function (Builder $query, string $search) {
                         $query->whereHas('employee', fn($q) =>

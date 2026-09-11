@@ -25,9 +25,9 @@ class EmployeeResource extends Resource
     use HasCompanyScope;
     protected static ?string $model         = Employee::class;
     protected static ?string $navigationIcon  = 'heroicon-o-users';
-    protected static ?string $navigationLabel = 'Empleados';
-    protected static ?string $modelLabel      = 'Empleado';
-    protected static ?string $pluralModelLabel = 'Empleados';
+    protected static ?string $navigationLabel = 'Trabajadores';
+    protected static ?string $modelLabel      = 'Trabajador';
+    protected static ?string $pluralModelLabel = 'Trabajadores';
     protected static ?int    $navigationSort  = 5;
 
     public static function form(Form $form): Form
@@ -107,13 +107,13 @@ class EmployeeResource extends Resource
                         ->preload()
                         ->helperText('Ej: horario de sábados u otros turnos especiales'),
 
-Forms\Components\Select::make('sedes_adicionales')
+                    Forms\Components\Select::make('sedes_adicionales')
                         ->label('Sedes Adicionales')
                         ->multiple()
                         ->searchable()
                         ->preload()
                         ->options(fn () => \App\Models\Location::pluck('nombre', 'id'))
-                        ->helperText('Sedes donde este empleado también puede marcar asistencia, además de su sede principal.')
+                        ->helperText('Sedes donde este trabajador también puede marcar asistencia, además de su sede principal.')
                         
                         ->afterStateHydrated(function (Forms\Components\Select $component, $record) {
                             if ($record) {
@@ -143,7 +143,19 @@ Forms\Components\Select::make('sedes_adicionales')
                         ->label('Fecha de Cese')
                         ->displayFormat('d/m/Y')
                         ->nullable(),
+                    Forms\Components\Section::make('Vacaciones')
+                        ->schema([
+                            Forms\Components\DatePicker::make('fecha_ultima_vacacion')
+                                ->label('Fecha de la última vacación')
+                                ->displayFormat('d/m/Y')
+                                ->helperText('Fecha de vuelta de la última vacación tomada. El saldo se calcula desde aquí (2.5 días/mes). Si está vacío, se calcula desde la Fecha de Ingreso.'),
 
+                            Forms\Components\TextInput::make('dias_tomados')
+                                ->label('Días tomados')
+                                ->numeric()
+                                ->default(0)
+                                ->helperText('Contador histórico acumulado. Se actualiza solo al usar "Registrar vacaciones" en Control de Vacaciones; también editable a mano si hace falta un ajuste.'),
+                        ])->columns(2),
                     Forms\Components\Toggle::make('active')
                         ->label('Activo')
                         ->default(true),
@@ -254,13 +266,13 @@ Forms\Components\Section::make('Configuraci�n de Planilla')
 
             // ── ACCESO REMOTO (PWA) ───────────────────────────────────────────
             Forms\Components\Section::make('Acceso Remoto (App Móvil)')
-                ->description('Credenciales para que el empleado pueda marcar entrada/salida desde su celular.')
+                ->description('Credenciales para que el trabajador pueda marcar entrada/salida desde su celular.')
                 ->icon('heroicon-o-device-phone-mobile')
                 ->schema([
                     Forms\Components\Placeholder::make('estado_acceso')
                         ->label('Estado')
                         ->content(function (?Employee $record): string {
-                            if (! $record) return 'El empleado aún no ha sido creado.';
+                            if (! $record) return 'El trabajador aún no ha sido creado.';
                             if (! $record->credential) return '⚪ Sin acceso remoto configurado.';
                             return $record->credential->active
                                 ? '🟢 Acceso activo'
@@ -279,7 +291,7 @@ Forms\Components\Section::make('Configuraci�n de Planilla')
 
 		   Forms\Components\Toggle::make('credential.resetear_dni')
                         ->label('Resetear contraseña al DNI')
-                        ->helperText('Marca para restablecer la contraseña al DNI del empleado.')
+                        ->helperText('Marca para restablecer la contraseña al DNI del trabajador.')
                         ->default(false)
                         //->dehydrated(false)
                         ->visibleOn('edit'),
@@ -440,7 +452,7 @@ Tables\Columns\TextColumn::make('sistema_pensiones')
                     ->color('warning')
                     ->requiresConfirmation()
                     ->modalHeading('Cambiar Horario en masa')
-                    ->modalDescription('Se actualizará el horario de todos los empleados seleccionados.')
+                    ->modalDescription('Se actualizará el horario de todos los trabajadores seleccionados.')
                     ->modalSubmitActionLabel('Sí, actualizar horarios')
                     ->form(function (Collection $records) {
                         $companyIds = $records->pluck('company_id')->unique()->filter();
@@ -459,7 +471,7 @@ Tables\Columns\TextColumn::make('sistema_pensiones')
                                 )
                                 ->required()
                                 ->searchable()
-                                ->helperText('Solo se muestran horarios de la(s) empresa(s) de los empleados seleccionados.'),
+                                ->helperText('Solo se muestran horarios de la(s) empresa(s) de los trabajadores seleccionados.'),
                         ];
                     })
                     ->action(function (Collection $records, array $data): void {
@@ -476,7 +488,7 @@ Tables\Columns\TextColumn::make('sistema_pensiones')
                     ->color('success')
                     ->requiresConfirmation()
                     ->modalHeading('Activar acceso remoto en masa')
-                    ->modalDescription('Se creará o activará el acceso a la app móvil para los empleados seleccionados. Se generará una contraseña temporal igual al DNI de cada empleado.')
+                    ->modalDescription('Se creará o activará el acceso a la app móvil para los trabajadores seleccionados. Se generará una contraseña temporal igual al DNI de cada trabajador.')
                     ->modalSubmitActionLabel('Sí, activar')
                     ->action(function (Collection $records): void {
                         foreach ($records as $employee) {
@@ -490,7 +502,7 @@ Tables\Columns\TextColumn::make('sistema_pensiones')
                         }
                     })
                     ->deselectRecordsAfterCompletion()
-                    ->successNotificationTitle('✅ Acceso remoto activado. Contraseña temporal: DNI del empleado.'),
+                    ->successNotificationTitle('✅ Acceso remoto activado. Contraseña temporal: DNI del trabajador.'),
             ])
             ->defaultSort('apellidos');
     }

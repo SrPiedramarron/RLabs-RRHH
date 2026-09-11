@@ -2,57 +2,80 @@
 
 namespace App\Services;
 
-use App\Models\AttendanceRecord;
 use App\Models\Employee;
 use Carbon\Carbon;
 
 class VacacionesService
 {
-    const DIAS_POR_MES = 2.5; // 30 días/año ÷ 12 meses (estándar peruano)
+    /** Días que se acumulan por cada mes completo trabajado. */
+    private const DIAS_POR_MES = 2.5;
 
     /**
-     * Calcula el saldo actual de vacaciones de un empleado:
-     * saldo_inicial (del Excel, a la fecha de corte) + días generados
-     * desde esa fecha (2.5/mes trabajado) - días tomados desde esa fecha
-     * (según asistencia, estado='vacaciones').
+     * Calcula el saldo de vacaciones por tomar de un trabajador.
+     *
+     * Regla acordada con RRHH (reemplaza la lógica anterior basada en
+     * snapshot de saldo inicial cargado por Excel):
+     *
+     *   - Si el trabajador YA registró una vacación en el sistema
+     *     (fecha_ultima_vacacion no es null), el conteo arranca en 0
+     *     desde esa fecha — es decir, desde que "volvió" de su última
+     *     vacación tomada.
+     *   - Si NUNCA ha tomado vacaciones en el sistema, el conteo arranca
+     *     en 0 desde su fecha_ingreso.
+     *
+     * En ambos casos se generan 2.5 días por cada mes completo transcurrido,
+     * y el resultado se redondea a día entero (RRHH pidió explícitamente
+     * eliminar los decimales de esta pantalla).
      */
-    public function calcularSaldo(Employee $empleado, ?Carbon $hasta = null): array
+    public function calcularSaldo(Employee $trabajador, ?Carbon $hasta = null): array
     {
         $hasta = $hasta ?? now();
 
-        if ($empleado->fecha_saldo_vacaciones) {
-            // Tiene saldo inicial cargado (del Excel de RRHH) — se usa tal cual.
-            $fechaCorte           = Carbon::parse($empleado->fecha_saldo_vacaciones);
-            $saldoInicialEfectivo = floatval($empleado->saldo_vacaciones_inicial);
-        } elseif ($empleado->fecha_ingreso) {
-            // Empleado nuevo (o cualquiera sin snapshot inicial) — arranca
-            // en 0 desde su propia fecha de ingreso. Así no depende de que
-            // alguien recargue el Excel para que empiece a generar días.
-            $fechaCorte           = Carbon::parse($empleado->fecha_ingreso);
-            $saldoInicialEfectivo = 0.0;
+        if ($trabajador->fecha_ultima_vacacion) {
+            $fechaCorte = Carbon::parse($trabajador->fecha_ultima_vacacion);
+            $origen     = 'ultima_vacacion';
+        } elseif ($trabajador->fecha_ingreso) {
+            $fechaCorte = Carbon::parse($trabajador->fecha_ingreso);
+            $origen     = 'fecha_ingreso';
         } else {
             return [
-                'error' => 'No tiene fecha de ingreso ni saldo inicial cargado — no se puede calcular.',
+                'error' => 'El trabajador no tiene fecha de ingreso ni fecha de última vacación registrada — no se puede calcular el saldo.',
             ];
         }
 
-        $mesesTranscurridos = $fechaCorte->diffInMonths($hasta);
-        $diasGenerados      = round($mesesTranscurridos * self::DIAS_POR_MES, 2);
+        if ($fechaCorte->greaterThan($hasta)) {
+            // Fecha de corte en el futuro (dato mal cargado) — no genera días negativos.
+            $mesesTranscurridos = 0;
+        } else {
+            $mesesTranscurridos = $fechaCorte->diffInMonths($hasta);
+        }
 
-        $diasTomados = AttendanceRecord::where('employee_id', $empleado->id)
-            ->where('estado', 'vacaciones')
-            ->whereBetween('fecha', [$fechaCorte->toDateString(), $hasta->toDateString()])
-            ->count();
-
-        $saldoActual = round($saldoInicialEfectivo + $diasGenerados - $diasTomados, 2);
+        $diasGenerados = (int) round($mesesTranscurridos * self::DIAS_POR_MES);
 
         return [
-            'saldo_inicial'         => round($saldoInicialEfectivo, 2),
-            'fecha_corte'           => $fechaCorte->format('d/m/Y'),
-            'meses_transcurridos'   => $mesesTranscurridos,
-            'dias_generados'        => $diasGenerados,
-            'dias_tomados'          => $diasTomados,
-            'saldo_actual'          => $saldoActual,
+            'origen'              => $origen,          // 'ultima_vacacion' | 'fecha_ingreso'
+            'fecha_corte'         => $fechaCorte->toDateString(),
+            'meses_transcurridos' => $mesesTranscurridos,
+            'dias_generados'      => $diasGenerados,
+            'saldo_actual'        => $diasGenerados,    // arranca en 0 desde fecha_corte, sin snapshot previo
         ];
+    }
+
+    /**
+     * Registra una vacación tomada: actualiza fecha_ultima_vacacion (fecha de
+     * vuelta = último día del rango + 1, ya que ese es el nuevo punto de
+     * corte desde el que vuelve a generar días) y suma al contador histórico
+     * de días tomados.
+     */
+    public function registrarVacacion(Employee $trabajador, Carbon $inicio, Carbon $fin): int
+    {
+        $dias = $inicio->diffInDays($fin) + 1;
+
+        $trabajador->update([
+            'fecha_ultima_vacacion' => $fin->copy()->addDay()->toDateString(),
+            'dias_tomados'          => ($trabajador->dias_tomados ?? 0) + $dias,
+        ]);
+
+        return $dias;
     }
 }

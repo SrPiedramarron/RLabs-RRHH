@@ -198,7 +198,7 @@ class ComisionUploadResource extends Resource
             if ($record->vendedores_sin_match) {
                 Notification::make()
                     ->title('Reprocesado con advertencias')
-                    ->body('No se encontró empleado para: ' . implode(', ', $record->vendedores_sin_match) . '. Sus comisiones no se sumarán a planilla hasta que el nombre coincida exactamente con el del empleado.')
+                    ->body('No se encontró trabajador para: ' . implode(', ', $record->vendedores_sin_match) . '. Sus comisiones no se sumarán a planilla hasta que el nombre coincida exactamente con el del trabajador.')
                     ->warning()
                     ->persistent()
                     ->send();

@@ -44,11 +44,11 @@ class ReportResource extends Resource
                     ->icon('heroicon-o-plus-circle')
                     ->modalHeading('Registrar Asistencia Manual')
                     ->form([
-                        Forms\Components\Section::make('Empleado y Fecha')
+                        Forms\Components\Section::make('Trabajador y Fecha')
                             ->columns(2)
                             ->schema([
                                 Forms\Components\Select::make('employee_id')
-                                    ->label('Empleado')
+                                    ->label('Trabajador')
                                     ->options(fn() =>
                                         \App\Models\Employee::where('active', true)
                                             ->when(CompanyContext::get(), fn($q) => $q->where('company_id', CompanyContext::get()))
@@ -128,8 +128,8 @@ class ReportResource extends Resource
                                 Forms\Components\Radio::make('tipo')
                                     ->label('')
                                     ->options([
-                                        'general'    => 'Reporte General (todos los empleados)',
-                                        'individual' => 'Reporte Individual (por empleado)',
+                                        'general'    => 'Reporte General (todos los trabajadores)',
+                                        'individual' => 'Reporte Individual (por trabajador)',
                                     ])
                                     ->default('general')
                                     ->live()
@@ -164,7 +164,7 @@ class ReportResource extends Resource
                                     ->reactive(),
 
                                 Forms\Components\Select::make('employee_id')
-                                    ->label('Empleado')
+                                    ->label('Trabajador')
                                     ->options(fn() =>
                                         Employee::where('active', true)
                                             ->when(CompanyContext::get(), fn($q) => $q->where('company_id', CompanyContext::get()))
@@ -174,7 +174,7 @@ class ReportResource extends Resource
                                     ->searchable()
                                     ->required(fn(Forms\Get $get) => $get('tipo') === 'individual')
                                     ->visible(fn(Forms\Get $get) => $get('tipo') === 'individual')
-                                    ->placeholder('Selecciona un empleado')
+                                    ->placeholder('Selecciona un trabajador')
                                     ->columnSpanFull(),
 
                                 Forms\Components\Select::make('department_id')
@@ -251,7 +251,7 @@ class ReportResource extends Resource
             ])
             ->columns([
                 Tables\Columns\TextColumn::make('employee.nombre_completo')
-                    ->label('Empleado')
+                    ->label('Trabajador')
                     ->searchable(['employees.apellidos', 'employees.nombres']),
                 Tables\Columns\TextColumn::make('employee.location.nombre')
                     ->label('Sede')
