@@ -15,7 +15,8 @@ class CambiarEmpresa extends Page
     protected static ?string $navigationIcon  = 'heroicon-o-building-office-2';
     protected static ?string $navigationLabel = 'Cambiar Empresa';
     protected static ?string $title           = 'Cambiar Empresa';
-    protected static ?int    $navigationSort  = 99;
+    protected static ?string $navigationGroup = 'Configuración';
+    protected static ?int    $navigationSort  = 50;
     protected static string  $view            = 'filament.pages.cambiar-empresa';
 
     public ?int $company_id = null;

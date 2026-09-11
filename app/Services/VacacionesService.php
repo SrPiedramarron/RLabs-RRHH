@@ -64,16 +64,24 @@ class VacacionesService
     /**
      * Registra una vacación tomada: actualiza fecha_ultima_vacacion (fecha de
      * vuelta = último día del rango + 1, ya que ese es el nuevo punto de
-     * corte desde el que vuelve a generar días) y suma al contador histórico
-     * de días tomados.
+     * corte desde el que vuelve a generar días), suma al contador histórico
+     * de días tomados, y deja constancia en el historial de vacaciones.
      */
-    public function registrarVacacion(Employee $trabajador, Carbon $inicio, Carbon $fin): int
+    public function registrarVacacion(Employee $trabajador, Carbon $inicio, Carbon $fin, ?string $observacion = null): int
     {
         $dias = $inicio->diffInDays($fin) + 1;
 
         $trabajador->update([
             'fecha_ultima_vacacion' => $fin->copy()->addDay()->toDateString(),
             'dias_tomados'          => ($trabajador->dias_tomados ?? 0) + $dias,
+        ]);
+
+        $trabajador->vacaciones()->create([
+            'fecha_inicio'   => $inicio->toDateString(),
+            'fecha_fin'      => $fin->toDateString(),
+            'dias'           => $dias,
+            'observacion'    => $observacion,
+            'registrado_por' => auth()->id(),
         ]);
 
         return $dias;

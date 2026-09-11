@@ -20,7 +20,8 @@ class LocationResource extends Resource
     protected static ?string $navigationLabel = 'Sedes';
     protected static ?string $modelLabel = 'Sede';
     protected static ?string $pluralModelLabel = 'Sedes';
-    protected static ?int $navigationSort = 2;
+    protected static ?string $navigationGroup = 'Configuración';
+    protected static ?int $navigationSort = 20;
 
     public static function form(Form $form): Form
     {

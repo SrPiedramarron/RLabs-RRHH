@@ -20,7 +20,8 @@ class DepartmentResource extends Resource
     protected static ?string $navigationLabel = 'Áreas';
     protected static ?string $modelLabel = 'Área';
     protected static ?string $pluralModelLabel = 'Áreas';
-    protected static ?int $navigationSort = 3;
+    protected static ?string $navigationGroup = 'Configuración';
+    protected static ?int $navigationSort = 30;
 
     public static function form(Form $form): Form
     {
@@ -58,7 +59,7 @@ class DepartmentResource extends Resource
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('employees_count')
-                    ->label('Empleados')
+                    ->label('Trabajadores')
                     ->counts('employees')
                     ->sortable(),
 

@@ -21,7 +21,7 @@ class AttendanceRecordResource extends Resource
     protected static ?string $navigationLabel = 'Asistencia';
     protected static ?string $modelLabel = 'Registro de Asistencia';
     protected static ?string $pluralModelLabel = 'Registros de Asistencia';
-    protected static ?int $navigationSort = 6;
+    protected static ?int $navigationSort = 2;
 
     public static function form(Form $form): Form
     {

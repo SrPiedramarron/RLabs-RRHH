@@ -136,4 +136,14 @@ public function devices()
 {
     return $this->hasMany(EmployeeDevice::class);
 }
+
+    public function vacaciones(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(VacacionHistorial::class)->orderByDesc('fecha_inicio');
+    }
+
+    public function documentos(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(EmployeeDocumento::class)->latest();
+    }
 }

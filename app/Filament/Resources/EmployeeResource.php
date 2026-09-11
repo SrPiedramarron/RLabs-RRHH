@@ -28,122 +28,133 @@ class EmployeeResource extends Resource
     protected static ?string $navigationLabel = 'Trabajadores';
     protected static ?string $modelLabel      = 'Trabajador';
     protected static ?string $pluralModelLabel = 'Trabajadores';
-    protected static ?int    $navigationSort  = 5;
+    protected static ?int    $navigationSort  = 1;
 
     public static function form(Form $form): Form
     {
         return $form->schema([
+            Forms\Components\Tabs::make('Trabajador')
+                ->columnSpanFull()
+                ->tabs([
 
-            // ── DATOS PERSONALES ──────────────────────────────────────────────
-            Forms\Components\Section::make('Datos Personales')
-                ->schema([
-                    Forms\Components\Select::make('company_id')
-                        ->label('Empresa')
-                        ->relationship('company', 'razon_social')
-                        ->required()
-                        ->searchable()
-                        ->live()
-                        ->columnSpan(2),
+                    // ── DATOS PERSONALES ──────────────────────────────────
+                    Forms\Components\Tabs\Tab::make('Datos Personales')
+                        ->icon('heroicon-o-identification')
+                        ->schema([
+                            Forms\Components\Select::make('company_id')
+                                ->label('Empresa')
+                                ->relationship('company', 'razon_social')
+                                ->required()
+                                ->searchable()
+                                ->live()
+                                ->columnSpan(2),
 
-                    Forms\Components\TextInput::make('nombres')
-                        ->label('Nombres')
-                        ->required()
-                        ->maxLength(100),
+                            Forms\Components\TextInput::make('nombres')
+                                ->label('Nombres')
+                                ->required()
+                                ->maxLength(100),
 
-                    Forms\Components\TextInput::make('apellidos')
-                        ->label('Apellidos')
-                        ->required()
-                        ->maxLength(100),
+                            Forms\Components\TextInput::make('apellidos')
+                                ->label('Apellidos')
+                                ->required()
+                                ->maxLength(100),
 
-                    Forms\Components\TextInput::make('dni')
-                        ->label('DNI')
-                        ->required()
-                        ->length(8)
-                        ->numeric(),
+                            Forms\Components\TextInput::make('dni')
+                                ->label('DNI')
+                                ->required()
+                                ->length(8)
+                                ->numeric(),
 
-                    // ── FOTO DE PERFIL ────────────────────────────────────────
-                    Forms\Components\FileUpload::make('foto_perfil')
-                        ->label('Foto de Perfil')
-                        ->helperText('Requerida para validación facial en marcado remoto. Foto frontal con buena iluminación.')
-                        ->image()
-                        ->imageEditor()
-                        ->imageCropAspectRatio('1:1')
-                        ->imageResizeTargetWidth('400')
-                        ->imageResizeTargetHeight('400')
-                        ->directory('empleados/fotos')
-                        ->visibility('private')
-                        ->maxSize(2048)
-                        ->columnSpan(2)
-                        ->avatar(),
-                ])->columns(2),
+                            Forms\Components\FileUpload::make('foto_perfil')
+                                ->label('Foto de Perfil')
+                                ->helperText('Requerida para validación facial en marcado remoto. Foto frontal con buena iluminación.')
+                                ->image()
+                                ->imageEditor()
+                                ->imageCropAspectRatio('1:1')
+                                ->imageResizeTargetWidth('400')
+                                ->imageResizeTargetHeight('400')
+                                ->directory('empleados/fotos')
+                                ->visibility('private')
+                                ->maxSize(2048)
+                                ->columnSpan(2)
+                                ->avatar(),
+                        ])->columns(2),
 
-            // ── DATOS LABORALES ───────────────────────────────────────────────
-            Forms\Components\Section::make('Datos Laborales')
-                ->schema([
-                    Forms\Components\Select::make('location_id')
-                        ->label('Sede')
-                        ->relationship('location', 'nombre')
-                        ->required()
-                        ->searchable(),
+                    // ── DATOS LABORALES ───────────────────────────────────
+                    Forms\Components\Tabs\Tab::make('Datos Laborales')
+                        ->icon('heroicon-o-briefcase')
+                        ->schema([
+                            Forms\Components\Select::make('location_id')
+                                ->label('Sede')
+                                ->relationship('location', 'nombre')
+                                ->required()
+                                ->searchable(),
 
-                    Forms\Components\Select::make('department_id')
-                        ->label('Área')
-                        ->relationship('department', 'nombre')
-                        ->searchable()
-                        ->nullable(),
+                            Forms\Components\Select::make('department_id')
+                                ->label('Área')
+                                ->relationship('department', 'nombre')
+                                ->searchable()
+                                ->nullable(),
 
-                    Forms\Components\Select::make('schedule_id')
-                        ->label('Horario Principal')
-                        ->relationship('schedule', 'nombre')
-                        ->required()
-                        ->searchable()
-                        ->helperText('Horario de lunes a viernes'),
+                            Forms\Components\Select::make('schedule_id')
+                                ->label('Horario Principal')
+                                ->relationship('schedule', 'nombre')
+                                ->required()
+                                ->searchable()
+                                ->helperText('Horario de lunes a viernes'),
 
-                    Forms\Components\Select::make('schedules')
-                        ->label('Horarios Adicionales')
-                        ->relationship('schedules', 'nombre')
-                        ->multiple()
-                        ->searchable()
-                        ->preload()
-                        ->helperText('Ej: horario de sábados u otros turnos especiales'),
+                            Forms\Components\Select::make('schedules')
+                                ->label('Horarios Adicionales')
+                                ->relationship('schedules', 'nombre')
+                                ->multiple()
+                                ->searchable()
+                                ->preload()
+                                ->helperText('Ej: horario de sábados u otros turnos especiales'),
 
-                    Forms\Components\Select::make('sedes_adicionales')
-                        ->label('Sedes Adicionales')
-                        ->multiple()
-                        ->searchable()
-                        ->preload()
-                        ->options(fn () => \App\Models\Location::pluck('nombre', 'id'))
-                        ->helperText('Sedes donde este trabajador también puede marcar asistencia, además de su sede principal.')
-                        
-                        ->afterStateHydrated(function (Forms\Components\Select $component, $record) {
-                            if ($record) {
-                                $component->state(
-                                    $record->devices()
-                                        ->where('location_id', '!=', $record->location_id)
-                                        ->pluck('location_id')
-                                        ->toArray()
-                                );
-                            }
-                        }),
+                            Forms\Components\Select::make('sedes_adicionales')
+                                ->label('Sedes Adicionales')
+                                ->multiple()
+                                ->searchable()
+                                ->preload()
+                                ->options(fn () => \App\Models\Location::pluck('nombre', 'id'))
+                                ->helperText('Sedes donde este trabajador también puede marcar asistencia, además de su sede principal.')
+                                ->afterStateHydrated(function (Forms\Components\Select $component, $record) {
+                                    if ($record) {
+                                        $component->state(
+                                            $record->devices()
+                                                ->where('location_id', '!=', $record->location_id)
+                                                ->pluck('location_id')
+                                                ->toArray()
+                                        );
+                                    }
+                                }),
 
-                    Forms\Components\TextInput::make('codigo_empleado')
-                        ->label('Código')
-                        ->maxLength(20),
+                            Forms\Components\TextInput::make('codigo_empleado')
+                                ->label('Código')
+                                ->maxLength(20),
 
-                    Forms\Components\TextInput::make('cargo')
-                        ->label('Cargo')
-                        ->maxLength(100),
+                            Forms\Components\TextInput::make('cargo')
+                                ->label('Cargo')
+                                ->maxLength(100),
 
-                    Forms\Components\DatePicker::make('fecha_ingreso')
-                        ->label('Fecha de Ingreso')
-                        ->required()
-                        ->displayFormat('d/m/Y'),
+                            Forms\Components\DatePicker::make('fecha_ingreso')
+                                ->label('Fecha de Ingreso')
+                                ->required()
+                                ->displayFormat('d/m/Y'),
 
-                    Forms\Components\DatePicker::make('fecha_cese')
-                        ->label('Fecha de Cese')
-                        ->displayFormat('d/m/Y')
-                        ->nullable(),
-                    Forms\Components\Section::make('Vacaciones')
+                            Forms\Components\DatePicker::make('fecha_cese')
+                                ->label('Fecha de Cese')
+                                ->displayFormat('d/m/Y')
+                                ->nullable(),
+
+                            Forms\Components\Toggle::make('active')
+                                ->label('Activo')
+                                ->default(true),
+                        ])->columns(2),
+
+                    // ── VACACIONES ─────────────────────────────────────────
+                    Forms\Components\Tabs\Tab::make('Vacaciones')
+                        ->icon('heroicon-o-sun')
                         ->schema([
                             Forms\Components\DatePicker::make('fecha_ultima_vacacion')
                                 ->label('Fecha de la última vacación')
@@ -155,158 +166,163 @@ class EmployeeResource extends Resource
                                 ->numeric()
                                 ->default(0)
                                 ->helperText('Contador histórico acumulado. Se actualiza solo al usar "Registrar vacaciones" en Control de Vacaciones; también editable a mano si hace falta un ajuste.'),
+
+                            Forms\Components\Placeholder::make('nota_historial')
+                                ->label('')
+                                ->content('El detalle de cada vacación tomada está en la pestaña "Historial de Vacaciones" (abajo, junto a Documentos), visible solo al editar un trabajador ya guardado.')
+                                ->columnSpan(2),
                         ])->columns(2),
-                    Forms\Components\Toggle::make('active')
-                        ->label('Activo')
-                        ->default(true),
-                ])->columns(2),
 
-            // ── CONFIGURACIÓN SUNAFIL ─────────────────────────────────────────
-            Forms\Components\Section::make('Configuración SUNAFIL')
-                ->schema([
-                    Forms\Components\Toggle::make('exonerado_registro')
-                        ->label('Exonerado de Registro')
-                        ->helperText('Trabajadores de dirección o sin fiscalización inmediata')
-                        ->live(),
+                    // ── PLANILLA Y SUNAFIL ─────────────────────────────────
+                    Forms\Components\Tabs\Tab::make('Planilla y SUNAFIL')
+                        ->icon('heroicon-o-banknotes')
+                        ->schema([
+                            Forms\Components\Toggle::make('exonerado_registro')
+                                ->label('Exonerado de Registro')
+                                ->helperText('Trabajadores de dirección o sin fiscalización inmediata')
+                                ->live(),
 
-                    Forms\Components\TextInput::make('motivo_exoneracion')
-                        ->label('Motivo de Exoneración')
-                        ->maxLength(200)
-                        ->visible(fn(Get $get) => $get('exonerado_registro')),
-                ])->columns(2),
+                            Forms\Components\TextInput::make('motivo_exoneracion')
+                                ->label('Motivo de Exoneración')
+                                ->maxLength(200)
+                                ->visible(fn(Get $get) => $get('exonerado_registro')),
 
-	   // -- CONFIGURACI�N PLANILLA ------------------------------------------------
-Forms\Components\Section::make('Configuraci�n de Planilla')
-    ->icon('heroicon-o-banknotes')
-    ->schema([
-        Forms\Components\TextInput::make('sueldo_base')
-            ->label('Sueldo Base (S/)')
-            ->numeric()
-            ->prefix('S/')
-            ->minValue(0)
-            ->default(0)
-            ->required(),
+                            Forms\Components\TextInput::make('sueldo_base')
+                                ->label('Sueldo Base (S/)')
+                                ->numeric()
+                                ->prefix('S/')
+                                ->minValue(0)
+                                ->default(0)
+                                ->required(),
 
-        Forms\Components\Select::make('sistema_pensiones')
-            ->label('Sistema de Pensiones')
-            ->options([
-                'onp'           => 'ONP (13%)',
-                'afp_prima'     => 'AFP Prima (10.23%)',
-                'afp_integra'   => 'AFP Integra (10.23%)',
-                'afp_habitat'   => 'AFP Habitat (10.47%)',
-                'afp_profuturo' => 'AFP Profuturo (10.84%)',
-            ])
-            ->required()
-            ->default('onp')
-            ->native(false),
-        Forms\Components\Toggle::make('aplica_comision_flujo_afp')
-            ->label('Paga comisión sobre flujo AFP')
-            ->default(true)
-            ->helperText('Activo = afiliado a su AFP ANTES de feb-2013 (comisión flujo completa vía planilla). Desactivar si se afilió DESPUÉS (comisión mixta — la AFP cobra su parte directo de la cuenta, no vía planilla). El aporte obligatorio y la prima de seguro siempre aplican, sin importar este switch.')
-            ->visible(fn (Forms\Get $get) => str_starts_with($get('sistema_pensiones') ?? '', 'afp_')),
-            
-        Forms\Components\Toggle::make('aplica_5ta_categoria')
-            ->label('Aplica descuento 5ta categor�a')
-            ->helperText('Impuesto a la renta para sueldos altos')
-            ->default(false),
+                            Forms\Components\Select::make('sistema_pensiones')
+                                ->label('Sistema de Pensiones')
+                                ->options([
+                                    'onp'           => 'ONP (13%)',
+                                    'afp_prima'     => 'AFP Prima (10.23%)',
+                                    'afp_integra'   => 'AFP Integra (10.23%)',
+                                    'afp_habitat'   => 'AFP Habitat (10.47%)',
+                                    'afp_profuturo' => 'AFP Profuturo (10.84%)',
+                                ])
+                                ->required()
+                                ->default('onp')
+                                ->native(false),
 
-        Forms\Components\Toggle::make('aplica_comision')
-            ->label('Aplica comisiones')
-            ->helperText('Incluir comisiones de ventas en la liquidaci�n mensual')
-            ->default(false),
+                            Forms\Components\Toggle::make('aplica_comision_flujo_afp')
+                                ->label('Paga comisión sobre flujo AFP')
+                                ->default(true)
+                                ->helperText('Activo = afiliado a su AFP ANTES de feb-2013 (comisión flujo completa vía planilla). Desactivar si se afilió DESPUÉS (comisión mixta — la AFP cobra su parte directo de la cuenta, no vía planilla). El aporte obligatorio y la prima de seguro siempre aplican, sin importar este switch.')
+                                ->visible(fn (Forms\Get $get) => str_starts_with($get('sistema_pensiones') ?? '', 'afp_')),
 
-        Forms\Components\Toggle::make('aplica_asignacion_familiar')
-            ->label('Asignación Familiar')
-            ->helperText('Activar si el trabajador tiene hijos menores de 18 años (o hasta 24 si estudian). Monto: 10% de la RMV, calculado automáticamente.')
-            ->default(false),
+                            Forms\Components\Toggle::make('aplica_5ta_categoria')
+                                ->label('Aplica descuento 5ta categoría')
+                                ->helperText('Impuesto a la renta para sueldos altos')
+                                ->default(false),
 
-    Forms\Components\TextInput::make('movilidad_mensual_maxima')
-        ->label('Movilidad — máximo mensual (S/)')
-        ->numeric()
-        ->prefix('S/')
-        ->default(0)
-        ->helperText('Monto MÁXIMO si trabaja todo el mes. Se prorratea automáticamente según días efectivamente trabajados: (máximo ÷ días laborables) × días trabajados. 0 = no aplica.'),
+                            Forms\Components\Toggle::make('aplica_comision')
+                                ->label('Aplica comisiones')
+                                ->helperText('Incluir comisiones de ventas en la liquidación mensual')
+                                ->default(false),
 
-        Forms\Components\TextInput::make('monto_eps_mensual_con_igv')
-        ->label('Plan EPS mensual con IGV (S/)')
-        ->numeric()
-        ->prefix('S/')
-        ->default(0)
-        ->helperText('Costo del plan EPS (Sanitas Perú) tal como factura el proveedor, CON IGV. 0 = no tiene EPS, va 100% por EsSalud.'),
+                            Forms\Components\Toggle::make('aplica_asignacion_familiar')
+                                ->label('Asignación Familiar')
+                                ->helperText('Activar si el trabajador tiene hijos menores de 18 años (o hasta 24 si estudian). Monto: 10% de la RMV, calculado automáticamente.')
+                                ->default(false),
 
-        Forms\Components\TextInput::make('bono_encargatura')
-        ->label('Bono por encargatura (S/)')
-        ->numeric()
-        ->prefix('S/')
-        ->default(0)
-        ->helperText('Monto fijo mensual por encargatura de cargo. A diferencia de movilidad, SÍ afecta EsSalud y AFP/ONP. Código PLAME 1007.'),
+                            Forms\Components\TextInput::make('movilidad_mensual_maxima')
+                                ->label('Movilidad — máximo mensual (S/)')
+                                ->numeric()
+                                ->prefix('S/')
+                                ->default(0)
+                                ->helperText('Monto MÁXIMO si trabaja todo el mes. Se prorratea automáticamente según días efectivamente trabajados: (máximo ÷ días laborables) × días trabajados. 0 = no aplica.'),
 
-        Forms\Components\TextInput::make('seguro_vida_mensual')
-            ->label('Seguro vida ley — monto mensual (S/)')
-        ->numeric()
-        ->prefix('S/')
-        ->default(0)
-        ->helperText('Prima anual que paga la empresa ÷ 12. Cambia solo cuando se renueva la póliza. Aplica desde 3 meses de antigüedad. 100% costo de la empresa, no se descuenta al trabajador.'),
+                            Forms\Components\TextInput::make('monto_eps_mensual_con_igv')
+                                ->label('Plan EPS mensual con IGV (S/)')
+                                ->numeric()
+                                ->prefix('S/')
+                                ->default(0)
+                                ->helperText('Costo del plan EPS (Sanitas Perú) tal como factura el proveedor, CON IGV. 0 = no tiene EPS, va 100% por EsSalud.'),
 
-    ])->columns(2),
-        
-            // ── RELOJ BIOMÉTRICO ──────────────────────────────────────────────
-            Forms\Components\Section::make('Reloj Biométrico')
-                ->schema([
-                    Forms\Components\TextInput::make('reloj_uid')
-                        ->label('UID en el Reloj')
-                        ->numeric()
-                        ->nullable(),
+                            Forms\Components\TextInput::make('bono_encargatura')
+                                ->label('Bono por encargatura (S/)')
+                                ->numeric()
+                                ->prefix('S/')
+                                ->default(0)
+                                ->helperText('Monto fijo mensual por encargatura de cargo. A diferencia de movilidad, SÍ afecta EsSalud y AFP/ONP. Código PLAME 1007.'),
 
-                    Forms\Components\TextInput::make('reloj_id')
-                        ->label('ID en el Reloj')
-                        ->numeric()
-                        ->nullable(),
-                ])->columns(2),
+                            Forms\Components\TextInput::make('seguro_vida_mensual')
+                                ->label('Seguro vida ley — monto mensual (S/)')
+                                ->numeric()
+                                ->prefix('S/')
+                                ->default(0)
+                                ->helperText('Prima anual que paga la empresa ÷ 12. Cambia solo cuando se renueva la póliza. Aplica desde 3 meses de antigüedad. 100% costo de la empresa, no se descuenta al trabajador.'),
+                        ])->columns(2),
 
-            // ── ACCESO REMOTO (PWA) ───────────────────────────────────────────
-            Forms\Components\Section::make('Acceso Remoto (App Móvil)')
-                ->description('Credenciales para que el trabajador pueda marcar entrada/salida desde su celular.')
-                ->icon('heroicon-o-device-phone-mobile')
-                ->schema([
-                    Forms\Components\Placeholder::make('estado_acceso')
-                        ->label('Estado')
-                        ->content(function (?Employee $record): string {
-                            if (! $record) return 'El trabajador aún no ha sido creado.';
-                            if (! $record->credential) return '⚪ Sin acceso remoto configurado.';
-                            return $record->credential->active
-                                ? '🟢 Acceso activo'
-                                : '🔴 Acceso desactivado';
-                        })
-                        ->visibleOn('edit'),
+                    // ── RELOJ Y ACCESO REMOTO ──────────────────────────────
+                    Forms\Components\Tabs\Tab::make('Reloj y Acceso Remoto')
+                        ->icon('heroicon-o-device-phone-mobile')
+                        ->schema([
+                            Forms\Components\TextInput::make('reloj_uid')
+                                ->label('UID en el Reloj')
+                                ->numeric()
+                                ->nullable(),
 
-                    Forms\Components\TextInput::make('credential.password_nueva')
-                        ->label('Contraseña')
-                        ->helperText('Déjalo en blanco para no cambiar la contraseña actual. Mínimo 6 caracteres.')
-                        ->password()
-                        ->revealable()
-                        ->minLength(6)
-                        ->dehydrated(false)          // no se guarda directo en Employee
-                        ->nullable(),
+                            Forms\Components\TextInput::make('reloj_id')
+                                ->label('ID en el Reloj')
+                                ->numeric()
+                                ->nullable(),
 
-		   Forms\Components\Toggle::make('credential.resetear_dni')
-                        ->label('Resetear contraseña al DNI')
-                        ->helperText('Marca para restablecer la contraseña al DNI del trabajador.')
-                        ->default(false)
-                        //->dehydrated(false)
-                        ->visibleOn('edit'),
+                            Forms\Components\Section::make('Acceso Remoto (App Móvil)')
+                                ->description('Credenciales para que el trabajador pueda marcar entrada/salida desde su celular.')
+                                ->icon('heroicon-o-device-phone-mobile')
+                                ->schema([
+                                    Forms\Components\Placeholder::make('estado_acceso')
+                                        ->label('Estado')
+                                        ->content(function (?Employee $record): string {
+                                            if (! $record) return 'El trabajador aún no ha sido creado.';
+                                            if (! $record->credential) return '⚪ Sin acceso remoto configurado.';
+                                            return $record->credential->active
+                                                ? '🟢 Acceso activo'
+                                                : '🔴 Acceso desactivado';
+                                        })
+                                        ->visibleOn('edit'),
 
-                    Forms\Components\Toggle::make('credential.active')
-                        ->label('Acceso activo')
-                        ->helperText('Desactiva para bloquear el acceso sin eliminar la contraseña.')
-                        ->default(true)
-                        //->dehydrated(false)
-                        ->visibleOn('edit'),
-                ])
-                ->columns(2)
-                ->collapsible()
-                ->collapsed(fn(?Employee $record) => $record?->credential === null),
+                                    Forms\Components\TextInput::make('credential.password_nueva')
+                                        ->label('Contraseña')
+                                        ->helperText('Déjalo en blanco para no cambiar la contraseña actual. Mínimo 6 caracteres.')
+                                        ->password()
+                                        ->revealable()
+                                        ->minLength(6)
+                                        ->dehydrated(false)
+                                        ->nullable(),
+
+                                    Forms\Components\Toggle::make('credential.resetear_dni')
+                                        ->label('Resetear contraseña al DNI')
+                                        ->helperText('Marca para restablecer la contraseña al DNI del trabajador.')
+                                        ->default(false)
+                                        ->visibleOn('edit'),
+
+                                    Forms\Components\Toggle::make('credential.active')
+                                        ->label('Acceso activo')
+                                        ->helperText('Desactiva para bloquear el acceso sin eliminar la contraseña.')
+                                        ->default(true)
+                                        ->visibleOn('edit'),
+                                ])
+                                ->columns(2)
+                                ->columnSpan(2)
+                                ->collapsible()
+                                ->collapsed(fn(?Employee $record) => $record?->credential === null),
+                        ])->columns(2),
+                ]),
         ]);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            \App\Filament\Resources\EmployeeResource\RelationManagers\VacacionesRelationManager::class,
+            \App\Filament\Resources\EmployeeResource\RelationManagers\DocumentosRelationManager::class,
+        ];
     }
 
     public static function table(Table $table): Table

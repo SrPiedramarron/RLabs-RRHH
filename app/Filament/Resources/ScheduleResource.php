@@ -19,7 +19,8 @@ class ScheduleResource extends Resource
     protected static ?string $navigationLabel = 'Horarios';
     protected static ?string $modelLabel = 'Horario';
     protected static ?string $pluralModelLabel = 'Horarios';
-    protected static ?int $navigationSort = 4;
+    protected static ?string $navigationGroup = 'Configuración';
+    protected static ?int $navigationSort = 40;
 
     public static function form(Form $form): Form
     {
@@ -126,7 +127,7 @@ class ScheduleResource extends Resource
                     ->boolean(),
 
                 Tables\Columns\TextColumn::make('employees_count')
-                    ->label('Empleados')
+                    ->label('Trabajadores')
                     ->counts('employees')
                     ->sortable(),
             ])

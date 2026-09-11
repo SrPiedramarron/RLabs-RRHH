@@ -20,9 +20,9 @@ class PlanillaLiquidacionResource extends Resource
     
     protected static ?string $model            = PlanillaLiquidacion::class;
     protected static ?string $navigationIcon   = 'heroicon-o-calculator';
-    protected static ?string $navigationLabel  = 'Planilla';
+    protected static ?string $navigationLabel  = 'Liquidación de Planilla';
     protected static ?string $navigationGroup  = 'Planilla';
-    protected static ?int    $navigationSort   = 20;
+    protected static ?int    $navigationSort   = 30;
     protected static ?string $modelLabel       = 'Liquidacion';
     protected static ?string $pluralModelLabel = 'Planilla mensual';
 

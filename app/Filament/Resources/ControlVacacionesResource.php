@@ -23,7 +23,7 @@ class ControlVacacionesResource extends Resource
     protected static ?string $modelLabel = 'Vacaciones';
     protected static ?string $pluralModelLabel = 'Control de Vacaciones';
     protected static ?string $navigationGroup = 'Planilla';
-    protected static ?int $navigationSort = 30;
+    protected static ?int $navigationSort = 10;
 
     public static function canCreate(): bool
     {
@@ -96,6 +96,10 @@ class ControlVacacionesResource extends Resource
                             ->required()
                             ->displayFormat('d/m/Y')
                             ->afterOrEqual('fecha_inicio'),
+
+                        Forms\Components\TextInput::make('observacion')
+                            ->label('Observación (opcional)')
+                            ->maxLength(255),
                     ])
                     ->action(function (Employee $record, array $data) {
                         $inicio = \Carbon\Carbon::parse($data['fecha_inicio']);
@@ -127,7 +131,7 @@ class ControlVacacionesResource extends Resource
 
                         // Actualiza fecha_ultima_vacacion (fecha de vuelta) y el contador histórico,
                         // y con eso el saldo vuelve a arrancar en 0 desde la fecha de vuelta.
-                        $dias = app(VacacionesService::class)->registrarVacacion($record, $inicio, $fin);
+                        $dias = app(VacacionesService::class)->registrarVacacion($record, $inicio, $fin, $data['observacion'] ?? null);
 
                         $saldo = app(VacacionesService::class)->calcularSaldo($record->fresh());
 
