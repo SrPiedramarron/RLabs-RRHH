@@ -18,10 +18,12 @@ class Company extends Model
         'email',
         'logo_path',
         'active',
+        'pago_quincenal',
     ];
 
     protected $casts = [
-        'active' => 'boolean',
+        'active'         => 'boolean',
+        'pago_quincenal' => 'boolean',
     ];
 
     // Relaciones
