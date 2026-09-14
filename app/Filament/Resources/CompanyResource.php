@@ -60,6 +60,11 @@ class CompanyResource extends Resource
                     Forms\Components\Toggle::make('active')
                         ->label('Activa')
                         ->default(true),
+
+                    Forms\Components\Toggle::make('pago_quincenal')
+                        ->label('Paga quincenal')
+                        ->helperText('Si está activo, además de la Liquidación mensual se puede calcular un adelanto de quincena (día 15) por el 50% del sueldo, con AFP y renta 5ta proporcionales — sin horas extra, tardanzas ni comisiones. Ese adelanto se resta del neto en la liquidación mensual de fin de mes.')
+                        ->default(false),
                 ])->columns(2),
 
             Forms\Components\Section::make('Logo')
@@ -98,6 +103,10 @@ class CompanyResource extends Resource
 
                 Tables\Columns\IconColumn::make('active')
                     ->label('Activa')
+                    ->boolean(),
+
+                Tables\Columns\IconColumn::make('pago_quincenal')
+                    ->label('Quincenal')
                     ->boolean(),
 
                 Tables\Columns\TextColumn::make('created_at')

@@ -307,7 +307,18 @@ class PlanillaService
         }
 
         $totalDescuentos = $descuentoPension + $descuento5ta + $epsDescuentoTrabajador;
-        $netoPagar       = round($bruto - $totalDescuentos + $bonoMovilidad - $otroDescuento - $adelanto + $subsidioTotal, 2);
+
+        // Adelanto de quincena (día 15): ya se le depositó al trabajador,
+        // se resta del neto de fin de mes para no pagarlo dos veces.
+        // Confirmado con RRHH (set. 2026): la quincena es un adelanto a
+        // cuenta del sueldo — la liquidación mensual sigue calculando TODO
+        // (horas extra, comisiones, vacaciones, AFP, 5ta, etc.) igual que
+        // siempre, y a ese resultado se le resta lo ya adelantado.
+        $adelantoQuincena = (float) \App\Models\PlanillaQuincena::where('employee_id', $empleado->id)
+            ->where('periodo', $periodo)
+            ->value('neto_pagar');
+
+        $netoPagar       = round($bruto - $totalDescuentos + $bonoMovilidad - $otroDescuento - $adelanto - $adelantoQuincena + $subsidioTotal, 2);
 
         // Seguro vida ley: monto FIJO mensual (prima anual real ÷ 12, tal
         // como factura la aseguradora), NO un porcentaje calculado — cambia
@@ -349,6 +360,7 @@ class PlanillaService
                 'bonos_especiales'              => round($bonoEspecial, 2),
                 'otros_descuentos'              => round($otroDescuento, 2),
                 'adelanto'                       => round($adelanto, 2),
+                'adelanto_quincena'              => round($adelantoQuincena, 2),
                 'subsidio_enfermedad'            => round($subsidioEnfermedad, 2),
                 'subsidio_maternidad'            => round($subsidioMaternidad, 2),
                 'descuento_tardanzas'           => $descuentoTardanzas,
@@ -373,6 +385,140 @@ class PlanillaService
         );
 
         return $liquidacion;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // QUINCENA (adelanto del día 15)
+    //
+    // Confirmado con RRHH (set. 2026): InProcess, Quantum y Anthia pagan
+    // quincenal. Este NO es un cálculo mensual reducido a la mitad — es
+    // deliberadamente más simple:
+    //   - Base = sueldo_base / 2. Nada de horas extra, tardanzas,
+    //     comisiones, vacaciones, bonos ni EPS.
+    //   - AFP/ONP se calcula sobre esa base ya reducida (sueldo_base/2),
+    //     no sobre el sueldo completo.
+    //   - Renta 5ta: se corre calcularNoComisionado() usando sueldo_base
+    //     COMPLETO (no dividido) — así sale la cuota mensual "normal" que
+    //     saldría si esto fuera un mes cualquiera — y esa cuota se divide
+    //     entre 2. Aplica a TODOS los trabajadores con 
+    //     aplica_5ta_categoria=true, incluso a los que tienen comisión
+    //     variable (la variable simplemente no entra en este cálculo).
+    //   - El resultado (neto_pagar) se resta después en la liquidación
+    //     mensual de fin de mes, vía calcularEmpleado() (ver arriba,
+    //     variable $adelantoQuincena).
+    // ─────────────────────────────────────────────────────────────────────
+
+    public function calcularPeriodoQuincena(int $companyId, string $periodo): Collection
+    {
+        [$year, $month] = explode('-', $periodo);
+
+        $company = \App\Models\Company::find($companyId);
+
+        if (! $company || ! $company->pago_quincenal) {
+            throw new \RuntimeException(
+                "La empresa seleccionada no tiene activado 'Paga quincenal'. Actívalo en su ficha (Configuración → Empresas) antes de calcular."
+            );
+        }
+
+        $empleados = Employee::where('company_id', $companyId)
+            ->where('active', true)
+            ->whereNotNull('sueldo_base')
+            ->where('sueldo_base', '>', 0)
+            ->get();
+
+        $quincenas = collect();
+
+        DB::transaction(function () use ($empleados, $companyId, $periodo, $year, $month, &$quincenas) {
+            foreach ($empleados as $empleado) {
+                $quincenas->push(
+                    $this->calcularQuincenaEmpleado($empleado, $companyId, $periodo, (int) $year, (int) $month)
+                );
+            }
+        });
+
+        return $quincenas;
+    }
+
+    public function calcularQuincenaEmpleado(
+        Employee $empleado,
+        int $companyId,
+        string $periodo,
+        int $year,
+        int $month,
+    ): \App\Models\PlanillaQuincena {
+        $mesNombre     = $this->periodoANombre($periodo);
+        $sueldo        = floatval($empleado->sueldo_base);
+        $baseQuincena  = round($sueldo / 2, 2);
+
+        // ── AFP/ONP sobre la mitad del sueldo ───────────────────────────────
+        $esAfp = str_starts_with($empleado->sistema_pensiones, 'afp_');
+
+        $afpComisionFlujo     = 0.0;
+        $afpPrimaSeguro       = 0.0;
+        $afpAporteObligatorio = 0.0;
+        $tasaPension          = self::TASA_ONP;
+        $descuentoPension     = 0.0;
+
+        if ($esAfp) {
+            $tasaAfp = AfpTasa::vigentePara($empleado->sistema_pensiones);
+
+            if (!$tasaAfp) {
+                throw new \RuntimeException(
+                    "No hay tasa AFP vigente configurada para '{$empleado->sistema_pensiones}'. " .
+                    "Revisa la tabla afp_tasas antes de calcular la quincena."
+                );
+            }
+
+            $baseAsegurable = min($baseQuincena, floatval($tasaAfp->tope_remuneracion_asegurable));
+
+            $afpAporteObligatorio = round($baseQuincena * floatval($tasaAfp->aporte_obligatorio), 2);
+            $afpComisionFlujo = $empleado->aplica_comision_flujo_afp
+                ? round($baseAsegurable * floatval($tasaAfp->comision_flujo), 2)
+                : 0.0;
+            $afpPrimaSeguro = round($baseAsegurable * floatval($tasaAfp->prima_seguro), 2);
+
+            $descuentoPension = $afpAporteObligatorio + $afpComisionFlujo + $afpPrimaSeguro;
+            $tasaPension      = floatval($tasaAfp->aporte_obligatorio) + floatval($tasaAfp->comision_flujo) + floatval($tasaAfp->prima_seguro);
+        } else {
+            $descuentoPension = round($baseQuincena * self::TASA_ONP, 2);
+        }
+
+        // ── Renta 5ta: cuota mensual "normal" (con sueldo_base completo,
+        // sin comisiones) dividida entre 2 ─────────────────────────────────
+        $descuento5ta = 0.0;
+        if ($empleado->aplica_5ta_categoria) {
+            $detalle5ta = app(\App\Services\Renta5taCalculator::class)
+                ->calcularNoComisionado($empleado, $sueldo, $year, $month);
+
+            $descuento5ta = round($detalle5ta['cuota_mensual'] / 2, 2);
+        }
+
+        $netoPagar = round($baseQuincena - $descuentoPension - $descuento5ta, 2);
+
+        return \App\Models\PlanillaQuincena::updateOrCreate(
+            ['employee_id' => $empleado->id, 'periodo' => $periodo],
+            [
+                'company_id'              => $companyId,
+                'mes_nombre'              => $mesNombre,
+                'nombres'                 => $empleado->nombres,
+                'apellidos'               => $empleado->apellidos,
+                'dni'                     => $empleado->dni,
+                'cargo'                   => $empleado->cargo,
+                'sueldo_base'             => $sueldo,
+                'base_quincena'           => $baseQuincena,
+                'sistema_pensiones'       => $empleado->sistema_pensiones,
+                'porcentaje_pension'      => round($tasaPension, 4),
+                'descuento_pension'       => round($descuentoPension, 2),
+                'afp_comision_flujo'      => $afpComisionFlujo,
+                'afp_prima_seguro'        => $afpPrimaSeguro,
+                'afp_aporte_obligatorio'  => $afpAporteObligatorio,
+                'aplica_5ta_categoria'    => $empleado->aplica_5ta_categoria,
+                'descuento_5ta_categoria' => $descuento5ta,
+                'neto_pagar'              => $netoPagar,
+                'calculado_por'           => Auth::id(),
+                'calculado_at'            => now(),
+            ]
+        );
     }
 
     private function contarDiasLaborables(Carbon $inicio, Carbon $fin): int
