@@ -37,6 +37,9 @@ class Employee extends Model
         'monto_eps_mensual_con_igv',
         'bono_encargatura',
         'seguro_vida_mensual',
+        'numero_cuenta',
+        'cci',
+        'banco',
         'active',
         'foto_perfil',          // ← nuevo
     ];

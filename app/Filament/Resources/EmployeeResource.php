@@ -150,6 +150,24 @@ class EmployeeResource extends Resource
                             Forms\Components\Toggle::make('active')
                                 ->label('Activo')
                                 ->default(true),
+
+                            Forms\Components\Section::make('Datos Bancarios')
+                                ->schema([
+                                    Forms\Components\TextInput::make('banco')
+                                        ->label('Banco')
+                                        ->maxLength(100),
+
+                                    Forms\Components\TextInput::make('numero_cuenta')
+                                        ->label('Número de Cuenta')
+                                        ->maxLength(30),
+
+                                    Forms\Components\TextInput::make('cci')
+                                        ->label('CCI')
+                                        ->maxLength(20)
+                                        ->helperText('Código de Cuenta Interbancario, 20 dígitos.'),
+                                ])
+                                ->columns(3)
+                                ->columnSpan(2),
                         ])->columns(2),
 
                     // ── VACACIONES ─────────────────────────────────────────
