@@ -21,7 +21,7 @@ class Employee extends Model
         'cargo',
         'fecha_ingreso',
         'fecha_cese',
-	'fecha_ultima_vacacion', 'dias_tomados',
+	'fecha_ultima_vacacion', 'dias_tomados', 'saldo_pendiente',
         'exonerado_registro',
         'motivo_exoneracion',
         'reloj_uid',
@@ -48,6 +48,7 @@ class Employee extends Model
         'fecha_ingreso'         => 'date',
         'fecha_cese'            => 'date',
         'fecha_ultima_vacacion' => 'date',
+        'saldo_pendiente'       => 'decimal:2',
         'exonerado_registro'    => 'boolean',
         'active'                => 'boolean',
     ];
