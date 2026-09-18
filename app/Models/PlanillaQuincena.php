@@ -12,7 +12,7 @@ class PlanillaQuincena extends Model
     protected $fillable = [
         'employee_id', 'company_id', 'periodo', 'mes_nombre',
         'nombres', 'apellidos', 'dni', 'cargo',
-        'sueldo_base', 'base_quincena',
+        'sueldo_base', 'asignacion_familiar', 'base_quincenal',
         'sistema_pensiones', 'porcentaje_pension', 'descuento_pension',
         'afp_comision_flujo', 'afp_prima_seguro', 'afp_aporte_obligatorio',
         'aplica_5ta_categoria', 'descuento_5ta_categoria',

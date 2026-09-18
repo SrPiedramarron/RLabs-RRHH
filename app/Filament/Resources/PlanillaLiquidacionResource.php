@@ -99,6 +99,15 @@ class PlanillaLiquidacionResource extends Resource
                     ->weight('bold')
                     ->color('success'),
 
+                Tables\Columns\TextColumn::make('adelanto_quincena')
+                    ->label('Ya adelantado (Q)')
+                    ->getStateUsing(fn ($record) => $record->company?->pago_quincenal ? $record->adelanto_quincena : null)
+                    ->placeholder('—')
+                    ->money('PEN')
+                    ->alignEnd()
+                    ->color('gray')
+                    ->toggleable(),
+
                 Tables\Columns\TextColumn::make('sistema_pensiones_label')
                     ->label('Pension')
                     ->badge()
@@ -406,8 +415,6 @@ Tables\Actions\Action::make('exportar_plame')
         ->visible(fn ($record) => $record->tiene_boleta_firmada)
         ->url(fn ($record) => \Illuminate\Support\Facades\Storage::disk('public')->url($record->boleta_firmada_path))
         ->openUrlInNewTab(),
-
-            
 
                 Tables\Actions\EditAction::make()
                     ->label('Bono')

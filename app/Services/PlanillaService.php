@@ -310,10 +310,11 @@ class PlanillaService
 
         // Adelanto de quincena (día 15): ya se le depositó al trabajador,
         // se resta del neto de fin de mes para no pagarlo dos veces.
-        // Confirmado con RRHH (set. 2026): la quincena es un adelanto a
-        // cuenta del sueldo — la liquidación mensual sigue calculando TODO
-        // (horas extra, comisiones, vacaciones, AFP, 5ta, etc.) igual que
-        // siempre, y a ese resultado se le resta lo ya adelantado.
+        // Confirmado con RRHH (set. 2026, versión definitiva): la quincena
+        // es un adelanto a cuenta calculado con sueldo_base + asignación
+        // familiar (Opción A) — la liquidación mensual sigue calculando
+        // TODO (horas extra, comisiones, vacaciones, AFP, 5ta, etc.) igual
+        // que siempre, y a ese resultado se le resta lo ya adelantado.
         $adelantoQuincena = (float) \App\Models\PlanillaQuincena::where('employee_id', $empleado->id)
             ->where('periodo', $periodo)
             ->value('neto_pagar');
@@ -390,22 +391,18 @@ class PlanillaService
     // ─────────────────────────────────────────────────────────────────────
     // QUINCENA (adelanto del día 15)
     //
-    // Confirmado con RRHH (set. 2026): InProcess, Quantum y Anthia pagan
-    // quincenal. Este NO es un cálculo mensual reducido a la mitad — es
-    // deliberadamente más simple:
-    //   - Base = sueldo_base / 2. Nada de horas extra, tardanzas,
-    //     comisiones, vacaciones, bonos ni EPS.
-    //   - AFP/ONP se calcula sobre esa base ya reducida (sueldo_base/2),
-    //     no sobre el sueldo completo.
-    //   - Renta 5ta: se corre calcularNoComisionado() usando sueldo_base
-    //     COMPLETO (no dividido) — así sale la cuota mensual "normal" que
-    //     saldría si esto fuera un mes cualquiera — y esa cuota se divide
-    //     entre 2. Aplica a TODOS los trabajadores con 
-    //     aplica_5ta_categoria=true, incluso a los que tienen comisión
-    //     variable (la variable simplemente no entra en este cálculo).
-    //   - El resultado (neto_pagar) se resta después en la liquidación
-    //     mensual de fin de mes, vía calcularEmpleado() (ver arriba,
-    //     variable $adelantoQuincena).
+    // Confirmado con RRHH — versión DEFINITIVA (set. 2026): InProcess,
+    // Quantum y Anthia pagan quincenal. La quincena toma en cuenta:
+    //   - sueldo_base
+    //   - asignación familiar (si aplica — mismo monto fijo que usa la
+    //     mensual: RMV_2026 × 10%)
+    //   - AFP/ONP sobre esa base
+    //   - Renta 5ta sobre esa base (calcularNoComisionado, igual patrón
+    //     que usa la mensual para no-comisionados)
+    // NO toma en cuenta: comisiones, tardanzas, horas extra.
+    // Todo ese cálculo (base - AFP/ONP - 5ta) se divide entre 2.
+    // El resultado se resta después en la liquidación mensual de fin de
+    // mes (ver $adelantoQuincena en calcularEmpleado más arriba).
     // ─────────────────────────────────────────────────────────────────────
 
     public function calcularPeriodoQuincena(int $companyId, string $periodo): Collection
@@ -446,11 +443,20 @@ class PlanillaService
         int $year,
         int $month,
     ): \App\Models\PlanillaQuincena {
-        $mesNombre     = $this->periodoANombre($periodo);
-        $sueldo        = floatval($empleado->sueldo_base);
-        $baseQuincena  = round($sueldo / 2, 2);
+        $mesNombre = $this->periodoANombre($periodo);
+        $sueldo    = floatval($empleado->sueldo_base);
 
-        // ── AFP/ONP sobre la mitad del sueldo ───────────────────────────────
+        $asignacionFamiliar = $empleado->aplica_asignacion_familiar
+            ? round(self::RMV_2026 * 0.10, 2)
+            : 0.0;
+
+        $baseQuincenal = round($sueldo + $asignacionFamiliar, 2);
+        $mitadBase     = round($baseQuincenal / 2, 2);
+
+        // ── AFP/ONP sobre la base quincenal completa, luego dividido ────────
+        // (mismo resultado que calcularlo directo sobre mitadBase, ya que
+        // los % son lineales — se calcula así para reusar la estructura de
+        // AfpTasa igual que la mensual).
         $esAfp = str_starts_with($empleado->sistema_pensiones, 'afp_');
 
         $afpComisionFlujo     = 0.0;
@@ -469,31 +475,30 @@ class PlanillaService
                 );
             }
 
-            $baseAsegurable = min($baseQuincena, floatval($tasaAfp->tope_remuneracion_asegurable));
+            $baseAsegurable = min($baseQuincenal, floatval($tasaAfp->tope_remuneracion_asegurable));
 
-            $afpAporteObligatorio = round($baseQuincena * floatval($tasaAfp->aporte_obligatorio), 2);
+            $afpAporteObligatorio = round($baseQuincenal * floatval($tasaAfp->aporte_obligatorio) / 2, 2);
             $afpComisionFlujo = $empleado->aplica_comision_flujo_afp
-                ? round($baseAsegurable * floatval($tasaAfp->comision_flujo), 2)
+                ? round($baseAsegurable * floatval($tasaAfp->comision_flujo) / 2, 2)
                 : 0.0;
-            $afpPrimaSeguro = round($baseAsegurable * floatval($tasaAfp->prima_seguro), 2);
+            $afpPrimaSeguro = round($baseAsegurable * floatval($tasaAfp->prima_seguro) / 2, 2);
 
             $descuentoPension = $afpAporteObligatorio + $afpComisionFlujo + $afpPrimaSeguro;
             $tasaPension      = floatval($tasaAfp->aporte_obligatorio) + floatval($tasaAfp->comision_flujo) + floatval($tasaAfp->prima_seguro);
         } else {
-            $descuentoPension = round($baseQuincena * self::TASA_ONP, 2);
+            $descuentoPension = round($baseQuincenal * self::TASA_ONP / 2, 2);
         }
 
-        // ── Renta 5ta: cuota mensual "normal" (con sueldo_base completo,
-        // sin comisiones) dividida entre 2 ─────────────────────────────────
+        // ── Renta 5ta sobre la base quincenal (sin comisiones), dividida ────
         $descuento5ta = 0.0;
         if ($empleado->aplica_5ta_categoria) {
             $detalle5ta = app(\App\Services\Renta5taCalculator::class)
-                ->calcularNoComisionado($empleado, $sueldo, $year, $month);
+                ->calcularNoComisionado($empleado, $baseQuincenal, $year, $month);
 
             $descuento5ta = round($detalle5ta['cuota_mensual'] / 2, 2);
         }
 
-        $netoPagar = round($baseQuincena - $descuentoPension - $descuento5ta, 2);
+        $netoPagar = round($mitadBase - $descuentoPension - $descuento5ta, 2);
 
         return \App\Models\PlanillaQuincena::updateOrCreate(
             ['employee_id' => $empleado->id, 'periodo' => $periodo],
@@ -505,7 +510,8 @@ class PlanillaService
                 'dni'                     => $empleado->dni,
                 'cargo'                   => $empleado->cargo,
                 'sueldo_base'             => $sueldo,
-                'base_quincena'           => $baseQuincena,
+                'asignacion_familiar'     => $asignacionFamiliar,
+                'base_quincenal'          => $mitadBase,
                 'sistema_pensiones'       => $empleado->sistema_pensiones,
                 'porcentaje_pension'      => round($tasaPension, 4),
                 'descuento_pension'       => round($descuentoPension, 2),
@@ -513,7 +519,7 @@ class PlanillaService
                 'afp_prima_seguro'        => $afpPrimaSeguro,
                 'afp_aporte_obligatorio'  => $afpAporteObligatorio,
                 'aplica_5ta_categoria'    => $empleado->aplica_5ta_categoria,
-                'descuento_5ta_categoria' => $descuento5ta,
+                'descuento_5ta_categoria' => round($descuento5ta, 2),
                 'neto_pagar'              => $netoPagar,
                 'calculado_por'           => Auth::id(),
                 'calculado_at'            => now(),

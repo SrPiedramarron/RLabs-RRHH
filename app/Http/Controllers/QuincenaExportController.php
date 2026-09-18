@@ -33,7 +33,7 @@ class QuincenaExportController extends Controller
         $ws->setTitle('Quincena ' . $mesNombre);
 
         $ws->setCellValue('A1', 'ADELANTO DE QUINCENA (DÍA 15) - ' . $mesNombre);
-        $ws->mergeCells('A1:I1');
+        $ws->mergeCells('A1:J1');
         $ws->getStyle('A1')->getFont()->setBold(true)->setSize(14);
         $ws->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
@@ -42,11 +42,12 @@ class QuincenaExportController extends Controller
             'B' => 'DNI',
             'C' => 'Cargo',
             'D' => 'Sueldo Base',
-            'E' => 'Base Quincena (50%)',
-            'F' => 'Sistema Pension',
-            'G' => 'Desc. Pension',
-            'H' => 'Desc. 5ta Cat.',
-            'I' => 'Neto a Depositar',
+            'E' => 'Asig. Familiar',
+            'F' => 'Base ÷ 2',
+            'G' => 'Sistema Pension',
+            'H' => 'AFP/ONP (÷2)',
+            'I' => 'Renta 5ta (÷2)',
+            'J' => 'Neto a Depositar',
         ];
 
         $headerRow = 3;
@@ -54,7 +55,7 @@ class QuincenaExportController extends Controller
             $ws->setCellValue($col . $headerRow, $label);
         }
 
-        $ws->getStyle('A' . $headerRow . ':I' . $headerRow)->applyFromArray([
+        $ws->getStyle('A' . $headerRow . ':J' . $headerRow)->applyFromArray([
             'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 10],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'fgColor' => ['rgb' => '1F4E79']],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'wrapText' => true],
@@ -67,8 +68,9 @@ class QuincenaExportController extends Controller
             $ws->setCellValue('B' . $row, $q->dni);
             $ws->setCellValue('C' . $row, $q->cargo);
             $ws->setCellValue('D' . $row, $q->sueldo_base);
-            $ws->setCellValue('E' . $row, $q->base_quincena);
-            $ws->setCellValue('F' . $row, match ($q->sistema_pensiones) {
+            $ws->setCellValue('E' . $row, $q->asignacion_familiar);
+            $ws->setCellValue('F' . $row, $q->base_quincenal);
+            $ws->setCellValue('G' . $row, match ($q->sistema_pensiones) {
                 'onp'           => 'ONP',
                 'afp_prima'     => 'AFP Prima',
                 'afp_integra'   => 'AFP Integra',
@@ -76,12 +78,12 @@ class QuincenaExportController extends Controller
                 'afp_profuturo' => 'AFP Profuturo',
                 default         => $q->sistema_pensiones,
             });
-            $ws->setCellValue('G' . $row, $q->descuento_pension);
-            $ws->setCellValue('H' . $row, $q->descuento_5ta_categoria);
-            $ws->setCellValue('I' . $row, $q->neto_pagar);
+            $ws->setCellValue('H' . $row, $q->descuento_pension);
+            $ws->setCellValue('I' . $row, $q->descuento_5ta_categoria);
+            $ws->setCellValue('J' . $row, $q->neto_pagar);
 
             if ($row % 2 === 0) {
-                $ws->getStyle('A' . $row . ':I' . $row)
+                $ws->getStyle('A' . $row . ':J' . $row)
                    ->getFill()->setFillType(Fill::FILL_SOLID)
                    ->getStartColor()->setRGB('F0F4FA');
             }
@@ -91,34 +93,32 @@ class QuincenaExportController extends Controller
 
         $row++;
         $ws->setCellValue('A' . $row, 'TOTALES');
-        $ws->setCellValue('D' . $row, "=SUM(D4:D" . ($row - 2) . ")");
-        $ws->setCellValue('E' . $row, "=SUM(E4:E" . ($row - 2) . ")");
-        $ws->setCellValue('G' . $row, "=SUM(G4:G" . ($row - 2) . ")");
-        $ws->setCellValue('H' . $row, "=SUM(H4:H" . ($row - 2) . ")");
-        $ws->setCellValue('I' . $row, "=SUM(I4:I" . ($row - 2) . ")");
+        foreach (['D', 'E', 'F', 'H', 'I', 'J'] as $col) {
+            $ws->setCellValue($col . $row, "=SUM({$col}4:{$col}" . ($row - 2) . ")");
+        }
 
-        $ws->getStyle('A' . $row . ':I' . $row)->applyFromArray([
+        $ws->getStyle('A' . $row . ':J' . $row)->applyFromArray([
             'font' => ['bold' => true],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'fgColor' => ['rgb' => 'DDEEFF']],
         ]);
 
         $moneyFormat = '"S/ "#,##0.00';
-        foreach (['D', 'E', 'G', 'H', 'I'] as $col) {
+        foreach (['D', 'E', 'F', 'H', 'I', 'J'] as $col) {
             $ws->getStyle($col . '4:' . $col . $row)
                ->getNumberFormat()->setFormatCode($moneyFormat);
         }
 
-        $ws->getStyle('A' . $headerRow . ':I' . $row)
+        $ws->getStyle('A' . $headerRow . ':J' . $row)
            ->getBorders()->getAllBorders()
            ->setBorderStyle(Border::BORDER_THIN);
 
         $ws->getColumnDimension('A')->setWidth(35);
         $ws->getColumnDimension('B')->setWidth(12);
         $ws->getColumnDimension('C')->setWidth(20);
-        foreach (['D', 'E', 'G', 'H', 'I'] as $c) {
-            $ws->getColumnDimension($c)->setWidth(18);
+        foreach (['D', 'E', 'F', 'H', 'I', 'J'] as $c) {
+            $ws->getColumnDimension($c)->setWidth(16);
         }
-        $ws->getColumnDimension('F')->setWidth(14);
+        $ws->getColumnDimension('G')->setWidth(14);
 
         $ws->freezePane('A4');
 

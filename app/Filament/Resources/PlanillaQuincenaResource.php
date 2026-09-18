@@ -50,19 +50,24 @@ class PlanillaQuincenaResource extends Resource
                     ->money('PEN')
                     ->alignEnd(),
 
-                Tables\Columns\TextColumn::make('base_quincena')
-                    ->label('Base (50%)')
+                Tables\Columns\TextColumn::make('asignacion_familiar')
+                    ->label('Asig. familiar')
+                    ->money('PEN')
+                    ->alignEnd(),
+
+                Tables\Columns\TextColumn::make('base_quincenal')
+                    ->label('Base ÷ 2')
                     ->money('PEN')
                     ->alignEnd(),
 
                 Tables\Columns\TextColumn::make('descuento_pension')
-                    ->label('AFP/ONP')
+                    ->label('AFP/ONP (÷2)')
                     ->money('PEN')
                     ->alignEnd()
                     ->color('danger'),
 
                 Tables\Columns\TextColumn::make('descuento_5ta_categoria')
-                    ->label('Renta 5ta')
+                    ->label('Renta 5ta (÷2)')
                     ->money('PEN')
                     ->alignEnd()
                     ->color('danger'),
@@ -110,7 +115,7 @@ class PlanillaQuincenaResource extends Resource
 
                         Forms\Components\Placeholder::make('aviso')
                             ->label('')
-                            ->content('Esto calcula el 50% del sueldo base de cada trabajador activo, con AFP/ONP y renta 5ta proporcionales. Nada de horas extra, tardanzas, comisiones ni bonos. Al calcular la Liquidación mensual de fin de mes, este monto se resta automáticamente del neto para no pagarlo dos veces.'),
+                            ->content('Base = sueldo_base + asignación familiar (si aplica). Sobre esa base se calcula AFP/ONP y renta 5ta, todo dividido entre 2. Nada de horas extra, tardanzas ni comisiones. Al calcular la Liquidación mensual de fin de mes, este monto se resta automáticamente del neto para no pagarlo dos veces.'),
                     ])
                     ->action(function (array $data) {
                         try {
