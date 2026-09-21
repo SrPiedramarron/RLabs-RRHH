@@ -40,6 +40,9 @@ class Employee extends Model
         'numero_cuenta',
         'cci',
         'banco',
+        'doi_tipo_bancario',
+        'cuenta_pago',
+        'tipo_cuenta_pago',
         'active',
         'foto_perfil',          // ← nuevo
     ];
