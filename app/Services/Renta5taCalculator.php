@@ -6,34 +6,34 @@ use App\Models\Employee;
 use App\Models\IngresoHistorico5ta;
 
 /**
- * Replica FIEL de la fórmula real que usa InProcess en su Excel manual
- * (hoja "RTA 5TA" / "RTA 5TA VTAS"), verificada celda por celda contra el
- * archivo real de junio 2026 — NO es el método "oficial" simplificado de
- * SUNAT (Art. 40), es específicamente cómo InProcess calcula hoy, según
- * confirmó Ricardo con contabilidad (ago 2026).
+ * Corregido tras reunión de RRHH con contabilidad (set. 2026): la versión
+ * anterior replicaba "fielmente" un error del Excel manual de InProcess
+ * (tramos 3° y 4° sin tope, sin umbral mínimo de exoneración). Confirmado
+ * que eso estaba mal — la fórmula correcta es la del método oficial SUNAT
+ * (Art. 40 del Reglamento de la LIR): solo tributa el trabajador cuya
+ * remuneración bruta mensual proyectada supere S/ 2,700 (o su proyección
+ * anual supere 7 UIT), y cada tramo se aplica SOLO al excedente dentro de
+ * su propio rango — no a la base completa.
  *
- * Diferencias clave frente al método oficial genérico:
- *  - Proyecta usando (último sueldo conocido + promedio de comisiones de
- *    los últimos 3 meses incluyendo el actual), no el sueldo bruto del
- *    mes actual tal cual.
- *  - Suma DOS gratificaciones futuras (julio y diciembre) con un 9% extra
- *    (Ley 29351) mientras no se hayan pagado todavía ese año.
- *  - Excluye UTILIDADES del cálculo (tienen tratamiento tributario aparte).
- *  - Divide el saldo pendiente entre los MESES RESTANTES del año (no usa
- *    la tabla oficial de fraccionamiento 12/9/8/5/4/1).
- *  - Los tramos 3° y 4° NO están topados en su fórmula (posible ajuste
- *    vía código PLAME 0928 "Devolución exceso retención 5ta" en diciembre
- *    — replicado tal cual, sin "corregir" su comportamiento).
+ * Se mantiene la proyección basada en (último sueldo conocido + promedio
+ * de comisiones de los últimos 3 meses + gratificaciones pendientes +
+ * lo ya percibido en el año) porque eso no fue objetado por RRHH — el
+ * problema reportado fue específicamente el umbral y el tope de tramos.
  */
 class Renta5taCalculator
 {
     const UIT_2026 = 5500; // DS N° 301-2025-EF
 
+    // Umbral mínimo de exoneración: por debajo de esto no hay retención,
+    // ni mensual ni proyectada (RRHH, set. 2026).
+    const UMBRAL_MENSUAL_EXONERADO = 2700.0;
+    const UIT_EXONERADAS = 7;
+
     const TRAMOS = [
         ['desde' => 0,      'hasta' => 27500,  'tasa' => 0.08],
         ['desde' => 27500,  'hasta' => 110000, 'tasa' => 0.14],
-        ['desde' => 110000, 'hasta' => 192500, 'tasa' => 0.17], // SIN TOPE en la fórmula real (ver nota arriba)
-        ['desde' => 192500, 'hasta' => null,   'tasa' => 0.20], // "hasta 45 UIT" según label, sin tope real en la fórmula
+        ['desde' => 110000, 'hasta' => 192500, 'tasa' => 0.17],
+        ['desde' => 192500, 'hasta' => null,   'tasa' => 0.20],
     ];
 
     const CONCEPTO_SUELDO      = 'SUELDO + ASIG FAM';
@@ -104,7 +104,11 @@ class Renta5taCalculator
             + $totalPercibido;
 
         $totalRemuneraciones = $proyeccionAlMes;
-        $baseImponible        = max(0, $totalRemuneraciones - (7 * self::UIT_2026));
+
+        $brutoMesActual = $ultimoSueldo + $comisionesMesActual;
+        $exonerado = $this->estaExonerado($brutoMesActual, $totalRemuneraciones);
+
+        $baseImponible = $exonerado ? 0.0 : max(0, $totalRemuneraciones - (self::UIT_EXONERADAS * self::UIT_2026));
 
         $impuestoAnual = $this->aplicarTramos($baseImponible);
 
@@ -133,26 +137,6 @@ class Renta5taCalculator
         ];
     }
 
-    /**
-     * Replica EXACTA de las 4 fórmulas de tramo del Excel — incluyendo que
-     * el 3° y 4° tramo NO están topados (restan desde su umbral hasta la
-     * base imponible completa, sin límite superior propio).
-     */
-    /**
-     * Réplica fiel de cómo InProcess arma esto en su Excel — verificado
-     * contra DOS casos reales (Ernesto, alto ingreso; Fiorella, bajo
-     * ingreso), match exacto en ambos:
-     *
-     *  - Tramo 1 y 2: TOPADOS a su propio rango (marginal correcto) —
-     *    si la base no los alcanza, dan 0 o un monto parcial; si los
-     *    supera completamente, dan su monto fijo máximo.
-     *  - Tramo 3 y 4: SIN TOPE — se calculan como (base - piso) × tasa,
-     *    usando la base COMPLETA, no topados a su propio rango. Esto
-     *    genera un "solape" real en su fórmula para ingresos muy altos
-     *    (posible ajuste vía código PLAME 0928 en diciembre) — replicado
-     *    tal cual porque así es como InProcess calcula hoy, confirmado
-     *    con el caso real de Ernesto.
-     */
     /**
      * Fórmula para empleados SIN comisiones (hoja "RTA 5TA" de InProcess).
      * Estructura distinta a la de vendedores: anualiza el sueldo actual
@@ -196,7 +180,9 @@ class Renta5taCalculator
             + ($gratificacionUnitaria * $gratificacionesPendientes)
             + $sumaVariablesYTD;
 
-        $baseImponible = max(0, $totalRemuneraciones - (7 * self::UIT_2026));
+        $exonerado = $this->estaExonerado($sueldoMesActual, $totalRemuneraciones);
+
+        $baseImponible = $exonerado ? 0.0 : max(0, $totalRemuneraciones - (self::UIT_EXONERADAS * self::UIT_2026));
 
         $impuestoAnual = $this->aplicarTramos($baseImponible);
 
@@ -224,13 +210,31 @@ class Renta5taCalculator
         ];
     }
 
+    /**
+     * Cada tramo tributa SOLO su excedente dentro de su propio rango
+     * (método oficial). Corregido: antes los tramos 3° y 4° no tenían
+     * tope y calculaban sobre la base completa en vez de su excedente,
+     * lo que sobre-retenía a los sueldos altos.
+     */
     private function aplicarTramos(float $baseImponible): float
     {
         $tramo1 = min($baseImponible, 27500) * self::TRAMOS[0]['tasa'];
         $tramo2 = min(max(0, $baseImponible - 27500), 110000 - 27500) * self::TRAMOS[1]['tasa'];
-        $tramo3 = max(0, $baseImponible - 110000) * self::TRAMOS[2]['tasa'];  // SIN TOPE
-        $tramo4 = max(0, $baseImponible - 192500) * self::TRAMOS[3]['tasa'];  // SIN TOPE
+        $tramo3 = min(max(0, $baseImponible - 110000), 192500 - 110000) * self::TRAMOS[2]['tasa'];
+        $tramo4 = max(0, $baseImponible - 192500) * self::TRAMOS[3]['tasa'];
 
         return $tramo1 + $tramo2 + $tramo3 + $tramo4;
+    }
+
+    /**
+     * Umbral de exoneración (RRHH, set. 2026): si ni el sueldo bruto del
+     * mes actual ni la proyección anual superan el mínimo, no hay
+     * retención — se evita correr toda la proyección para quien
+     * claramente no debería tributar.
+     */
+    private function estaExonerado(float $brutoMesActual, float $totalRemuneracionesProyectadas): bool
+    {
+        return $brutoMesActual <= self::UMBRAL_MENSUAL_EXONERADO
+            && $totalRemuneracionesProyectadas <= (self::UIT_EXONERADAS * self::UIT_2026);
     }
 }
