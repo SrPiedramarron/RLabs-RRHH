@@ -677,6 +677,162 @@ class PlanillaService
         );
     }
 
+    /**
+     * CTS (Compensación por Tiempo de Servicios) — depósito de mayo (semestre
+     * noviembre-abril) y noviembre (semestre mayo-octubre).
+     *
+     * Remuneración computable = sueldo base + asignación familiar + promedio
+     * de comisiones/horas extra de los 6 meses del semestre CTS (misma regla
+     * de "al menos 3 de 6" que gratificación) + 1/6 de la gratificación
+     * percibida dentro de ese semestre (diciembre anterior para el depósito
+     * de mayo, julio de este año para el de noviembre — regla legal).
+     * Monto = remuneración computable ÷ 12 × meses computables del semestre.
+     */
+    public function calcularPeriodoCts(int $companyId, string $tipo, int $anio): Collection
+    {
+        if (!in_array($tipo, ['mayo', 'noviembre'], true)) {
+            throw new \InvalidArgumentException("Tipo de CTS inválido: {$tipo}");
+        }
+
+        $empleados = Employee::where('company_id', $companyId)
+            ->where('active', true)
+            ->whereNotNull('sueldo_base')
+            ->where('sueldo_base', '>', 0)
+            ->get();
+
+        $depositos = collect();
+
+        DB::transaction(function () use ($empleados, $companyId, $tipo, $anio, &$depositos) {
+            foreach ($empleados as $empleado) {
+                $d = $this->calcularCtsEmpleado($empleado, $companyId, $tipo, $anio);
+                if ($d) {
+                    $depositos->push($d);
+                }
+            }
+        });
+
+        return $depositos;
+    }
+
+    public function calcularCtsEmpleado(
+        Employee $empleado,
+        int $companyId,
+        string $tipo,
+        int $anio,
+    ): ?\App\Models\CtsDeposito {
+        // Semestre CTS como pares [año, mes] — el de mayo cruza el año nuevo.
+        if ($tipo === 'mayo') {
+            $mesesSemestre = [
+                [$anio - 1, 11], [$anio - 1, 12],
+                [$anio, 1], [$anio, 2], [$anio, 3], [$anio, 4],
+            ];
+            $periodoPago = sprintf('%04d-05', $anio);
+            $gratificacionRelevante = \App\Models\Gratificacion::where('employee_id', $empleado->id)
+                ->where('tipo', 'diciembre')
+                ->where('anio', $anio - 1)
+                ->first();
+        } else {
+            $mesesSemestre = [
+                [$anio, 5], [$anio, 6], [$anio, 7],
+                [$anio, 8], [$anio, 9], [$anio, 10],
+            ];
+            $periodoPago = sprintf('%04d-11', $anio);
+            $gratificacionRelevante = \App\Models\Gratificacion::where('employee_id', $empleado->id)
+                ->where('tipo', 'julio')
+                ->where('anio', $anio)
+                ->first();
+        }
+
+        $fechaIngreso = $empleado->fecha_ingreso ? Carbon::parse($empleado->fecha_ingreso) : null;
+        $fechaCese    = $empleado->fecha_cese ? Carbon::parse($empleado->fecha_cese) : null;
+
+        $mesesComputables    = 0;
+        $mesesConComisiones  = 0;
+        $sumaComisiones      = 0.0;
+        $mesesConHorasExtra  = 0;
+        $sumaHorasExtra      = 0.0;
+
+        foreach ($mesesSemestre as [$y, $m]) {
+            $inicioMes = Carbon::create($y, $m, 1)->startOfMonth();
+            $finMes    = Carbon::create($y, $m, 1)->endOfMonth();
+
+            $activoEseMes = (!$fechaIngreso || $fechaIngreso->lte($finMes))
+                && (!$fechaCese || $fechaCese->gte($inicioMes));
+
+            if ($activoEseMes) {
+                $mesesComputables++;
+            }
+
+            $periodoMes = sprintf('%04d-%02d', $y, $m);
+            $liquidacion = PlanillaLiquidacion::where('employee_id', $empleado->id)
+                ->where('periodo', $periodoMes)
+                ->first();
+
+            if (!$liquidacion) {
+                continue;
+            }
+
+            if ((float) $liquidacion->comisiones > 0) {
+                $mesesConComisiones++;
+                $sumaComisiones += (float) $liquidacion->comisiones;
+            }
+
+            $horasExtraMes = (float) $liquidacion->importe_horas_extra_diurnas + (float) $liquidacion->importe_horas_extra_nocturnas;
+            if ($horasExtraMes > 0) {
+                $mesesConHorasExtra++;
+                $sumaHorasExtra += $horasExtraMes;
+            }
+        }
+
+        if ($mesesComputables === 0) {
+            return null; // no trabajó ni un día del semestre CTS — no corresponde
+        }
+
+        $asignacionFamiliar = $empleado->aplica_asignacion_familiar
+            ? round(self::RMV_2026 * 0.10, 2)
+            : 0.0;
+
+        $promedioComisiones = $mesesConComisiones >= 3 ? round($sumaComisiones / 6, 2) : 0.0;
+        $promedioHorasExtra = $mesesConHorasExtra >= 3 ? round($sumaHorasExtra / 6, 2) : 0.0;
+
+        $sextoGratificacion = $gratificacionRelevante
+            ? round($gratificacionRelevante->monto_gratificacion / 6, 2)
+            : 0.0;
+
+        $remuneracionComputable = round(
+            floatval($empleado->sueldo_base) + $asignacionFamiliar + $promedioComisiones + $promedioHorasExtra + $sextoGratificacion,
+            2
+        );
+
+        $montoCts = round($remuneracionComputable / 12 * $mesesComputables, 2);
+
+        return \App\Models\CtsDeposito::updateOrCreate(
+            ['employee_id' => $empleado->id, 'periodo' => $periodoPago],
+            [
+                'company_id'              => $companyId,
+                'tipo'                    => $tipo,
+                'anio'                    => $anio,
+                'nombres'                 => $empleado->nombres,
+                'apellidos'               => $empleado->apellidos,
+                'dni'                     => $empleado->dni,
+                'cargo'                   => $empleado->cargo,
+                'sueldo_base'             => $empleado->sueldo_base,
+                'asignacion_familiar'     => $asignacionFamiliar,
+                'meses_computables'       => $mesesComputables,
+                'meses_con_comisiones'    => $mesesConComisiones,
+                'promedio_comisiones'     => $promedioComisiones,
+                'meses_con_horas_extra'   => $mesesConHorasExtra,
+                'promedio_horas_extra'    => $promedioHorasExtra,
+                'gratificacion_id'        => $gratificacionRelevante?->id,
+                'sexto_gratificacion'     => $sextoGratificacion,
+                'remuneracion_computable' => $remuneracionComputable,
+                'monto_cts'               => $montoCts,
+                'calculado_por'           => Auth::id(),
+                'calculado_at'            => now(),
+            ]
+        );
+    }
+
     private function contarDiasLaborables(Carbon $inicio, Carbon $fin): int
     {
         $count  = 0;

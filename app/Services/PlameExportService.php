@@ -106,7 +106,7 @@ class PlameExportService
         // 0900 - Conceptos varios
         '0902', // Bono de productividad [usamos bonos_especiales aquí]
         '0903', // Canasta navidad [SIN CALCULAR HOY]
-        '0904', // CTS [SIN CALCULAR HOY]
+        '0904', // CTS — calculado desde CtsResource (código genérico, sin confirmar contra el catálogo real de este RUC — ver BoletaPagoService)
         '0907', // Licencia con goce de haber [SIN CALCULAR HOY]
         '0909', // Movilidad supeditada [SIN CALCULAR HOY]
         '0910', // Participación utilidades [SIN CALCULAR HOY — módulo de utilidades pendiente]

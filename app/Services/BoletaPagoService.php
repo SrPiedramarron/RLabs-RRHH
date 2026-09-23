@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\CtsDeposito;
 use App\Models\Gratificacion;
 use App\Models\PlanillaLiquidacion;
 use Carbon\Carbon;
@@ -17,12 +18,21 @@ class BoletaPagoService
      * Si el periodo de la liquidación tiene una gratificación calculada
      * (julio/diciembre), sus montos se agregan a la misma boleta — se pagan
      * juntas el mismo mes, no en un documento aparte.
+     *
+     * La CTS (mayo/noviembre), en cambio, NO se suma a neto_pagar: por ley
+     * se deposita directo a la cuenta CTS del trabajador en el banco que él
+     * eligió, no se paga junto al sueldo. Aparece solo como dato informativo
+     * y para declarar el código PLAME 0904.
      */
     public function datosBoleta(PlanillaLiquidacion $l): array
     {
         $empleado = $l->employee;
 
         $gratificacion = Gratificacion::where('employee_id', $l->employee_id)
+            ->where('periodo', $l->periodo)
+            ->first();
+
+        $cts = CtsDeposito::where('employee_id', $l->employee_id)
             ->where('periodo', $l->periodo)
             ->first();
 
@@ -93,6 +103,13 @@ class BoletaPagoService
                     : null,
                 '0916' => $l->subsidio_enfermedad > 0
                     ? ['SUBSIDIO INCAPACIDAD POR ENFERMEDAD', $l->subsidio_enfermedad]
+                    : null,
+                // '0904' es el código genérico de catálogo SUNAT para CTS —
+                // a diferencia de 0406/0312 (gratificación), este NO fue
+                // confirmado todavía por RRHH contra el catálogo real de
+                // este RUC. Verificarlo antes de declarar en PLAME.
+                '0904' => $cts && $cts->monto_cts > 0
+                    ? ['COMPENSACIÓN POR TIEMPO DE SERVICIOS', $cts->monto_cts]
                     : null,
             ]),
 
