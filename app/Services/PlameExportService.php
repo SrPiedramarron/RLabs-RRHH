@@ -95,7 +95,7 @@ class PlameExportService
         '0403', // Gratificaciones extraordinarias (bono ad-hoc, bonos_especiales)
         '0402', '0405', '0407', '0411', // [SIN CALCULAR HOY — gratificación TRUNCA (cese antes de completar semestre) pendiente]
         // 0500 - Indemnizaciones
-        '0501', '0504', // [SIN CALCULAR HOY — módulo de liquidaciones pendiente]
+        '0501', '0504', // [SIN DECLARAR AÚN — el cálculo ya existe en LiquidacionCeseResource (vacaciones/gratificación/CTS truncas + indemnización), pero todavía no está conectado a este export ni a una boleta propia]
         // 0700 - Descuentos al trabajador
         '0701', // Adelanto [SIN CALCULAR HOY]
         '0702', // Cuota sindical [SIN CALCULAR HOY]

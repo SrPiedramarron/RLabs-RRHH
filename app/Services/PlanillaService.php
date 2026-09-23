@@ -833,6 +833,166 @@ class PlanillaService
         );
     }
 
+    /**
+     * Liquidación por cese: vacaciones truncas + gratificación trunca +
+     * CTS trunca + indemnización (solo si el motivo es despido arbitrario).
+     *
+     * NO incluye la remuneración pendiente del mes de cese — eso se calcula
+     * con la "Liquidación de Planilla" normal de ese mes (usando los días
+     * realmente trabajados hasta el cese), para no duplicar el cálculo.
+     */
+    public function calcularLiquidacionCese(int $employeeId, string $motivoCese, ?float $indemnizacionManual = null): \App\Models\LiquidacionCese
+    {
+        $empleado = Employee::findOrFail($employeeId);
+
+        if (!$empleado->fecha_cese) {
+            throw new \RuntimeException('El trabajador no tiene fecha de cese registrada en su ficha.');
+        }
+
+        $fechaCese    = Carbon::parse($empleado->fecha_cese);
+        $fechaIngreso = $empleado->fecha_ingreso ? Carbon::parse($empleado->fecha_ingreso) : $fechaCese;
+        $sueldo       = floatval($empleado->sueldo_base);
+        $asignacionFamiliar = $empleado->aplica_asignacion_familiar
+            ? round(self::RMV_2026 * 0.10, 2)
+            : 0.0;
+
+        // ── Vacaciones truncas ───────────────────────────────────────────────
+        $saldoVacaciones = app(VacacionesService::class)->calcularSaldo($empleado, $fechaCese);
+        $diasVacacionesTruncas = max(0, floatval($saldoVacaciones['saldo_actual'] ?? 0));
+        $montoVacacionesTruncas = round(($sueldo + $asignacionFamiliar) / 30 * $diasVacacionesTruncas, 2);
+
+        // ── Gratificación trunca (semestre en curso al momento del cese) ────
+        $inicioSemestreGrat = $fechaCese->month <= 6
+            ? Carbon::create($fechaCese->year, 1, 1)
+            : Carbon::create($fechaCese->year, 7, 1);
+        $finSemestreGrat = $fechaCese->month <= 6
+            ? Carbon::create($fechaCese->year, 6, 30)
+            : Carbon::create($fechaCese->year, 12, 31);
+
+        [$mesesGratTrunca, $promComisionesGrat, $promHorasExtraGrat] = $this->prorrateoTrunca(
+            $empleado, max($inicioSemestreGrat, $fechaIngreso), $fechaCese, $inicioSemestreGrat, $finSemestreGrat
+        );
+
+        $remuneracionComputableGrat = round($sueldo + $asignacionFamiliar + $promComisionesGrat + $promHorasExtraGrat, 2);
+        $montoGratTrunca = round($remuneracionComputableGrat / 6 * $mesesGratTrunca, 2);
+        $bonifTrunca     = round($montoGratTrunca * 0.09, 2);
+
+        // ── CTS trunca (semestre CTS en curso al momento del cese) ──────────
+        // Semestre CTS "mayo" = nov-abr, "noviembre" = may-oct.
+        if (in_array($fechaCese->month, [11, 12, 1, 2, 3, 4], true)) {
+            $inicioSemestreCts = $fechaCese->month >= 11
+                ? Carbon::create($fechaCese->year, 11, 1)
+                : Carbon::create($fechaCese->year - 1, 11, 1);
+            $finSemestreCts = $inicioSemestreCts->copy()->addMonths(5)->endOfMonth();
+        } else {
+            $inicioSemestreCts = Carbon::create($fechaCese->year, 5, 1);
+            $finSemestreCts    = Carbon::create($fechaCese->year, 10, 31);
+        }
+
+        [$mesesCtsTrunca, $promComisionesCts, $promHorasExtraCts] = $this->prorrateoTrunca(
+            $empleado, max($inicioSemestreCts, $fechaIngreso), $fechaCese, $inicioSemestreCts, $finSemestreCts
+        );
+
+        // 1/6 de la gratificación trunca recién calculada (es la que cae
+        // dentro de este semestre CTS, por construcción).
+        $sextoGratificacion = round($montoGratTrunca / 6, 2);
+
+        $remuneracionComputableCts = round($sueldo + $asignacionFamiliar + $promComisionesCts + $promHorasExtraCts + $sextoGratificacion, 2);
+        $montoCtsTrunca = round($remuneracionComputableCts / 12 * $mesesCtsTrunca, 2);
+
+        // ── Indemnización por despido arbitrario ────────────────────────────
+        // 1.5 sueldos por año completo de servicio (dozavos por meses
+        // adicionales), tope 12 sueldos — Art. 38 D.Leg. 728. Solo aplica si
+        // el motivo es despido arbitrario; para los demás motivos es 0.
+        // Se puede pasar un monto manual (ej. transacción/acuerdo distinto).
+        $indemnizacion = 0.0;
+        if ($indemnizacionManual !== null) {
+            $indemnizacion = round($indemnizacionManual, 2);
+        } elseif ($motivoCese === 'despido_arbitrario') {
+            $mesesServicio = $fechaIngreso->diffInMonths($fechaCese);
+            $indemnizacion = round(min(1.5 * $sueldo / 12 * $mesesServicio, 12 * $sueldo), 2);
+        }
+
+        $montoTotal = round(
+            $montoVacacionesTruncas + $montoGratTrunca + $bonifTrunca + $montoCtsTrunca + $indemnizacion,
+            2
+        );
+
+        return \App\Models\LiquidacionCese::updateOrCreate(
+            ['employee_id' => $empleado->id, 'fecha_cese' => $fechaCese->toDateString()],
+            [
+                'company_id'   => $empleado->company_id,
+                'motivo_cese'  => $motivoCese,
+                'nombres'      => $empleado->nombres,
+                'apellidos'    => $empleado->apellidos,
+                'dni'          => $empleado->dni,
+                'cargo'        => $empleado->cargo,
+                'sueldo_base'  => $sueldo,
+                'asignacion_familiar' => $asignacionFamiliar,
+                'dias_vacaciones_truncas'  => $diasVacacionesTruncas,
+                'monto_vacaciones_truncas' => $montoVacacionesTruncas,
+                'meses_gratificacion_trunca' => $mesesGratTrunca,
+                'monto_gratificacion_trunca' => $montoGratTrunca,
+                'bonificacion_extraordinaria_trunca' => $bonifTrunca,
+                'meses_cts_trunca' => $mesesCtsTrunca,
+                'monto_cts_trunca' => $montoCtsTrunca,
+                'indemnizacion' => $indemnizacion,
+                'monto_total'   => $montoTotal,
+                'calculado_por' => Auth::id(),
+                'calculado_at'  => now(),
+            ]
+        );
+    }
+
+    /**
+     * Helper compartido por gratificación trunca y CTS trunca: convierte
+     * días transcurridos (desde $desde hasta $fechaCese) a "meses" de 30
+     * días (tope 6), y calcula el promedio de comisiones/horas extra de
+     * los meses del semestre [$inicioSemestre, $finSemestre] que tengan
+     * liquidación mensual registrada — misma regla de "al menos 3 de 6"
+     * que gratificación/CTS regulares.
+     *
+     * @return array{0: float, 1: float, 2: float} [mesesComputables, promedioComisiones, promedioHorasExtra]
+     */
+    private function prorrateoTrunca(Employee $empleado, Carbon $desde, Carbon $fechaCese, Carbon $inicioSemestre, Carbon $finSemestre): array
+    {
+        $dias = max(0, $desde->diffInDays($fechaCese) + 1);
+        $mesesComputables = min(6.0, round($dias / 30, 2));
+
+        $mesesConComisiones = 0;
+        $sumaComisiones     = 0.0;
+        $mesesConHorasExtra = 0;
+        $sumaHorasExtra     = 0.0;
+
+        $cursor = $inicioSemestre->copy();
+        while ($cursor->lte($finSemestre)) {
+            $periodoMes = $cursor->format('Y-m');
+            $liquidacion = PlanillaLiquidacion::where('employee_id', $empleado->id)
+                ->where('periodo', $periodoMes)
+                ->first();
+
+            if ($liquidacion) {
+                if ((float) $liquidacion->comisiones > 0) {
+                    $mesesConComisiones++;
+                    $sumaComisiones += (float) $liquidacion->comisiones;
+                }
+
+                $horasExtraMes = (float) $liquidacion->importe_horas_extra_diurnas + (float) $liquidacion->importe_horas_extra_nocturnas;
+                if ($horasExtraMes > 0) {
+                    $mesesConHorasExtra++;
+                    $sumaHorasExtra += $horasExtraMes;
+                }
+            }
+
+            $cursor->addMonthNoOverflow();
+        }
+
+        $promedioComisiones = $mesesConComisiones >= 3 ? round($sumaComisiones / 6, 2) : 0.0;
+        $promedioHorasExtra = $mesesConHorasExtra >= 3 ? round($sumaHorasExtra / 6, 2) : 0.0;
+
+        return [$mesesComputables, $promedioComisiones, $promedioHorasExtra];
+    }
+
     private function contarDiasLaborables(Carbon $inicio, Carbon $fin): int
     {
         $count  = 0;
