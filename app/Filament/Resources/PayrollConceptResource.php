@@ -18,8 +18,8 @@ class PayrollConceptResource extends Resource
     protected static ?string $navigationLabel = 'Conceptos de Planilla';
     protected static ?string $modelLabel = 'Concepto';
     protected static ?string $pluralModelLabel = 'Conceptos de Planilla';
-    protected static ?string $navigationGroup = 'Planillas';
-    protected static ?int $navigationSort = 20;
+    protected static ?string $navigationGroup = 'Planilla';
+    protected static ?int $navigationSort = 50;
 
     public static function form(Form $form): Form
     {

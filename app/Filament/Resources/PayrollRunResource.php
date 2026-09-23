@@ -23,8 +23,8 @@ class PayrollRunResource extends Resource
     protected static ?string $navigationLabel = 'Planillas';
     protected static ?string $modelLabel = 'Planilla';
     protected static ?string $pluralModelLabel = 'Planillas';
-    protected static ?string $navigationGroup = 'Planillas';
-    protected static ?int $navigationSort = 10;
+    protected static ?string $navigationGroup = 'Planilla';
+    protected static ?int $navigationSort = 40;
 
     public static function form(Form $form): Form
     {
