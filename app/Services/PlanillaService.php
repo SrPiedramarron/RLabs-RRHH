@@ -993,6 +993,104 @@ class PlanillaService
         return [$mesesComputables, $promedioComisiones, $promedioHorasExtra];
     }
 
+    /**
+     * Participación en las utilidades — reparto legal (D. Leg. 892):
+     *   - 50% del pool proporcional a los DÍAS trabajados en el año por
+     *     cada trabajador, sobre el total de días trabajados por todos.
+     *   - 50% del pool proporcional a la REMUNERACIÓN percibida en el año
+     *     por cada trabajador, sobre el total de remuneraciones de todos.
+     *   - Tope: lo que le toca a cada trabajador no puede exceder 18
+     *     remuneraciones mensuales de ese trabajador — el exceso NO se
+     *     redistribuye entre los demás (por ley va a un fondo estatal,
+     *     fuera del alcance de este sistema).
+     *
+     * El monto total del pool a repartir ($montoTotalARepartir) es un dato
+     * que entrega contabilidad (resulta de aplicar el % legal según la
+     * actividad de la empresa sobre la renta neta anual) — este sistema no
+     * calcula la renta neta ni el % por actividad, solo hace el reparto
+     * entre trabajadores una vez que ese monto ya está definido.
+     */
+    public function calcularPeriodoUtilidades(int $companyId, int $anioEjercicio, float $montoTotalARepartir, string $periodoPago): Collection
+    {
+        $empleados = Employee::where('company_id', $companyId)
+            ->whereNotNull('sueldo_base')
+            ->where('sueldo_base', '>', 0)
+            ->get();
+
+        // Insumos por trabajador: días y remuneración bruta del año fiscal,
+        // sumados desde las liquidaciones mensuales ya calculadas.
+        $insumos = [];
+        $totalDias = 0;
+        $totalRemuneracion = 0.0;
+
+        foreach ($empleados as $empleado) {
+            $liquidaciones = PlanillaLiquidacion::where('employee_id', $empleado->id)
+                ->where('periodo', 'like', $anioEjercicio . '-%')
+                ->get();
+
+            $dias = (int) $liquidaciones->sum('dias_trabajados');
+            $remuneracion = (float) $liquidaciones->sum('remuneracion_bruta');
+
+            if ($dias <= 0 && $remuneracion <= 0) {
+                continue; // no trabajó ese año, no participa
+            }
+
+            $insumos[$empleado->id] = ['empleado' => $empleado, 'dias' => $dias, 'remuneracion' => $remuneracion];
+            $totalDias += $dias;
+            $totalRemuneracion += $remuneracion;
+        }
+
+        if (empty($insumos) || $totalDias <= 0 || $totalRemuneracion <= 0) {
+            throw new \RuntimeException(
+                "No hay liquidaciones mensuales calculadas para el año {$anioEjercicio} — calcula primero la Liquidación de Planilla de esos meses."
+            );
+        }
+
+        $poolPorDias = $montoTotalARepartir * 0.5;
+        $poolPorRemuneracion = $montoTotalARepartir * 0.5;
+
+        $utilidades = collect();
+
+        DB::transaction(function () use ($insumos, $totalDias, $totalRemuneracion, $poolPorDias, $poolPorRemuneracion, $companyId, $anioEjercicio, $periodoPago, &$utilidades) {
+            foreach ($insumos as $datos) {
+                $empleado = $datos['empleado'];
+
+                $montoPorDias = round($poolPorDias * ($datos['dias'] / $totalDias), 2);
+                $montoPorRemuneracion = round($poolPorRemuneracion * ($datos['remuneracion'] / $totalRemuneracion), 2);
+                $montoBruto = round($montoPorDias + $montoPorRemuneracion, 2);
+
+                $tope = round(18 * floatval($empleado->sueldo_base), 2);
+                $topeAplicado = $montoBruto > $tope;
+                $montoPagado = $topeAplicado ? $tope : $montoBruto;
+
+                $utilidades->push(\App\Models\Utilidad::updateOrCreate(
+                    ['employee_id' => $empleado->id, 'anio_ejercicio' => $anioEjercicio],
+                    [
+                        'company_id'    => $companyId,
+                        'periodo'       => $periodoPago,
+                        'nombres'       => $empleado->nombres,
+                        'apellidos'     => $empleado->apellidos,
+                        'dni'           => $empleado->dni,
+                        'cargo'         => $empleado->cargo,
+                        'sueldo_base'   => $empleado->sueldo_base,
+                        'dias_trabajados_anual' => $datos['dias'],
+                        'remuneracion_anual'    => $datos['remuneracion'],
+                        'monto_por_dias'         => $montoPorDias,
+                        'monto_por_remuneracion' => $montoPorRemuneracion,
+                        'monto_bruto'            => $montoBruto,
+                        'tope_18_remuneraciones' => $tope,
+                        'tope_aplicado'          => $topeAplicado,
+                        'monto_pagado'           => $montoPagado,
+                        'calculado_por' => Auth::id(),
+                        'calculado_at'  => now(),
+                    ]
+                ));
+            }
+        });
+
+        return $utilidades;
+    }
+
     private function contarDiasLaborables(Carbon $inicio, Carbon $fin): int
     {
         $count  = 0;

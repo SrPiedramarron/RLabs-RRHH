@@ -109,7 +109,7 @@ class PlameExportService
         '0904', // CTS — calculado desde CtsResource (código genérico, sin confirmar contra el catálogo real de este RUC — ver BoletaPagoService)
         '0907', // Licencia con goce de haber [SIN CALCULAR HOY]
         '0909', // Movilidad supeditada [SIN CALCULAR HOY]
-        '0910', // Participación utilidades [SIN CALCULAR HOY — módulo de utilidades pendiente]
+        '0910', // Participación utilidades — calculado desde UtilidadResource (código genérico, sin confirmar contra el catálogo real de este RUC — ver BoletaPagoService)
         '0915', // Subsidio maternidad [SIN CALCULAR HOY]
         '0916', // Subsidio incapacidad [SIN CALCULAR HOY]
         '0928', // Devolución exceso retención 5ta [SIN CALCULAR HOY]

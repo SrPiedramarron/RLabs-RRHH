@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\CtsDeposito;
 use App\Models\Gratificacion;
 use App\Models\PlanillaLiquidacion;
+use App\Models\Utilidad;
 use Carbon\Carbon;
 
 class BoletaPagoService
@@ -15,9 +16,9 @@ class BoletaPagoService
      * en blanco — es responsabilidad del usuario completarlo manualmente
      * hasta que se agregue el campo, o lo agregamos si lo confirman.
      *
-     * Si el periodo de la liquidación tiene una gratificación calculada
-     * (julio/diciembre), sus montos se agregan a la misma boleta — se pagan
-     * juntas el mismo mes, no en un documento aparte.
+     * Si el periodo de la liquidación tiene una gratificación o una
+     * participación de utilidades calculada, sus montos se agregan a la
+     * misma boleta — se pagan juntas el mismo mes, no en un documento aparte.
      *
      * La CTS (mayo/noviembre), en cambio, NO se suma a neto_pagar: por ley
      * se deposita directo a la cuenta CTS del trabajador en el banco que él
@@ -33,6 +34,10 @@ class BoletaPagoService
             ->first();
 
         $cts = CtsDeposito::where('employee_id', $l->employee_id)
+            ->where('periodo', $l->periodo)
+            ->first();
+
+        $utilidad = Utilidad::where('employee_id', $l->employee_id)
             ->where('periodo', $l->periodo)
             ->first();
 
@@ -111,6 +116,13 @@ class BoletaPagoService
                 '0904' => $cts && $cts->monto_cts > 0
                     ? ['COMPENSACIÓN POR TIEMPO DE SERVICIOS', $cts->monto_cts]
                     : null,
+                // '0910' es el código genérico de catálogo SUNAT para
+                // participación de utilidades — igual que 0904 (CTS), no
+                // fue confirmado todavía por RRHH contra el catálogo real
+                // de este RUC. Verificarlo antes de declarar en PLAME.
+                '0910' => $utilidad && $utilidad->monto_pagado > 0
+                    ? ['PARTICIPACIÓN EN LAS UTILIDADES', $utilidad->monto_pagado]
+                    : null,
             ]),
 
             // ── Descuentos ──────────────────────────────────────────────────
@@ -132,7 +144,7 @@ class BoletaPagoService
             // ── Aportes del trabajador ────────────────────────────────────────
             'aportes_trabajador' => $this->aportesTrabajador($l),
 
-            'neto_pagar' => round((float) $l->neto_pagar + ($gratificacion->monto_total ?? 0), 2),
+            'neto_pagar' => round((float) $l->neto_pagar + ($gratificacion->monto_total ?? 0) + ($utilidad->monto_pagado ?? 0), 2),
 
             // ── Aportes del empleador (informativo) ────────────────────────────
             'aportes_empleador' => array_filter([

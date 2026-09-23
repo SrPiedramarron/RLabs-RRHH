@@ -25,6 +25,7 @@ class PayrollConceptSeeder extends Seeder
             ['codigo' => 'COMISIONES',         'nombre' => 'Comisiones',                   'tipo' => 'ingreso',   'afecto_onp_afp' => true,  'afecto_renta_5ta' => true],
             ['codigo' => 'GRATIFICACION',      'nombre' => 'Gratificación (Julio/Diciembre)', 'tipo' => 'ingreso', 'afecto_onp_afp' => false, 'afecto_renta_5ta' => false],
             ['codigo' => 'BONIF_EXTRAORD_9',   'nombre' => 'Bonificación extraordinaria 9% (Ley 29351)', 'tipo' => 'ingreso', 'afecto_onp_afp' => false, 'afecto_renta_5ta' => false],
+            ['codigo' => 'UTILIDADES',         'nombre' => 'Participación en las utilidades',             'tipo' => 'ingreso', 'afecto_onp_afp' => false, 'afecto_renta_5ta' => true],
 
             ['codigo' => 'ONP',                'nombre' => 'Retención ONP (Sistema Nacional de Pensiones)', 'tipo' => 'descuento', 'afecto_onp_afp' => false, 'afecto_renta_5ta' => false],
             ['codigo' => 'AFP',                'nombre' => 'Aporte AFP (fondo + comisión + seguro)',        'tipo' => 'descuento', 'afecto_onp_afp' => false, 'afecto_renta_5ta' => false],
