@@ -77,10 +77,10 @@ class PlameExportService
         '0105', // Horas extra 25%
         '0106', // Horas extra 35%
         '0107', // Trabajo en feriado/descanso [SIN CALCULAR HOY]
-        '0114', // Vacaciones truncas [SIN CALCULAR HOY]
+        '0114', // Vacaciones truncas (cese) — calculado desde LiquidacionCeseResource (confirmado por RRHH)
         '0115', // Remuneración día descanso/feriados [SIN CALCULAR HOY]
         '0117', // Compensación vacacional [SIN CALCULAR HOY]
-        '0118', // Remuneración vacacional [SIN CALCULAR HOY]
+        '0118', // Remuneración vacacional (en cese, es DISTINTO de vacaciones truncas — RRHH lo confirmó como concepto aparte) [SIN CALCULAR HOY]
         '0121', // Remuneración/jornal básico
         '0122', // Remuneración permanente [no aplica, alternativo a 0121]
         '0129', // Estipendio interno ciencias salud [no aplica normalmente]
@@ -89,13 +89,16 @@ class PlameExportService
         '0202', // Asignación/bonificación educación [SIN CALCULAR HOY]
         // 0300 - Bonificaciones
         '0312', // Bonificación extraordinaria 9% (Ley 29351) — calculado desde GratificacionResource (confirmado por RRHH)
-        '0303', '0306', '0309', '0313', // [SIN CALCULAR HOY, salvo bono especial genérico]
+        '0313', // Bonificación proporcional 9% (cese) — calculado desde LiquidacionCeseResource (confirmado por RRHH)
+        '0303', '0306', '0309', // [SIN CALCULAR HOY, salvo bono especial genérico]
         // 0400 - Gratificaciones/Aguinaldos
         '0406', // Gratificación (Fiestas Patrias/Navidad) — calculado desde GratificacionResource (confirmado por RRHH)
+        '0407', // Gratificación proporcional (cese) — calculado desde LiquidacionCeseResource (confirmado por RRHH)
         '0403', // Gratificaciones extraordinarias (bono ad-hoc, bonos_especiales)
-        '0402', '0405', '0407', '0411', // [SIN CALCULAR HOY — gratificación TRUNCA (cese antes de completar semestre) pendiente]
+        '0402', '0405', '0411', // [SIN CALCULAR HOY — no confirmados por RRHH, uso no identificado todavía]
         // 0500 - Indemnizaciones
-        '0501', '0504', // [SIN DECLARAR AÚN — el cálculo ya existe en LiquidacionCeseResource (vacaciones/gratificación/CTS truncas + indemnización), pero todavía no está conectado a este export ni a una boleta propia]
+        '0501', // [SIN CALCULAR HOY — indemnización por despido arbitrario ya se calcula en LiquidacionCeseResource, pero RRHH no ha confirmado su código PLAME (0504 es OTRO concepto, ver abajo). Se muestra en la boleta sin declarar en PLAME hasta confirmarlo]
+        '0504', // Indemnización por vacaciones NO GOZADAS (cese) — confirmado por RRHH como concepto propio, DISTINTO de vacaciones truncas (0114) y de la indemnización por despido arbitrario. El sistema no lo calcula todavía [SIN CALCULAR HOY]
         // 0700 - Descuentos al trabajador
         '0701', // Adelanto [SIN CALCULAR HOY]
         '0702', // Cuota sindical [SIN CALCULAR HOY]
@@ -106,16 +109,16 @@ class PlameExportService
         // 0900 - Conceptos varios
         '0902', // Bono de productividad [usamos bonos_especiales aquí]
         '0903', // Canasta navidad [SIN CALCULAR HOY]
-        '0904', // CTS — calculado desde CtsResource (código genérico, sin confirmar contra el catálogo real de este RUC — ver BoletaPagoService)
+        '0904', // CTS (regular o trunca en un cese) — calculado desde CtsResource / LiquidacionCeseResource (confirmado por RRHH)
         '0907', // Licencia con goce de haber [SIN CALCULAR HOY]
         '0909', // Movilidad supeditada [SIN CALCULAR HOY]
-        '0910', // Participación utilidades — calculado desde UtilidadResource (código genérico, sin confirmar contra el catálogo real de este RUC — ver BoletaPagoService)
+        '0910', // Participación utilidades — calculado desde UtilidadResource (confirmado por RRHH)
         '0915', // Subsidio maternidad [SIN CALCULAR HOY]
         '0916', // Subsidio incapacidad [SIN CALCULAR HOY]
         '0928', // Devolución exceso retención 5ta [SIN CALCULAR HOY]
         // 1000 - Otros conceptos (personalizados de InProcess)
         '1001', // Reintegros [SIN CALCULAR HOY]
-        '1002', // Devolución 5ta categoría [SIN CALCULAR HOY]
+        '1002', // Devolución de 5ta categoría (confirmado por RRHH) — el sistema no calcula este ajuste todavía [SIN CALCULAR HOY]
         '1007', // Bono por encargatura
     ];
 

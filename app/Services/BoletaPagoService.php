@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\CtsDeposito;
 use App\Models\Gratificacion;
+use App\Models\LiquidacionCese;
 use App\Models\PlanillaLiquidacion;
 use App\Models\Utilidad;
 use Carbon\Carbon;
@@ -16,14 +17,16 @@ class BoletaPagoService
      * en blanco — es responsabilidad del usuario completarlo manualmente
      * hasta que se agregue el campo, o lo agregamos si lo confirman.
      *
-     * Si el periodo de la liquidación tiene una gratificación o una
-     * participación de utilidades calculada, sus montos se agregan a la
-     * misma boleta — se pagan juntas el mismo mes, no en un documento aparte.
+     * Si el periodo de la liquidación tiene una gratificación, una
+     * participación de utilidades, o una liquidación por cese calculada,
+     * sus montos se agregan a la misma boleta — se pagan juntos el mismo
+     * mes, no en un documento aparte.
      *
-     * La CTS (mayo/noviembre), en cambio, NO se suma a neto_pagar: por ley
-     * se deposita directo a la cuenta CTS del trabajador en el banco que él
-     * eligió, no se paga junto al sueldo. Aparece solo como dato informativo
-     * y para declarar el código PLAME 0904.
+     * La CTS (regular o trunca en un cese), en cambio, NO se suma a
+     * neto_pagar: por ley se deposita directo a la cuenta CTS del
+     * trabajador en el banco que él eligió, no se paga junto al sueldo.
+     * Aparece solo como dato informativo y para declarar el código PLAME
+     * 0904 (confirmado por RRHH, set. 2026).
      */
     public function datosBoleta(PlanillaLiquidacion $l): array
     {
@@ -39,6 +42,13 @@ class BoletaPagoService
 
         $utilidad = Utilidad::where('employee_id', $l->employee_id)
             ->where('periodo', $l->periodo)
+            ->first();
+
+        // La liquidación por cese no guarda un campo 'periodo' — se ubica
+        // por año-mes de fecha_cese, que debe coincidir con el mes de esta
+        // liquidación mensual (el cese se paga en la planilla de ese mes).
+        $cese = LiquidacionCese::where('employee_id', $l->employee_id)
+            ->whereRaw("DATE_FORMAT(fecha_cese, '%Y-%m') = ?", [$l->periodo])
             ->first();
 
         $situacion = ($empleado?->fecha_cese && Carbon::parse($empleado->fecha_cese)->lte(now()))
@@ -109,19 +119,37 @@ class BoletaPagoService
                 '0916' => $l->subsidio_enfermedad > 0
                     ? ['SUBSIDIO INCAPACIDAD POR ENFERMEDAD', $l->subsidio_enfermedad]
                     : null,
-                // '0904' es el código genérico de catálogo SUNAT para CTS —
-                // a diferencia de 0406/0312 (gratificación), este NO fue
-                // confirmado todavía por RRHH contra el catálogo real de
-                // este RUC. Verificarlo antes de declarar en PLAME.
-                '0904' => $cts && $cts->monto_cts > 0
-                    ? ['COMPENSACIÓN POR TIEMPO DE SERVICIOS', $cts->monto_cts]
+                // 0904 y 0910 confirmados por RRHH (set. 2026). 0904 suma la
+                // CTS regular del periodo (si la hay) más la CTS trunca de
+                // una liquidación por cese en el mismo mes (rara vez
+                // coinciden ambas, pero por si acaso no se pisan entre sí).
+                '0904' => (($cts->monto_cts ?? 0) + ($cese->monto_cts_trunca ?? 0)) > 0
+                    ? ['COMPENSACIÓN POR TIEMPO DE SERVICIOS', ($cts->monto_cts ?? 0) + ($cese->monto_cts_trunca ?? 0)]
                     : null,
-                // '0910' es el código genérico de catálogo SUNAT para
-                // participación de utilidades — igual que 0904 (CTS), no
-                // fue confirmado todavía por RRHH contra el catálogo real
-                // de este RUC. Verificarlo antes de declarar en PLAME.
                 '0910' => $utilidad && $utilidad->monto_pagado > 0
                     ? ['PARTICIPACIÓN EN LAS UTILIDADES', $utilidad->monto_pagado]
+                    : null,
+                // ── Conceptos de liquidación por cese, códigos confirmados
+                // por RRHH (set. 2026). "Remuneración vacacional" (0118) e
+                // "indemnización por no gozadas" (0504) en el cese, y
+                // "devolución de 5ta" (1002), NO están implementados — el
+                // sistema solo calcula "vacaciones truncas" (0114) hoy.
+                '0407' => $cese && $cese->monto_gratificacion_trunca > 0
+                    ? ['GRATIFICACIÓN PROPORCIONAL (CESE)', $cese->monto_gratificacion_trunca]
+                    : null,
+                '0313' => $cese && $cese->bonificacion_extraordinaria_trunca > 0
+                    ? ['BONIFICACIÓN PROPORCIONAL (CESE)', $cese->bonificacion_extraordinaria_trunca]
+                    : null,
+                '0114' => $cese && $cese->monto_vacaciones_truncas > 0
+                    ? ['VACACIONES TRUNCAS', $cese->monto_vacaciones_truncas]
+                    : null,
+                // Sin código PLAME confirmado todavía (no es lo mismo que
+                // 0504 "indemnización por no gozadas", que RRHH definió
+                // como otro concepto que el sistema no calcula) — se
+                // muestra en la boleta pero no se declara en PLAME hasta
+                // tener el código correcto.
+                'INDEMNIZACION_CESE' => $cese && $cese->indemnizacion > 0
+                    ? ['INDEMNIZACIÓN POR DESPIDO ARBITRARIO', $cese->indemnizacion]
                     : null,
             ]),
 
@@ -144,7 +172,20 @@ class BoletaPagoService
             // ── Aportes del trabajador ────────────────────────────────────────
             'aportes_trabajador' => $this->aportesTrabajador($l),
 
-            'neto_pagar' => round((float) $l->neto_pagar + ($gratificacion->monto_total ?? 0) + ($utilidad->monto_pagado ?? 0), 2),
+            // Del cese solo se suman los conceptos que se pagan en efectivo:
+            // gratificación proporcional + su bonificación, vacaciones
+            // truncas, e indemnización (si aplica). La CTS trunca queda
+            // fuera — va depositada, igual que la CTS regular.
+            'neto_pagar' => round(
+                (float) $l->neto_pagar
+                + ($gratificacion->monto_total ?? 0)
+                + ($utilidad->monto_pagado ?? 0)
+                + ($cese->monto_gratificacion_trunca ?? 0)
+                + ($cese->bonificacion_extraordinaria_trunca ?? 0)
+                + ($cese->monto_vacaciones_truncas ?? 0)
+                + ($cese->indemnizacion ?? 0),
+                2
+            ),
 
             // ── Aportes del empleador (informativo) ────────────────────────────
             'aportes_empleador' => array_filter([
