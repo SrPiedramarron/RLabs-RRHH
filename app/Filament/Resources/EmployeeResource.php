@@ -310,26 +310,72 @@ class EmployeeResource extends Resource
                                         })
                                         ->visibleOn('edit'),
 
-                                    Forms\Components\TextInput::make('credential.password_nueva')
-                                        ->label('Contraseña')
-                                        ->helperText('Déjalo en blanco para no cambiar la contraseña actual. Mínimo 6 caracteres.')
-                                        ->password()
-                                        ->revealable()
-                                        ->minLength(6)
-                                        ->dehydrated(false)
-                                        ->nullable(),
+                                    // Estos 3 controles se manejan como acciones independientes
+                                    // (no como campos del formulario general) porque el guardado
+                                    // normal ("Guardar cambios") no los persistía de forma
+                                    // confiable: el toggle "Acceso activo" se enviaba en false
+                                    // aunque se viera activado, y el campo de contraseña nueva
+                                    // tenía dehydrated(false) por lo que nunca llegaba a guardarse.
+                                    // Bug reportado por RRHH: "cada vez que se edita la ficha se
+                                    // pierde el acceso y hay que resetear la contraseña".
+                                    Forms\Components\Actions::make([
+                                        Forms\Components\Actions\Action::make('cambiar_password')
+                                            ->label('Cambiar contraseña')
+                                            ->icon('heroicon-o-key')
+                                            ->color('gray')
+                                            ->visible(fn (?Employee $record) => $record !== null)
+                                            ->form([
+                                                Forms\Components\TextInput::make('password_nueva')
+                                                    ->label('Contraseña nueva')
+                                                    ->password()
+                                                    ->revealable()
+                                                    ->minLength(6)
+                                                    ->required(),
+                                            ])
+                                            ->action(function (Employee $record, array $data): void {
+                                                EmployeeCredential::updateOrCreate(
+                                                    ['employee_id' => $record->id],
+                                                    ['password' => Hash::make($data['password_nueva'])]
+                                                );
+                                                $record->refresh();
+                                            })
+                                            ->successNotificationTitle('✅ Contraseña actualizada.'),
 
-                                    Forms\Components\Toggle::make('credential.resetear_dni')
-                                        ->label('Resetear contraseña al DNI')
-                                        ->helperText('Marca para restablecer la contraseña al DNI del trabajador.')
-                                        ->default(false)
-                                        ->visibleOn('edit'),
+                                        Forms\Components\Actions\Action::make('resetear_dni_ficha')
+                                            ->label('Resetear al DNI')
+                                            ->icon('heroicon-o-arrow-path')
+                                            ->color('warning')
+                                            ->requiresConfirmation()
+                                            ->visible(fn (?Employee $record) => $record !== null)
+                                            ->modalDescription(fn (Employee $record) => "Se reseteará la contraseña a su DNI ({$record->dni}).")
+                                            ->action(function (Employee $record): void {
+                                                EmployeeCredential::updateOrCreate(
+                                                    ['employee_id' => $record->id],
+                                                    ['password' => Hash::make($record->dni)]
+                                                );
+                                                $record->refresh();
+                                            })
+                                            ->successNotificationTitle('✅ Contraseña reseteada al DNI.'),
 
-                                    Forms\Components\Toggle::make('credential.active')
-                                        ->label('Acceso activo')
-                                        ->helperText('Desactiva para bloquear el acceso sin eliminar la contraseña.')
-                                        ->default(true)
-                                        ->visibleOn('edit'),
+                                        Forms\Components\Actions\Action::make('toggle_acceso')
+                                            ->label(fn (?Employee $record) => $record?->credential?->active ? 'Desactivar acceso' : 'Activar acceso')
+                                            ->icon(fn (?Employee $record) => $record?->credential?->active ? 'heroicon-o-lock-closed' : 'heroicon-o-lock-open')
+                                            ->color(fn (?Employee $record) => $record?->credential?->active ? 'danger' : 'success')
+                                            ->visible(fn (?Employee $record) => $record !== null)
+                                            ->requiresConfirmation()
+                                            ->action(function (Employee $record): void {
+                                                $activoAhora = (bool) $record->credential?->active;
+                                                EmployeeCredential::updateOrCreate(
+                                                    ['employee_id' => $record->id],
+                                                    array_merge(
+                                                        ['active' => ! $activoAhora],
+                                                        $record->credential ? [] : ['password' => Hash::make($record->dni)]
+                                                    )
+                                                );
+                                                $record->refresh();
+                                            })
+                                            ->successNotificationTitle('✅ Acceso actualizado.'),
+                                    ])->visibleOn('edit'),
                                 ])
                                 ->columns(2)
                                 ->columnSpan(2)
