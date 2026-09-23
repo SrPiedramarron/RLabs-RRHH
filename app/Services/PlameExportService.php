@@ -88,12 +88,12 @@ class PlameExportService
         '0201', // Asignación familiar [SIN CALCULAR HOY]
         '0202', // Asignación/bonificación educación [SIN CALCULAR HOY]
         // 0300 - Bonificaciones
-        '0303', '0306', '0309', '0312', '0313', // [SIN CALCULAR HOY, salvo bono especial genérico]
+        '0312', // Bonificación extraordinaria 9% (Ley 29351) — calculado desde GratificacionResource (confirmado por RRHH)
+        '0303', '0306', '0309', '0313', // [SIN CALCULAR HOY, salvo bono especial genérico]
         // 0400 - Gratificaciones/Aguinaldos
-        '0402', // Gratificación (Fiestas Patrias/Navidad) — calculado desde GratificacionResource
+        '0406', // Gratificación (Fiestas Patrias/Navidad) — calculado desde GratificacionResource (confirmado por RRHH)
         '0403', // Gratificaciones extraordinarias (bono ad-hoc, bonos_especiales)
-        '0406', // Bonificación extraordinaria 9% (Ley 29351) — calculado desde GratificacionResource
-        '0405', '0407', '0411', // [SIN CALCULAR HOY — gratificación TRUNCA (cese antes de completar semestre) pendiente]
+        '0402', '0405', '0407', '0411', // [SIN CALCULAR HOY — gratificación TRUNCA (cese antes de completar semestre) pendiente]
         // 0500 - Indemnizaciones
         '0501', '0504', // [SIN CALCULAR HOY — módulo de liquidaciones pendiente]
         // 0700 - Descuentos al trabajador

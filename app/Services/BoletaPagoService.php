@@ -80,14 +80,12 @@ class BoletaPagoService
                 '0403' => $l->bonos_especiales > 0
                     ? ['GRATIFICACIONES EXTRAORDINARIAS', $l->bonos_especiales]
                     : null,
-                // Códigos 0402/0406: asignación provisional (ver aviso en
-                // GratificacionResource) — confirmar el par exacto con el
-                // contador contra el catálogo oficial de este RUC en SUNAT
-                // antes de declarar en PLAME.
-                '0402' => $gratificacion && $gratificacion->monto_gratificacion > 0
+                // Códigos confirmados por RRHH (set. 2026) contra el catálogo
+                // real de este RUC en SUNAT.
+                '0406' => $gratificacion && $gratificacion->monto_gratificacion > 0
                     ? ["GRATIFICACIÓN {$gratificacion->tipo}", $gratificacion->monto_gratificacion]
                     : null,
-                '0406' => $gratificacion && $gratificacion->bonificacion_extraordinaria > 0
+                '0312' => $gratificacion && $gratificacion->bonificacion_extraordinaria > 0
                     ? ['BONIFICACIÓN EXTRAORDINARIA (LEY 29351)', $gratificacion->bonificacion_extraordinaria]
                     : null,
                 '0915' => $l->subsidio_maternidad > 0
