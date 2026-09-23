@@ -8,14 +8,18 @@ use App\Services\PaymentFile\Data\PayrollBeneficiary;
 /**
  * Genera el archivo de carga masiva de haberes BBVA (formato de ancho fijo).
  *
- * Layout reconstruido byte a byte a partir de un archivo real aceptado por el
- * banco (BBVAHABE15.09.2026.txt, planilla del 15/09/2026). Los campos de cada
- * beneficiario (tipo/número de documento, cuenta, nombre, importe) están
- * verificados carácter por carácter contra esa muestra. Los códigos fijos de
- * la cabecera marcados abajo (código de producto '503', número de lote,
- * indicador 'N') no varían entre beneficiarios en la muestra y no se derivan
- * de ningún dato de PayrollRun — se replican tal cual el archivo que RRHH
- * confirmó que el banco aceptó. Si BBVA cambia esos códigos para otra
+ * Layout de posiciones/anchos reconstruido a partir de un archivo real
+ * aceptado por el banco (BBVAHABE15.09.2026.txt, planilla del 15/09/2026).
+ * El primer round-trip byte a byte contra esa muestra dio "match perfecto"
+ * pero solo probaba consistencia interna (parseaba con una escala y
+ * reexportaba con la misma escala) — el campo de importe en realidad usa
+ * 2 decimales implícitos, no 3 como se asumió al inicio; quedó corregido
+ * y reverificado contra los montos reales que RRHH confirmó que se
+ * pagaron esa quincena (ver comentario en buildDetail). Los códigos fijos
+ * de la cabecera marcados abajo (código de producto '503', número de
+ * lote, indicador 'N') no varían entre beneficiarios en la muestra y no
+ * se derivan de ningún dato de PayrollRun — se replican tal cual el
+ * archivo que el banco aceptó. Si BBVA cambia esos códigos para otra
  * empresa/contrato, hay que ajustarlos aquí.
  */
 class BbvaHaberesExporter
@@ -56,7 +60,12 @@ class BbvaHaberesExporter
 
     private function buildDetail(PayrollBeneficiary $beneficiary): string
     {
-        $importe = str_pad((string) (int) round($beneficiary->importe * 1000), 15, '0', STR_PAD_LEFT);
+        // CORREGIDO: el campo de 15 dígitos tiene 2 decimales implícitos
+        // (no 3). Verificado contra los montos realmente pagados en la
+        // planilla de RRHH de set. 2026 (Orihuela S/4,600.00, Martínez
+        // S/2,700.00, Ricra S/790.00) — con ×1000 el archivo generado
+        // habría pagado 10 veces menos de lo debido.
+        $importe = str_pad((string) (int) round($beneficiary->importe * 100), 15, '0', STR_PAD_LEFT);
 
         $line = '002'
             . $beneficiary->doiTipo
