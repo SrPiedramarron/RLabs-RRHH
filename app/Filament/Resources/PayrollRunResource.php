@@ -190,6 +190,7 @@ class PayrollRunResource extends Resource
     {
         return [
             RelationManagers\EntriesRelationManager::class,
+            RelationManagers\PaymentFilesRelationManager::class,
         ];
     }
 
