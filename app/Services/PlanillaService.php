@@ -169,8 +169,12 @@ class PlanillaService
 
         $vacacionesTotal = round($sueldoVacacional + $comisionesVacaciones, 2);
 
-        $importeHEDiurnas   = $horasExtraDiurnas   * $valorHora * (1 + self::RECARGO_HE_DIURNA);
-        $importeHENocturnas = $horasExtraNocturnas * $valorHora * (1 + self::RECARGO_HE_NOCTURNA);
+        // Si el trabajador compensa sus horas extra con tiempo libre (sale
+        // tarde un día, entra tarde otro), no se le paga — las horas quedan
+        // igual registradas arriba (horas_extra_diurnas/nocturnas) para
+        // referencia, solo se deja en 0 el importe a pagar.
+        $importeHEDiurnas   = $empleado->compensa_horas_extras ? 0.0 : $horasExtraDiurnas   * $valorHora * (1 + self::RECARGO_HE_DIURNA);
+        $importeHENocturnas = $empleado->compensa_horas_extras ? 0.0 : $horasExtraNocturnas * $valorHora * (1 + self::RECARGO_HE_NOCTURNA);
 
         // Comisiones del módulo (solo si el empleado aplica).
         // Filtra por employee_id real — antes sumaba TODO el periodo a cada

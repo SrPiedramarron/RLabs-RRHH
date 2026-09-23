@@ -242,6 +242,11 @@ class EmployeeResource extends Resource
                                 ->helperText('Incluir comisiones de ventas en la liquidación mensual')
                                 ->default(false),
 
+                            Forms\Components\Toggle::make('compensa_horas_extras')
+                                ->label('Compensa horas extras')
+                                ->helperText('Activo = el trabajador NO cobra sus horas extra, las compensa saliendo tarde y entrando tarde otro día. Las horas siguen registrándose en asistencia, pero no se pagan en la liquidación.')
+                                ->default(false),
+
                             Forms\Components\Toggle::make('aplica_asignacion_familiar')
                                 ->label('Asignación Familiar')
                                 ->helperText('Activar si el trabajador tiene hijos menores de 18 años (o hasta 24 si estudian). Monto: 10% de la RMV, calculado automáticamente.')

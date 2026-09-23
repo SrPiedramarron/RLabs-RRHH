@@ -32,6 +32,7 @@ class Employee extends Model
         'movilidad_mensual_maxima',
         'aplica_5ta_categoria',
         'aplica_comision',
+        'compensa_horas_extras',
         'aplica_asignacion_familiar',
         'movilidad_diaria',
         'monto_eps_mensual_con_igv',
@@ -54,6 +55,7 @@ class Employee extends Model
         'saldo_pendiente'       => 'decimal:2',
         'exonerado_registro'    => 'boolean',
         'active'                => 'boolean',
+        'compensa_horas_extras' => 'boolean',
     ];
 
     // ── Relaciones existentes ─────────────────────────────────────────────────
