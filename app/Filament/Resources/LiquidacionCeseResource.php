@@ -57,6 +57,20 @@ class LiquidacionCeseResource extends Resource
                     ->alignEnd()
                     ->toggleable(),
 
+                Tables\Columns\TextColumn::make('remuneracion_vacacional_pendiente')
+                    ->label('Remun. vacacional')
+                    ->money('PEN')
+                    ->alignEnd()
+                    ->color(fn ($state) => $state > 0 ? 'warning' : 'gray')
+                    ->toggleable(),
+
+                Tables\Columns\TextColumn::make('indemnizacion_vacacional')
+                    ->label('Indemniz. vacacional')
+                    ->money('PEN')
+                    ->alignEnd()
+                    ->color(fn ($state) => $state > 0 ? 'warning' : 'gray')
+                    ->toggleable(),
+
                 Tables\Columns\TextColumn::make('monto_gratificacion_trunca')
                     ->label('Grat. trunca')
                     ->money('PEN')

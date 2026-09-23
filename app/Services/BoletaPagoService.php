@@ -81,8 +81,12 @@ class BoletaPagoService
             // ── Ingresos (código PLAME => [concepto, monto]) ───────────────────
             'ingresos' => array_filter([
                 '0121' => ['REMUNERACIÓN O JORNAL BÁSICO', $l->sueldo_proporcional],
-                '0118' => $l->vacaciones > 0
-                    ? ['REMUNERACIÓN VACACIONAL', $l->vacaciones]
+                // 0118 se usa tanto para vacaciones gozadas en un mes normal
+                // ($l->vacaciones) como para la remuneración vacacional
+                // pendiente en un cese — se suman por si algún mes coinciden
+                // (poco probable, pero no deben pisarse entre sí).
+                '0118' => ($l->vacaciones + ($cese->remuneracion_vacacional_pendiente ?? 0)) > 0
+                    ? ['REMUNERACIÓN VACACIONAL', $l->vacaciones + ($cese->remuneracion_vacacional_pendiente ?? 0)]
                     : null,
                 '0105' => $l->horas_extra_diurnas > 0
                     ? ['TRABAJO EN SOBRETIEMPO (HORAS EXTRAS) 25%', $l->importe_horas_extra_diurnas]
@@ -130,10 +134,8 @@ class BoletaPagoService
                     ? ['PARTICIPACIÓN EN LAS UTILIDADES', $utilidad->monto_pagado]
                     : null,
                 // ── Conceptos de liquidación por cese, códigos confirmados
-                // por RRHH (set. 2026). "Remuneración vacacional" (0118) e
-                // "indemnización por no gozadas" (0504) en el cese, y
-                // "devolución de 5ta" (1002), NO están implementados — el
-                // sistema solo calcula "vacaciones truncas" (0114) hoy.
+                // por RRHH (set. 2026). "Devolución de 5ta" (1002) sigue sin
+                // implementar — es el único que falta de la lista de RRHH.
                 '0407' => $cese && $cese->monto_gratificacion_trunca > 0
                     ? ['GRATIFICACIÓN PROPORCIONAL (CESE)', $cese->monto_gratificacion_trunca]
                     : null,
@@ -143,11 +145,17 @@ class BoletaPagoService
                 '0114' => $cese && $cese->monto_vacaciones_truncas > 0
                     ? ['VACACIONES TRUNCAS', $cese->monto_vacaciones_truncas]
                     : null,
-                // Sin código PLAME confirmado todavía (no es lo mismo que
-                // 0504 "indemnización por no gozadas", que RRHH definió
-                // como otro concepto que el sistema no calcula) — se
-                // muestra en la boleta pero no se declara en PLAME hasta
-                // tener el código correcto.
+                // Periodo completo (30 días) ya ganado y no gozado dentro
+                // del año siguiente — distinto de vacaciones truncas.
+                // (el monto ya se agregó a la clave 0118 más arriba)
+                '0504' => $cese && $cese->indemnizacion_vacacional > 0
+                    ? ['INDEMNIZACIÓN POR VACACIONES NO GOZADAS', $cese->indemnizacion_vacacional]
+                    : null,
+                // Indemnización por DESPIDO ARBITRARIO — sin código PLAME
+                // confirmado todavía (no es lo mismo que 0504, que es la
+                // indemnización por vacaciones no gozadas). Se muestra en
+                // la boleta pero no se declara en PLAME hasta tener el
+                // código correcto.
                 'INDEMNIZACION_CESE' => $cese && $cese->indemnizacion > 0
                     ? ['INDEMNIZACIÓN POR DESPIDO ARBITRARIO', $cese->indemnizacion]
                     : null,
@@ -174,7 +182,8 @@ class BoletaPagoService
 
             // Del cese solo se suman los conceptos que se pagan en efectivo:
             // gratificación proporcional + su bonificación, vacaciones
-            // truncas, e indemnización (si aplica). La CTS trunca queda
+            // truncas, remuneración vacacional pendiente + su indemnización,
+            // e indemnización por despido (si aplica). La CTS trunca queda
             // fuera — va depositada, igual que la CTS regular.
             'neto_pagar' => round(
                 (float) $l->neto_pagar
@@ -183,6 +192,8 @@ class BoletaPagoService
                 + ($cese->monto_gratificacion_trunca ?? 0)
                 + ($cese->bonificacion_extraordinaria_trunca ?? 0)
                 + ($cese->monto_vacaciones_truncas ?? 0)
+                + ($cese->remuneracion_vacacional_pendiente ?? 0)
+                + ($cese->indemnizacion_vacacional ?? 0)
                 + ($cese->indemnizacion ?? 0),
                 2
             ),

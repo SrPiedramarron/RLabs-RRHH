@@ -856,9 +856,40 @@ class PlanillaService
             ? round(self::RMV_2026 * 0.10, 2)
             : 0.0;
 
-        // ── Vacaciones truncas ───────────────────────────────────────────────
+        // ── Vacaciones: truncas vs. remuneración vacacional + indemnización ──
+        // Regla confirmada por RRHH (set. 2026):
+        //  - "Vacaciones truncas" = el saldo del periodo EN CURSO, todavía
+        //    sin completar los 12 meses para ganarlo.
+        //  - Si ya ganó un periodo COMPLETO (30 días = 12 meses) y no lo
+        //    gozó dentro del año siguiente (24 meses en total desde que
+        //    empezó a generarlo, sin tomar vacaciones), corresponde pagar
+        //    la "remuneración vacacional" pendiente de ese periodo completo
+        //    (1 sueldo) MÁS la "indemnización vacacional" (1 sueldo
+        //    adicional) — y esos 30 días salen del saldo de truncas para
+        //    no contarlos dos veces.
+        // El saldo (VacacionesService) no distingue de qué periodo viene
+        // cada día acumulado, así que se aproxima con la antigüedad desde
+        // fecha_ultima_vacacion (o fecha_ingreso si nunca tomó): si pasaron
+        // >= 24 meses sin gozar Y el saldo alcanza para un periodo completo,
+        // se separa un periodo (30 días) como vencido.
         $saldoVacaciones = app(VacacionesService::class)->calcularSaldo($empleado, $fechaCese);
-        $diasVacacionesTruncas = max(0, floatval($saldoVacaciones['saldo_actual'] ?? 0));
+        $diasSaldoTotal = max(0, floatval($saldoVacaciones['saldo_actual'] ?? 0));
+
+        $fechaCorteVacaciones = $empleado->fecha_ultima_vacacion
+            ? Carbon::parse($empleado->fecha_ultima_vacacion)
+            : $fechaIngreso;
+        $mesesSinGozar = $fechaCorteVacaciones->diffInMonths($fechaCese);
+
+        $remuneracionVacacionalPendiente = 0.0;
+        $indemnizacionVacacional = 0.0;
+        $diasVacacionesTruncas = $diasSaldoTotal;
+
+        if ($mesesSinGozar >= 24 && $diasSaldoTotal >= 30) {
+            $remuneracionVacacionalPendiente = round($sueldo + $asignacionFamiliar, 2);
+            $indemnizacionVacacional         = round($sueldo + $asignacionFamiliar, 2);
+            $diasVacacionesTruncas = $diasSaldoTotal - 30;
+        }
+
         $montoVacacionesTruncas = round(($sueldo + $asignacionFamiliar) / 30 * $diasVacacionesTruncas, 2);
 
         // ── Gratificación trunca (semestre en curso al momento del cese) ────
@@ -914,7 +945,8 @@ class PlanillaService
         }
 
         $montoTotal = round(
-            $montoVacacionesTruncas + $montoGratTrunca + $bonifTrunca + $montoCtsTrunca + $indemnizacion,
+            $montoVacacionesTruncas + $remuneracionVacacionalPendiente + $indemnizacionVacacional
+            + $montoGratTrunca + $bonifTrunca + $montoCtsTrunca + $indemnizacion,
             2
         );
 
@@ -931,6 +963,8 @@ class PlanillaService
                 'asignacion_familiar' => $asignacionFamiliar,
                 'dias_vacaciones_truncas'  => $diasVacacionesTruncas,
                 'monto_vacaciones_truncas' => $montoVacacionesTruncas,
+                'remuneracion_vacacional_pendiente' => $remuneracionVacacionalPendiente,
+                'indemnizacion_vacacional' => $indemnizacionVacacional,
                 'meses_gratificacion_trunca' => $mesesGratTrunca,
                 'monto_gratificacion_trunca' => $montoGratTrunca,
                 'bonificacion_extraordinaria_trunca' => $bonifTrunca,

@@ -80,7 +80,7 @@ class PlameExportService
         '0114', // Vacaciones truncas (cese) — calculado desde LiquidacionCeseResource (confirmado por RRHH)
         '0115', // Remuneración día descanso/feriados [SIN CALCULAR HOY]
         '0117', // Compensación vacacional [SIN CALCULAR HOY]
-        '0118', // Remuneración vacacional (en cese, es DISTINTO de vacaciones truncas — RRHH lo confirmó como concepto aparte) [SIN CALCULAR HOY]
+        '0118', // Remuneración vacacional — vacaciones gozadas en el mes normal, y remuneración vacacional pendiente en un cese (periodo completo no gozado dentro del año siguiente) — calculado, confirmado por RRHH
         '0121', // Remuneración/jornal básico
         '0122', // Remuneración permanente [no aplica, alternativo a 0121]
         '0129', // Estipendio interno ciencias salud [no aplica normalmente]
@@ -98,7 +98,7 @@ class PlameExportService
         '0402', '0405', '0411', // [SIN CALCULAR HOY — no confirmados por RRHH, uso no identificado todavía]
         // 0500 - Indemnizaciones
         '0501', // [SIN CALCULAR HOY — indemnización por despido arbitrario ya se calcula en LiquidacionCeseResource, pero RRHH no ha confirmado su código PLAME (0504 es OTRO concepto, ver abajo). Se muestra en la boleta sin declarar en PLAME hasta confirmarlo]
-        '0504', // Indemnización por vacaciones NO GOZADAS (cese) — confirmado por RRHH como concepto propio, DISTINTO de vacaciones truncas (0114) y de la indemnización por despido arbitrario. El sistema no lo calcula todavía [SIN CALCULAR HOY]
+        '0504', // Indemnización por vacaciones NO GOZADAS (cese) — periodo completo ganado y no gozado dentro del año siguiente, DISTINTO de vacaciones truncas (0114) y de la indemnización por despido arbitrario (sin código aún) — calculado, confirmado por RRHH
         // 0700 - Descuentos al trabajador
         '0701', // Adelanto [SIN CALCULAR HOY]
         '0702', // Cuota sindical [SIN CALCULAR HOY]

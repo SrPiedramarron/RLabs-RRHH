@@ -14,6 +14,7 @@ class LiquidacionCese extends Model
         'nombres', 'apellidos', 'dni', 'cargo',
         'sueldo_base', 'asignacion_familiar',
         'dias_vacaciones_truncas', 'monto_vacaciones_truncas',
+        'remuneracion_vacacional_pendiente', 'indemnizacion_vacacional',
         'meses_gratificacion_trunca', 'monto_gratificacion_trunca', 'bonificacion_extraordinaria_trunca',
         'meses_cts_trunca', 'monto_cts_trunca',
         'indemnizacion', 'monto_total',
