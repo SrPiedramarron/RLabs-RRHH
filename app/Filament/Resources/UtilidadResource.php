@@ -20,7 +20,7 @@ class UtilidadResource extends Resource
     protected static ?string $slug             = 'utilidades';
     protected static ?string $navigationIcon   = 'heroicon-o-chart-pie';
     protected static ?string $navigationLabel  = 'Utilidades';
-    protected static ?string $navigationGroup  = 'Planilla';
+    protected static ?string $navigationGroup  = 'Beneficios Sociales';
     protected static ?int    $navigationSort   = 40;
     protected static ?string $modelLabel       = 'Utilidad';
     protected static ?string $pluralModelLabel = 'Utilidades';

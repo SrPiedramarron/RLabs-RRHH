@@ -23,7 +23,7 @@ class ControlVacacionesResource extends Resource
     protected static ?string $modelLabel = 'Vacaciones';
     protected static ?string $pluralModelLabel = 'Control de Vacaciones';
     protected static ?string $navigationGroup = 'Planilla';
-    protected static ?int $navigationSort = 10;
+    protected static ?int $navigationSort = 20;
 
     public static function canCreate(): bool
     {

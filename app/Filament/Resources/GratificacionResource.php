@@ -20,7 +20,7 @@ class GratificacionResource extends Resource
     protected static ?string $slug             = 'gratificaciones';
     protected static ?string $navigationIcon   = 'heroicon-o-gift';
     protected static ?string $navigationLabel  = 'Gratificaciones';
-    protected static ?string $navigationGroup  = 'Planilla';
+    protected static ?string $navigationGroup  = 'Beneficios Sociales';
     protected static ?int    $navigationSort   = 15;
     protected static ?string $modelLabel       = 'Gratificación';
     protected static ?string $pluralModelLabel = 'Gratificaciones';

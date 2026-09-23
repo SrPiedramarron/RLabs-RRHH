@@ -15,11 +15,11 @@ class PayrollConceptResource extends Resource
     protected static ?string $model = PayrollConcept::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-list-bullet';
-    protected static ?string $navigationLabel = 'Conceptos de Planilla';
+    protected static ?string $navigationLabel = 'Conceptos de Pago';
     protected static ?string $modelLabel = 'Concepto';
-    protected static ?string $pluralModelLabel = 'Conceptos de Planilla';
-    protected static ?string $navigationGroup = 'Planilla';
-    protected static ?int $navigationSort = 50;
+    protected static ?string $pluralModelLabel = 'Conceptos de Pago';
+    protected static ?string $navigationGroup = 'Pagos Bancarios';
+    protected static ?int $navigationSort = 20;
 
     public static function form(Form $form): Form
     {

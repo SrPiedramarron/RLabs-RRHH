@@ -20,11 +20,11 @@ class PayrollRunResource extends Resource
     protected static ?string $model = PayrollRun::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
-    protected static ?string $navigationLabel = 'Planillas';
-    protected static ?string $modelLabel = 'Planilla';
-    protected static ?string $pluralModelLabel = 'Planillas';
-    protected static ?string $navigationGroup = 'Planilla';
-    protected static ?int $navigationSort = 40;
+    protected static ?string $navigationLabel = 'Pagos Bancarios';
+    protected static ?string $modelLabel = 'Pago bancario';
+    protected static ?string $pluralModelLabel = 'Pagos Bancarios';
+    protected static ?string $navigationGroup = 'Pagos Bancarios';
+    protected static ?int $navigationSort = 10;
 
     public static function form(Form $form): Form
     {

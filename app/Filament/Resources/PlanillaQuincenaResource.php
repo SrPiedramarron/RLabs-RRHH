@@ -20,7 +20,7 @@ class PlanillaQuincenaResource extends Resource
     protected static ?string $navigationIcon   = 'heroicon-o-banknotes';
     protected static ?string $navigationLabel  = 'Quincena (día 15)';
     protected static ?string $navigationGroup  = 'Planilla';
-    protected static ?int    $navigationSort   = 5;
+    protected static ?int    $navigationSort   = 10;
     protected static ?string $modelLabel       = 'Quincena';
     protected static ?string $pluralModelLabel = 'Adelantos de Quincena';
 

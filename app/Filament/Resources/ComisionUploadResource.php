@@ -25,7 +25,7 @@ class ComisionUploadResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-banknotes';
     protected static ?string $navigationLabel = 'Comisiones';
     protected static ?string $navigationGroup = 'Planilla';
-    protected static ?int $navigationSort = 20;
+    protected static ?int $navigationSort = 15;
     protected static ?string $modelLabel = 'Carga de comisiones';
     protected static ?string $pluralModelLabel = 'Cargas de comisiones';
 

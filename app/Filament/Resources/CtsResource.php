@@ -20,8 +20,8 @@ class CtsResource extends Resource
     protected static ?string $slug             = 'cts';
     protected static ?string $navigationIcon   = 'heroicon-o-building-library';
     protected static ?string $navigationLabel  = 'CTS';
-    protected static ?string $navigationGroup  = 'Planilla';
-    protected static ?int    $navigationSort   = 17;
+    protected static ?string $navigationGroup  = 'Beneficios Sociales';
+    protected static ?int    $navigationSort   = 20;
     protected static ?string $modelLabel       = 'Depósito CTS';
     protected static ?string $pluralModelLabel = 'CTS';
 

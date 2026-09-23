@@ -21,8 +21,8 @@ class LiquidacionCeseResource extends Resource
     protected static ?string $slug             = 'liquidaciones-cese';
     protected static ?string $navigationIcon   = 'heroicon-o-arrow-right-start-on-rectangle';
     protected static ?string $navigationLabel  = 'Liquidación por Cese';
-    protected static ?string $navigationGroup  = 'Planilla';
-    protected static ?int    $navigationSort   = 35;
+    protected static ?string $navigationGroup  = 'Beneficios Sociales';
+    protected static ?int    $navigationSort   = 30;
     protected static ?string $modelLabel       = 'Liquidación por cese';
     protected static ?string $pluralModelLabel = 'Liquidaciones por Cese';
 

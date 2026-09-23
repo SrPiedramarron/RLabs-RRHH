@@ -22,7 +22,7 @@ class PlanillaLiquidacionResource extends Resource
     protected static ?string $navigationIcon   = 'heroicon-o-calculator';
     protected static ?string $navigationLabel  = 'Liquidación de Planilla';
     protected static ?string $navigationGroup  = 'Planilla';
-    protected static ?int    $navigationSort   = 30;
+    protected static ?int    $navigationSort   = 5;
     protected static ?string $modelLabel       = 'Liquidacion';
     protected static ?string $pluralModelLabel = 'Planilla mensual';
 
