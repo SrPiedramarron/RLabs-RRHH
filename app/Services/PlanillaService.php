@@ -531,6 +531,152 @@ class PlanillaService
         );
     }
 
+    /**
+     * Gratificación legal (Fiestas Patrias / Navidad) + bonificación
+     * extraordinaria 9% (Ley 29351).
+     *
+     * Reglas confirmadas con RRHH (set. 2026):
+     *  - Remuneración computable = sueldo base + asignación familiar +
+     *    promedio de comisiones de los últimos 6 meses + promedio de
+     *    horas extra de los últimos 6 meses.
+     *  - Comisiones y horas extra SOLO se promedian si el trabajador
+     *    tuvo en al menos 3 de esos 6 meses (regla legal de remuneración
+     *    variable/imprecisa) — si tuvo menos de 3, no se suman.
+     *  - Si no completó el semestre, se prorratea: remuneración
+     *    computable ÷ 6 × meses computables.
+     *  - Bonificación extraordinaria = 9% del monto de gratificación
+     *    (flat, sin distinguir afiliación EPS — igual que el resto del
+     *    sistema).
+     */
+    public function calcularPeriodoGratificacion(int $companyId, string $tipo, int $anio): Collection
+    {
+        if (!in_array($tipo, ['julio', 'diciembre'], true)) {
+            throw new \InvalidArgumentException("Tipo de gratificación inválido: {$tipo}");
+        }
+
+        $empleados = Employee::where('company_id', $companyId)
+            ->where('active', true)
+            ->whereNotNull('sueldo_base')
+            ->where('sueldo_base', '>', 0)
+            ->get();
+
+        $gratificaciones = collect();
+
+        DB::transaction(function () use ($empleados, $companyId, $tipo, $anio, &$gratificaciones) {
+            foreach ($empleados as $empleado) {
+                $g = $this->calcularGratificacionEmpleado($empleado, $companyId, $tipo, $anio);
+                if ($g) {
+                    $gratificaciones->push($g);
+                }
+            }
+        });
+
+        return $gratificaciones;
+    }
+
+    public function calcularGratificacionEmpleado(
+        Employee $empleado,
+        int $companyId,
+        string $tipo,
+        int $anio,
+    ): ?\App\Models\Gratificacion {
+        $mesesSemestre = $tipo === 'julio'
+            ? range(1, 6)
+            : range(7, 12);
+
+        $periodoPago = $tipo === 'julio'
+            ? sprintf('%04d-07', $anio)
+            : sprintf('%04d-12', $anio);
+
+        $fechaIngreso = $empleado->fecha_ingreso ? Carbon::parse($empleado->fecha_ingreso) : null;
+        $fechaCese    = $empleado->fecha_cese ? Carbon::parse($empleado->fecha_cese) : null;
+
+        $mesesComputables    = 0;
+        $mesesConComisiones  = 0;
+        $sumaComisiones      = 0.0;
+        $mesesConHorasExtra  = 0;
+        $sumaHorasExtra      = 0.0;
+
+        foreach ($mesesSemestre as $m) {
+            $inicioMes = Carbon::create($anio, $m, 1)->startOfMonth();
+            $finMes    = Carbon::create($anio, $m, 1)->endOfMonth();
+
+            $activoEseMes = (!$fechaIngreso || $fechaIngreso->lte($finMes))
+                && (!$fechaCese || $fechaCese->gte($inicioMes));
+
+            if ($activoEseMes) {
+                $mesesComputables++;
+            }
+
+            $periodoMes = sprintf('%04d-%02d', $anio, $m);
+            $liquidacion = PlanillaLiquidacion::where('employee_id', $empleado->id)
+                ->where('periodo', $periodoMes)
+                ->first();
+
+            if (!$liquidacion) {
+                continue;
+            }
+
+            if ((float) $liquidacion->comisiones > 0) {
+                $mesesConComisiones++;
+                $sumaComisiones += (float) $liquidacion->comisiones;
+            }
+
+            $horasExtraMes = (float) $liquidacion->importe_horas_extra_diurnas + (float) $liquidacion->importe_horas_extra_nocturnas;
+            if ($horasExtraMes > 0) {
+                $mesesConHorasExtra++;
+                $sumaHorasExtra += $horasExtraMes;
+            }
+        }
+
+        if ($mesesComputables === 0) {
+            return null; // no trabajó ni un día del semestre — no le corresponde
+        }
+
+        $asignacionFamiliar = $empleado->aplica_asignacion_familiar
+            ? round(self::RMV_2026 * 0.10, 2)
+            : 0.0;
+
+        // Regla legal: solo se promedia si hubo en >= 3 de los 6 meses.
+        $promedioComisiones = $mesesConComisiones >= 3 ? round($sumaComisiones / 6, 2) : 0.0;
+        $promedioHorasExtra = $mesesConHorasExtra >= 3 ? round($sumaHorasExtra / 6, 2) : 0.0;
+
+        $remuneracionComputable = round(
+            floatval($empleado->sueldo_base) + $asignacionFamiliar + $promedioComisiones + $promedioHorasExtra,
+            2
+        );
+
+        $montoGratificacion = round($remuneracionComputable / 6 * $mesesComputables, 2);
+        $bonificacionExtraordinaria = round($montoGratificacion * 0.09, 2);
+        $montoTotal = round($montoGratificacion + $bonificacionExtraordinaria, 2);
+
+        return \App\Models\Gratificacion::updateOrCreate(
+            ['employee_id' => $empleado->id, 'periodo' => $periodoPago],
+            [
+                'company_id'                  => $companyId,
+                'tipo'                        => $tipo,
+                'anio'                        => $anio,
+                'nombres'                     => $empleado->nombres,
+                'apellidos'                   => $empleado->apellidos,
+                'dni'                         => $empleado->dni,
+                'cargo'                       => $empleado->cargo,
+                'sueldo_base'                 => $empleado->sueldo_base,
+                'asignacion_familiar'         => $asignacionFamiliar,
+                'meses_computables'           => $mesesComputables,
+                'meses_con_comisiones'        => $mesesConComisiones,
+                'promedio_comisiones'         => $promedioComisiones,
+                'meses_con_horas_extra'       => $mesesConHorasExtra,
+                'promedio_horas_extra'        => $promedioHorasExtra,
+                'remuneracion_computable'     => $remuneracionComputable,
+                'monto_gratificacion'         => $montoGratificacion,
+                'bonificacion_extraordinaria' => $bonificacionExtraordinaria,
+                'monto_total'                 => $montoTotal,
+                'calculado_por'               => Auth::id(),
+                'calculado_at'                => now(),
+            ]
+        );
+    }
+
     private function contarDiasLaborables(Carbon $inicio, Carbon $fin): int
     {
         $count  = 0;

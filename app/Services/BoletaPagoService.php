@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Gratificacion;
 use App\Models\PlanillaLiquidacion;
 use Carbon\Carbon;
 
@@ -12,10 +13,18 @@ class BoletaPagoService
      * Todo lo que no existe aún en el sistema (tipo_trabajador, cuspp) sale
      * en blanco — es responsabilidad del usuario completarlo manualmente
      * hasta que se agregue el campo, o lo agregamos si lo confirman.
+     *
+     * Si el periodo de la liquidación tiene una gratificación calculada
+     * (julio/diciembre), sus montos se agregan a la misma boleta — se pagan
+     * juntas el mismo mes, no en un documento aparte.
      */
     public function datosBoleta(PlanillaLiquidacion $l): array
     {
         $empleado = $l->employee;
+
+        $gratificacion = Gratificacion::where('employee_id', $l->employee_id)
+            ->where('periodo', $l->periodo)
+            ->first();
 
         $situacion = ($empleado?->fecha_cese && Carbon::parse($empleado->fecha_cese)->lte(now()))
             ? 'CESADO'
@@ -71,6 +80,16 @@ class BoletaPagoService
                 '0403' => $l->bonos_especiales > 0
                     ? ['GRATIFICACIONES EXTRAORDINARIAS', $l->bonos_especiales]
                     : null,
+                // Códigos 0402/0406: asignación provisional (ver aviso en
+                // GratificacionResource) — confirmar el par exacto con el
+                // contador contra el catálogo oficial de este RUC en SUNAT
+                // antes de declarar en PLAME.
+                '0402' => $gratificacion && $gratificacion->monto_gratificacion > 0
+                    ? ["GRATIFICACIÓN {$gratificacion->tipo}", $gratificacion->monto_gratificacion]
+                    : null,
+                '0406' => $gratificacion && $gratificacion->bonificacion_extraordinaria > 0
+                    ? ['BONIFICACIÓN EXTRAORDINARIA (LEY 29351)', $gratificacion->bonificacion_extraordinaria]
+                    : null,
                 '0915' => $l->subsidio_maternidad > 0
                     ? ['SUBSIDIOS POR MATERNIDAD', $l->subsidio_maternidad]
                     : null,
@@ -98,7 +117,7 @@ class BoletaPagoService
             // ── Aportes del trabajador ────────────────────────────────────────
             'aportes_trabajador' => $this->aportesTrabajador($l),
 
-            'neto_pagar' => $l->neto_pagar,
+            'neto_pagar' => round((float) $l->neto_pagar + ($gratificacion->monto_total ?? 0), 2),
 
             // ── Aportes del empleador (informativo) ────────────────────────────
             'aportes_empleador' => array_filter([
