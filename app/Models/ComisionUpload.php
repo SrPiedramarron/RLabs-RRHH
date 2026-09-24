@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ComisionUpload extends Model
@@ -29,6 +30,11 @@ class ComisionUpload extends Model
         'total_base_cobrada' => 'decimal:2',
         'total_comision'     => 'decimal:2',
     ];
+
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
+    }
 
     public function detalles(): HasMany
     {
