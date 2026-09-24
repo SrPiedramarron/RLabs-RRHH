@@ -384,12 +384,36 @@ class ComisionesService
         return $resultado;
     }
 
+    /**
+     * La fila del encabezado ("Vendedor" en la columna A) no siempre está en
+     * la misma fila — los reportes viejos ("...CERRADO", hasta feb. 2026) la
+     * traen en la fila 6, los nuevos en la fila 5. Si se asume una fila fija
+     * (como antes), la fila de encabezado de los reportes viejos se lee como
+     * si fuera un dato real (aparecía "Vendedor" como si fuera un vendedor
+     * sin match). Se busca la fila real en vez de asumirla.
+     */
+    private function detectarFilaEncabezado(Worksheet $ws): int
+    {
+        $highestRow = min(20, $ws->getHighestDataRow());
+
+        for ($rowNum = 1; $rowNum <= $highestRow; $rowNum++) {
+            $valor = trim((string) $ws->getCellByColumnAndRow(1, $rowNum)->getValue());
+
+            if (strtolower($valor) === 'vendedor') {
+                return $rowNum;
+            }
+        }
+
+        return self::HEADER_ROW; // fallback al valor histórico si no se encuentra
+    }
+
     private function leerFilas(Worksheet $ws, array $columnas): array
     {
-        $resultado  = [];
-        $highestRow = $ws->getHighestDataRow();
+        $resultado    = [];
+        $highestRow   = $ws->getHighestDataRow();
+        $dataStartRow = $this->detectarFilaEncabezado($ws) + 1;
 
-        for ($rowNum = self::DATA_START_ROW; $rowNum <= $highestRow; $rowNum++) {
+        for ($rowNum = $dataStartRow; $rowNum <= $highestRow; $rowNum++) {
             $primeraCol = trim((string) $ws->getCellByColumnAndRow(1, $rowNum)->getValue());
 
             if (empty($primeraCol) || $this->esFilaSkip($primeraCol)) {
