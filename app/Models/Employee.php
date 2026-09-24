@@ -20,6 +20,7 @@ class Employee extends Model
         'codigo_empleado',
         'cargo',
         'fecha_ingreso',
+        'fecha_fin_contrato',
         'fecha_cese',
 	'fecha_ultima_vacacion', 'dias_tomados', 'saldo_pendiente',
         'exonerado_registro',
@@ -50,6 +51,7 @@ class Employee extends Model
 
     protected $casts = [
         'fecha_ingreso'         => 'date',
+        'fecha_fin_contrato'    => 'date',
         'fecha_cese'            => 'date',
         'fecha_ultima_vacacion' => 'date',
         'saldo_pendiente'       => 'decimal:2',
@@ -154,5 +156,10 @@ public function devices()
     public function documentos(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(EmployeeDocumento::class)->latest();
+    }
+
+    public function renovacionesContrato(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ContractRenewal::class)->orderByDesc('numero_renovacion');
     }
 }

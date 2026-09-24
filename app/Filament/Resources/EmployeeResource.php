@@ -142,10 +142,59 @@ class EmployeeResource extends Resource
                                 ->required()
                                 ->displayFormat('d/m/Y'),
 
+                            Forms\Components\DatePicker::make('fecha_fin_contrato')
+                                ->label('Fecha fin de contrato')
+                                ->displayFormat('d/m/Y')
+                                ->helperText('Fin del contrato VIGENTE. Al crear al trabajador, normalmente es igual a la Fecha de Cese. Para renovar, usa el botón "Renovar contrato" más abajo — actualiza esta fecha y la de cese automáticamente, y deja constancia en el historial.')
+                                ->nullable(),
+
                             Forms\Components\DatePicker::make('fecha_cese')
                                 ->label('Fecha de Cese')
                                 ->displayFormat('d/m/Y')
                                 ->nullable(),
+
+                            Forms\Components\Actions::make([
+                                Forms\Components\Actions\Action::make('renovar_contrato')
+                                    ->label('Renovar contrato')
+                                    ->icon('heroicon-o-arrow-path')
+                                    ->color('warning')
+                                    ->visible(fn (?Employee $record) => $record !== null)
+                                    ->form([
+                                        Forms\Components\Placeholder::make('fecha_actual')
+                                            ->label('Fin de contrato actual')
+                                            ->content(fn (?Employee $record) => $record?->fecha_fin_contrato?->format('d/m/Y') ?? 'Sin fecha registrada'),
+
+                                        Forms\Components\DatePicker::make('fecha_fin_nueva')
+                                            ->label('Nueva fecha fin de contrato')
+                                            ->displayFormat('d/m/Y')
+                                            ->required(),
+
+                                        Forms\Components\TextInput::make('observacion')
+                                            ->label('Observación (opcional)')
+                                            ->maxLength(255),
+                                    ])
+                                    ->action(function (Employee $record, array $data): void {
+                                        $numeroRenovacion = (int) $record->renovacionesContrato()->max('numero_renovacion') + 1;
+
+                                        \App\Models\ContractRenewal::create([
+                                            'employee_id' => $record->id,
+                                            'numero_renovacion' => $numeroRenovacion,
+                                            'fecha_fin_anterior' => $record->fecha_fin_contrato,
+                                            'fecha_fin_nueva' => $data['fecha_fin_nueva'],
+                                            'observacion' => $data['observacion'] ?? null,
+                                            'renovado_por' => \Illuminate\Support\Facades\Auth::id(),
+                                            'renovado_at' => now(),
+                                        ]);
+
+                                        $record->update([
+                                            'fecha_fin_contrato' => $data['fecha_fin_nueva'],
+                                            'fecha_cese' => $data['fecha_fin_nueva'],
+                                        ]);
+
+                                        $record->refresh();
+                                    })
+                                    ->successNotificationTitle('✅ Contrato renovado.'),
+                            ])->visibleOn('edit'),
 
                             Forms\Components\Toggle::make('active')
                                 ->label('Activo')
@@ -391,6 +440,7 @@ class EmployeeResource extends Resource
         return [
             \App\Filament\Resources\EmployeeResource\RelationManagers\VacacionesRelationManager::class,
             \App\Filament\Resources\EmployeeResource\RelationManagers\DocumentosRelationManager::class,
+            \App\Filament\Resources\EmployeeResource\RelationManagers\RenovacionesContratoRelationManager::class,
         ];
     }
 
