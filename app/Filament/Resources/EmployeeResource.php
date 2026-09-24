@@ -148,6 +148,17 @@ class EmployeeResource extends Resource
                                 ->helperText('Fin del contrato VIGENTE. Al crear al trabajador, normalmente es igual a la Fecha de Cese. Para renovar, usa el botón "Renovar contrato" más abajo — actualiza esta fecha y la de cese automáticamente, y deja constancia en el historial.')
                                 ->nullable(),
 
+                            Forms\Components\Select::make('tipo_contrato')
+                                ->label('Tipo de Contrato')
+                                ->options([
+                                    'indeterminado' => 'Indeterminado',
+                                    'inicio_incremento_actividad' => 'Inicio o incremento de actividad',
+                                    'necesidad_mercado' => 'Necesidad de mercado',
+                                    'obra_servicio_especifico' => 'Obra determinada o servicio específico',
+                                ])
+                                ->native(false)
+                                ->nullable(),
+
                             Forms\Components\DatePicker::make('fecha_cese')
                                 ->label('Fecha de Cese')
                                 ->displayFormat('d/m/Y')

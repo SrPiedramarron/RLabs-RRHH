@@ -60,6 +60,11 @@ class ContractRenewalResource extends Resource
                 Tables\Columns\TextColumn::make('employee.cargo')
                     ->label('Cargo'),
 
+                Tables\Columns\TextColumn::make('employee.tipo_contrato_label')
+                    ->label('Tipo de Contrato')
+                    ->badge()
+                    ->color('gray'),
+
                 Tables\Columns\TextColumn::make('numero_renovacion')
                     ->label('N° Renovación')
                     ->formatStateUsing(fn ($state) => "N° {$state}")
@@ -109,6 +114,19 @@ class ContractRenewalResource extends Resource
                     ->query(fn (Builder $query, array $data) => $query->when(
                         $data['value'] ?? null,
                         fn ($q, $companyId) => $q->whereHas('employee', fn ($e) => $e->where('company_id', $companyId))
+                    )),
+
+                Tables\Filters\SelectFilter::make('tipo_contrato')
+                    ->label('Tipo de Contrato')
+                    ->options([
+                        'indeterminado' => 'Indeterminado',
+                        'inicio_incremento_actividad' => 'Inicio o incremento de actividad',
+                        'necesidad_mercado' => 'Necesidad de mercado',
+                        'obra_servicio_especifico' => 'Obra determinada o servicio específico',
+                    ])
+                    ->query(fn (Builder $query, array $data) => $query->when(
+                        $data['value'] ?? null,
+                        fn ($q, $tipo) => $q->whereHas('employee', fn ($e) => $e->where('tipo_contrato', $tipo))
                     )),
             ])
             ->defaultSort('renovado_at', 'desc');

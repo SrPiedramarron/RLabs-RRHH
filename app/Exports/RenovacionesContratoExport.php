@@ -20,6 +20,7 @@ class RenovacionesContratoExport implements FromCollection, WithHeadings, WithSt
             strtoupper($r->employee->nombre_completo ?? '—'),
             $r->employee->dni ?? '—',
             $r->employee->cargo ?? '—',
+            $r->employee->tipo_contrato_label ?? '—',
             $r->numero_renovacion,
             $r->fecha_fin_anterior?->format('d/m/Y') ?? '—',
             $r->fecha_fin_nueva->format('d/m/Y'),
@@ -31,7 +32,7 @@ class RenovacionesContratoExport implements FromCollection, WithHeadings, WithSt
 
     public function headings(): array
     {
-        return ['TRABAJADOR', 'DNI', 'CARGO', 'N° RENOVACIÓN', 'FIN ANTERIOR', 'FIN NUEVO', 'OBSERVACIÓN', 'RENOVADO POR', 'FECHA DE RENOVACIÓN'];
+        return ['TRABAJADOR', 'DNI', 'CARGO', 'TIPO DE CONTRATO', 'N° RENOVACIÓN', 'FIN ANTERIOR', 'FIN NUEVO', 'OBSERVACIÓN', 'RENOVADO POR', 'FECHA DE RENOVACIÓN'];
     }
 
     public function styles(Worksheet $sheet): array

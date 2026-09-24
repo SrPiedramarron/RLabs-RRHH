@@ -21,6 +21,7 @@ class Employee extends Model
         'cargo',
         'fecha_ingreso',
         'fecha_fin_contrato',
+        'tipo_contrato',
         'fecha_cese',
 	'fecha_ultima_vacacion', 'dias_tomados', 'saldo_pendiente',
         'exonerado_registro',
@@ -161,5 +162,16 @@ public function devices()
     public function renovacionesContrato(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(ContractRenewal::class)->orderByDesc('numero_renovacion');
+    }
+
+    public function getTipoContratoLabelAttribute(): string
+    {
+        return match ($this->tipo_contrato) {
+            'indeterminado' => 'Indeterminado',
+            'inicio_incremento_actividad' => 'Inicio o incremento de actividad',
+            'necesidad_mercado' => 'Necesidad de mercado',
+            'obra_servicio_especifico' => 'Obra determinada o servicio específico',
+            default => '—',
+        };
     }
 }
