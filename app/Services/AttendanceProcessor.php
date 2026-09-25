@@ -155,10 +155,15 @@ class AttendanceProcessor
             $minutosExtra      = max(0, $minutosTrabajados - $minutosJornadaNormal);
 
             if ($minutosExtra > 0) {
-                $nocturnoInicio      = strtotime($fecha . ' 22:00:00');
-                $minutosNocturno     = max(0, (int)(($horaSalidaReal - $nocturnoInicio) / 60));
-                $horasExtraNocturnas = max(0, min($minutosExtra, $minutosNocturno)) / 60;
-                $horasExtraDiurnas   = ($minutosExtra / 60) - $horasExtraNocturnas;
+                // Recargo de ley (D.S. 007-2002-TR): las primeras 2 horas extra
+                // del día se pagan al 25% y el excedente al 35%, sin importar
+                // si son antes o después de las 10pm. Confirmado con RRHH.
+                // (Los nombres de campo "diurnas"/"nocturnas" se mantienen por
+                // compatibilidad con boleta/PLAME/reportes, pero ahora
+                // representan "primeras 2h" / "excedente".)
+                $horasExtraTotales   = $minutosExtra / 60;
+                $horasExtraDiurnas   = min(2, $horasExtraTotales);
+                $horasExtraNocturnas = max(0, $horasExtraTotales - 2);
             }
         }
 
