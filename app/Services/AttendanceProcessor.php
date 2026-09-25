@@ -38,6 +38,41 @@ class AttendanceProcessor
         AttendanceLog::where('procesado', false)->update(['procesado' => true]);
     }
 
+    /**
+     * Recalcula un rango de fechas ya procesado, sin depender del flag
+     * `procesado` (para aplicar retroactivamente una corrección de lógica).
+     * Respeta igual que siempre los registros con corregido_manualmente.
+     */
+    public function reprocesarRango(string $desde, string $hasta): int
+    {
+        $logs = AttendanceLog::whereDate('timestamp', '>=', $desde)
+            ->whereDate('timestamp', '<=', $hasta)
+            ->orderBy('timestamp')
+            ->get();
+
+        if ($logs->isEmpty()) return 0;
+
+        $combinaciones = $logs->map(fn ($log) => $log->reloj_id . '_' . $log->timestamp->format('Y-m-d'))->unique();
+
+        $procesados = 0;
+        foreach ($combinaciones as $key) {
+            [$relojId, $fecha] = explode('_', $key, 2);
+
+            $employee = Employee::with('schedules')->where('reloj_id', $relojId)->orWhere('dni', $relojId)->first();
+            if (!$employee) continue;
+
+            $logsDelDia = AttendanceLog::where('reloj_id', $relojId)
+                ->whereDate('timestamp', $fecha)
+                ->orderBy('timestamp')
+                ->get();
+
+            $this->calcularYGuardar($employee, $fecha, $logsDelDia);
+            $procesados++;
+        }
+
+        return $procesados;
+    }
+
     private function calcularYGuardar(Employee $employee, string $fecha, $logs): void
     {
         // Buscar el horario correcto seg�n el d�a de la semana
