@@ -92,6 +92,30 @@ class AttendanceProcessor
         $logInicioRefrigerio = $salidasRefrigerio->first();
         $logFinRefrigerio    = $retornosRefrigerio->first();
 
+        // FIX: algunos relojes (p.ej. este cliente) mandan TODAS las marcaciones
+        // con el mismo tipo (1), nunca 0/4/5, por lo que el refrigerio real
+        // nunca se detectaba y siempre se usaba el horario programado como
+        // relleno. Igual que con entrada/salida, no confiamos en el tipo:
+        // tomamos las marcaciones intermedias del día (ni la primera ni la
+        // última) que caigan dentro de la ventana del refrigerio programado.
+        if (!$logInicioRefrigerio && !$logFinRefrigerio && $schedule->refrigerio_inicio && $schedule->refrigerio_fin) {
+            $ventanaInicioMarca = strtotime($fecha . ' ' . $schedule->refrigerio_inicio) - 1800;
+            $ventanaFinMarca    = strtotime($fecha . ' ' . $schedule->refrigerio_fin)    + 1800;
+
+            $candidatosIntermedios = $logs
+                ->reject(fn ($log) => ($logEntrada && $log->id === $logEntrada->id) || ($logSalida && $log->id === $logSalida->id))
+                ->sortBy('timestamp')
+                ->filter(function ($log) use ($ventanaInicioMarca, $ventanaFinMarca) {
+                    $ts = $log->timestamp->timestamp;
+                    return $ts >= $ventanaInicioMarca && $ts <= $ventanaFinMarca;
+                })->values();
+
+            if ($candidatosIntermedios->count() >= 2) {
+                $logInicioRefrigerio = $candidatosIntermedios[0];
+                $logFinRefrigerio    = $candidatosIntermedios[1];
+            }
+        }
+
         $horaEntradaProgramada = strtotime($fecha . ' ' . $schedule->hora_entrada);
         $horaSalidaProgramada  = strtotime($fecha . ' ' . $schedule->hora_salida);
         $toleranciaSegundos    = $schedule->tolerancia_minutos * 60;
