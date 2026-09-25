@@ -46,8 +46,7 @@ class ComisionUploadResource extends Resource
                             ->label('Período')
                             ->options(static::generarOpcionesPeriodo())
                             ->required()
-                            ->unique(ignoreRecord: true)
-                            ->helperText('Solo se puede subir una vez por período. Para corregir, elimine el registro anterior.'),
+                            ->helperText('Se puede subir un archivo por cada vendedor para el mismo período — el sistema suma las comisiones de todas las cargas de ese mes.'),
                     ])
                     ->columns(2),
 
@@ -79,6 +78,16 @@ class ComisionUploadResource extends Resource
                     ->label('Período')
                     ->sortable()
                     ->searchable(),
+
+                Tables\Columns\TextColumn::make('vendedores')
+                    ->label('Vendedor(es)')
+                    ->getStateUsing(fn (ComisionUpload $record) => \App\Models\ComisionDetalle::where('comision_upload_id', $record->id)
+                        ->distinct()
+                        ->pluck('vendedor')
+                        ->filter()
+                        ->implode(', '))
+                    ->wrap()
+                    ->limit(60),
 
                 Tables\Columns\BadgeColumn::make('estado')
                     ->label('Estado')
