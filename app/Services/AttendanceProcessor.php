@@ -158,10 +158,16 @@ class AttendanceProcessor
         $horaEntradaReal = $logEntrada ? $logEntrada->timestamp->timestamp : null;
         $horaSalidaReal  = $logSalida  ? $logSalida->timestamp->timestamp  : null;
 
-        // C�lculo de tardanza
+        // C�lculo de tardanza. Confirmado con RRHH: la tolerancia es un
+        // umbral de todo o nada, no un descuento — si se pasa de los minutos
+        // de tolerancia, la tardanza que se cuenta es el tiempo COMPLETO
+        // desde la hora programada (no solo el excedente sobre la
+        // tolerancia). FIX: se cambia el truncado (int) por round(), que
+        // antes descartaba los segundos de la tardanza (ej. 5 min 34 seg
+        // se guardaba como 5, perdiendo esos 34 segundos).
         $minutosTarde = 0;
         if ($horaEntradaReal && $horaEntradaReal > ($horaEntradaProgramada + $toleranciaSegundos)) {
-            $minutosTarde = (int)(($horaEntradaReal - $horaEntradaProgramada) / 60);
+            $minutosTarde = (int) round(($horaEntradaReal - $horaEntradaProgramada) / 60);
         }
 
         // C�lculo de horas trabajadas y horas extra
