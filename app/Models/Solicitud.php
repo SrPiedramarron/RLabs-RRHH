@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -67,5 +68,31 @@ class Solicitud extends Model
             'rechazada' => 'danger',
             default     => 'gray',
         };
+    }
+
+    protected static function booted(): void
+    {
+        static::created(function (Solicitud $solicitud) {
+            $destinatarios = User::where('role', 'superadmin')
+                ->orWhereNull('company_id')
+                ->orWhere('company_id', $solicitud->company_id)
+                ->get();
+
+            if ($destinatarios->isEmpty()) {
+                return;
+            }
+
+            Notification::make()
+                ->title('Nueva solicitud: ' . $solicitud->tipo_label)
+                ->body($solicitud->employee->nombre_completo . ($solicitud->motivo ? ' — ' . \Illuminate\Support\Str::limit($solicitud->motivo, 80) : ''))
+                ->icon('heroicon-o-inbox-arrow-down')
+                ->actions([
+                    \Filament\Notifications\Actions\Action::make('ver')
+                        ->label('Ver solicitud')
+                        ->url(\App\Filament\Resources\SolicitudResource::getUrl('index', ['tableFilters[estado][value]' => 'pendiente']))
+                        ->button(),
+                ])
+                ->sendToDatabase($destinatarios);
+        });
     }
 }

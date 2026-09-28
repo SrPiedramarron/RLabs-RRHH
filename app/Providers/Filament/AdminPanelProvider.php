@@ -77,6 +77,10 @@ class AdminPanelProvider extends PanelProvider
             // ─── LOGIN PAGE ───────────────────────────────────────────────
             ->login()
 
+            // ─── NOTIFICACIONES (campanita) ─────────────────────────────────
+            ->databaseNotifications()
+            ->databaseNotificationsPolling('30s')
+
             // ─── NAVEGACIÓN ───────────────────────────────────────────────
             ->sidebarCollapsibleOnDesktop()
 
