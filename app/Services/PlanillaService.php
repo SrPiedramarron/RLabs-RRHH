@@ -177,8 +177,13 @@ class PlanillaService
         $importeHENocturnas = $empleado->compensa_horas_extras ? 0.0 : $horasExtraNocturnas * $valorHora * (1 + self::RECARGO_HE_NOCTURNA);
 
         // Comisiones del módulo (solo si el empleado aplica).
-        // Filtra por employee_id real — antes sumaba TODO el periodo a cada
-        // vendedor por igual, ahora cada uno recibe solo lo suyo.
+        // Dos esquemas posibles (configurables por trabajador):
+        //   - 'cartera_propia' (default): filtra por employee_id real, cada
+        //     vendedor recibe solo lo suyo (ya calculado por fila en
+        //     ComisionesService con su propio %).
+        //   - 'total_empresa': el % (fijo o por escala) se aplica sobre la
+        //     suma de TODAS las facturas cobradas del periodo, sin importar
+        //     el vendedor (caso Ernesto/Jorge — confirmado con RRHH set.2026).
         $comisiones = 0.0;
         if ($empleado->aplica_comision) {
             $uploadIds = \App\Models\ComisionUpload::where('periodo', $periodo)
@@ -186,12 +191,23 @@ class PlanillaService
                 ->pluck('id');
 
             if ($uploadIds->isNotEmpty()) {
-                $comisiones = floatval(
-                    \App\Models\ComisionDetalle::whereIn('comision_upload_id', $uploadIds)
-                        ->where('employee_id', $empleado->id)
-                        ->where('estado', 'cobrada')
-                        ->sum('comision_calculada')
-                );
+                if ($empleado->tipo_base_comision === 'total_empresa') {
+                    $baseTotalEmpresa = floatval(
+                        \App\Models\ComisionDetalle::whereIn('comision_upload_id', $uploadIds)
+                            ->whereIn('estado', ['cobrada', 'huerfana'])
+                            ->sum('base_comision_cobrada')
+                    );
+
+                    $porcentaje = $empleado->porcentajeComisionAplicable($baseTotalEmpresa);
+                    $comisiones = round($baseTotalEmpresa * $porcentaje, 2);
+                } else {
+                    $comisiones = floatval(
+                        \App\Models\ComisionDetalle::whereIn('comision_upload_id', $uploadIds)
+                            ->where('employee_id', $empleado->id)
+                            ->where('estado', 'cobrada')
+                            ->sum('comision_calculada')
+                    );
+                }
             }
         }
 

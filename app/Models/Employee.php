@@ -34,6 +34,8 @@ class Employee extends Model
         'movilidad_mensual_maxima',
         'aplica_5ta_categoria',
         'aplica_comision',
+        'tipo_base_comision',
+        'porcentaje_comision',
         'compensa_horas_extras',
         'aplica_asignacion_familiar',
         'movilidad_diaria',
@@ -59,6 +61,7 @@ class Employee extends Model
         'exonerado_registro'    => 'boolean',
         'active'                => 'boolean',
         'compensa_horas_extras' => 'boolean',
+        'porcentaje_comision'   => 'decimal:4',
     ];
 
     // ── Relaciones existentes ─────────────────────────────────────────────────
@@ -162,6 +165,35 @@ public function devices()
     public function renovacionesContrato(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(ContractRenewal::class)->orderByDesc('numero_renovacion');
+    }
+
+    public function escalasComision(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ComisionEscala::class)->orderBy('monto_desde');
+    }
+
+    /**
+     * Porcentaje de comisión aplicable dado el total de ventas de la base
+     * que le corresponde (su propia cartera, o el total de la empresa según
+     * tipo_base_comision). Si tiene escalas configuradas, usa el tramo más
+     * alto que alcance (nunca por partes, como pidió RRHH: todo el monto se
+     * comisiona al % del tramo alcanzado). Si no tiene escalas, usa el
+     * porcentaje fijo (o 1.5% por defecto, la tasa histórica de InProcess).
+     */
+    public function porcentajeComisionAplicable(float $baseTotal): float
+    {
+        $escalas = $this->escalasComision;
+
+        if ($escalas->isNotEmpty()) {
+            $tramo = $escalas
+                ->where('monto_desde', '<=', $baseTotal)
+                ->sortByDesc('monto_desde')
+                ->first() ?? $escalas->sortBy('monto_desde')->first();
+
+            return (float) $tramo->porcentaje;
+        }
+
+        return (float) ($this->porcentaje_comision ?? 0.015);
     }
 
     public function getTipoContratoLabelAttribute(): string

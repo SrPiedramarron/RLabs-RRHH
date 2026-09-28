@@ -25,6 +25,9 @@ class ComisionesService
     /** Mapa normalizado nombre => employee_id, construido una vez por procesar(). */
     private ?array $mapaEmpleados = null;
 
+    /** Mapa employee_id => Employee (solo campos de comisión), para no volver a consultar por fila. */
+    private array $empleadosPorId = [];
+
     /** Nombres de 'vendedor' que no matchearon ningún empleado (para la notificación). */
     private array $noMatcheados = [];
 
@@ -84,14 +87,17 @@ class ComisionesService
     private function construirMapaEmpleados(?int $companyId): void
     {
         $this->mapaEmpleados = [];
+        $this->empleadosPorId = [];
 
         Employee::where('active', true)
             ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
-            ->get(['id', 'nombres', 'apellidos'])->each(function ($e) {
+            ->get(['id', 'nombres', 'apellidos', 'tipo_base_comision', 'porcentaje_comision'])
+            ->each(function ($e) {
             $orden1 = $this->normalizarNombre($e->nombres . ' ' . $e->apellidos);
             $orden2 = $this->normalizarNombre($e->apellidos . ' ' . $e->nombres);
             $this->mapaEmpleados[$orden1] = $e->id;
             $this->mapaEmpleados[$orden2] = $e->id;
+            $this->empleadosPorId[$e->id] = $e;
         });
     }
 
@@ -129,6 +135,31 @@ class ComisionesService
         }
 
         return $id;
+    }
+
+    /**
+     * Calcula la comisión de una fila individual usando el % propio del
+     * empleado resuelto. Si el empleado cobra sobre el TOTAL de la empresa
+     * (tipo_base_comision = 'total_empresa', ej. Ernesto/Jorge), esta fila
+     * NO se comisiona aquí — su comisión se calcula aparte en PlanillaService
+     * sobre la suma de TODAS las facturas del periodo, no por factura propia.
+     * Devuelve [comision_calculada, porcentaje_usado].
+     */
+    private function calcularComisionFila(?int $employeeId, ?float $baseCobrada): array
+    {
+        if ($baseCobrada === null) {
+            return [0.0, self::PORCENTAJE];
+        }
+
+        $empleado = $employeeId ? ($this->empleadosPorId[$employeeId] ?? null) : null;
+
+        if ($empleado && $empleado->tipo_base_comision === 'total_empresa') {
+            return [0.0, 0.0];
+        }
+
+        $porcentaje = $empleado ? $empleado->porcentajeComisionAplicable($baseCobrada) : self::PORCENTAJE;
+
+        return [round($baseCobrada * $porcentaje, 2), $porcentaje];
     }
 
     private function leerCobranzas(string $path): Collection
@@ -260,14 +291,15 @@ class ComisionesService
                 $estado = 'pendiente';
             }
 
+            $employeeId = $this->resolverEmployeeId($com['vendedor']);
             $baseCobrada  = $cobrada ? floatval($cobrada['base_comision']) : null;
-            $comisionCalc = $baseCobrada !== null ? round($baseCobrada * self::PORCENTAJE, 2) : 0;
+            [$comisionCalc, $porcentajeUsado] = $this->calcularComisionFila($employeeId, $baseCobrada);
 
             $resultado->push([
                 'comision_upload_id'     => $upload->id,
                 'periodo'                => $com['periodo'],
                 'vendedor'               => $com['vendedor'],
-                'employee_id'            => $this->resolverEmployeeId($com['vendedor']),
+                'employee_id'            => $employeeId,
                 'numdoc'                 => $com['numdoc'],
                 'tipo_doc'               => $com['tipo_doc'],
                 'cod_cliente'            => $com['cod_cliente'],
@@ -287,7 +319,7 @@ class ComisionesService
                 'estado'                 => $estado,
                 'mes_cobro'              => $com['mes_cobro'] ?: null,
                 'comision_calculada'     => $comisionCalc,
-                'porcentaje_comision'    => self::PORCENTAJE,
+                'porcentaje_comision'    => $porcentajeUsado,
                 'created_at'             => $now,
                 'updated_at'             => $now,
             ]);
@@ -306,7 +338,7 @@ class ComisionesService
 
             if ($detailAnterior) {
                 $baseCobrada  = floatval($cobrada['base_comision']);
-                $comisionCalc = round($baseCobrada * self::PORCENTAJE, 2);
+                [$comisionCalc, $porcentajeUsado] = $this->calcularComisionFila($detailAnterior->employee_id, $baseCobrada);
 
                 // El vendedor ya se conoce del detalle anterior — reutilizamos su
                 // employee_id ya resuelto en vez de volver a matchear por texto.
@@ -334,7 +366,7 @@ class ComisionesService
                     'estado'                 => 'cobrada',
                     'mes_cobro'              => null,
                     'comision_calculada'     => $comisionCalc,
-                    'porcentaje_comision'    => self::PORCENTAJE,
+                    'porcentaje_comision'    => $porcentajeUsado,
                     'created_at'             => $now,
                     'updated_at'             => $now,
                 ]);

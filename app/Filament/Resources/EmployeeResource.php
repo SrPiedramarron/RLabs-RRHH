@@ -300,7 +300,28 @@ class EmployeeResource extends Resource
                             Forms\Components\Toggle::make('aplica_comision')
                                 ->label('Aplica comisiones')
                                 ->helperText('Incluir comisiones de ventas en la liquidación mensual')
+                                ->live()
                                 ->default(false),
+
+                            Forms\Components\Select::make('tipo_base_comision')
+                                ->label('Base de cálculo')
+                                ->options([
+                                    'cartera_propia' => 'Cartera propia (solo sus ventas)',
+                                    'total_empresa'  => 'Total de la empresa (todas las ventas del periodo)',
+                                ])
+                                ->default('cartera_propia')
+                                ->native(false)
+                                ->visible(fn (Forms\Get $get) => $get('aplica_comision')),
+
+                            Forms\Components\TextInput::make('porcentaje_comision')
+                                ->label('Porcentaje de comisión (%)')
+                                ->numeric()
+                                ->step(0.01)
+                                ->suffix('%')
+                                ->helperText('Se usa si el trabajador NO tiene escalas configuradas (pestaña "Escalas de Comisión"). Si se deja vacío, se usa 1.5% por defecto.')
+                                ->formatStateUsing(fn ($state) => $state !== null ? round($state * 100, 4) : null)
+                                ->dehydrateStateUsing(fn ($state) => filled($state) ? $state / 100 : null)
+                                ->visible(fn (Forms\Get $get) => $get('aplica_comision')),
 
                             Forms\Components\Toggle::make('compensa_horas_extras')
                                 ->label('Compensa horas extras')
@@ -452,6 +473,7 @@ class EmployeeResource extends Resource
             \App\Filament\Resources\EmployeeResource\RelationManagers\VacacionesRelationManager::class,
             \App\Filament\Resources\EmployeeResource\RelationManagers\DocumentosRelationManager::class,
             \App\Filament\Resources\EmployeeResource\RelationManagers\RenovacionesContratoRelationManager::class,
+            \App\Filament\Resources\EmployeeResource\RelationManagers\EscalasComisionRelationManager::class,
         ];
     }
 
