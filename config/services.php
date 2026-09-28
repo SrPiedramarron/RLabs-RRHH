@@ -39,4 +39,10 @@ return [
         'username' => env('ZKBIO_USERNAME'),
         'password' => env('ZKBIO_PASSWORD'),
     ],
+
+    'vapid' => [
+        'public_key'  => env('VAPID_PUBLIC_KEY'),
+        'private_key' => env('VAPID_PRIVATE_KEY'),
+        'subject'     => env('VAPID_SUBJECT', 'mailto:soporte@rlabspe.com'),
+    ],
 ];

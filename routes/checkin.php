@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Checkin\AuthController;
 use App\Http\Controllers\Checkin\CheckinController;
+use App\Http\Controllers\Checkin\PushSubscriptionController;
 use App\Http\Controllers\Checkin\SolicitudController;
 use Illuminate\Support\Facades\Route;
 
@@ -48,6 +49,9 @@ Route::prefix('checkin')->name('checkin.')->group(function () {
 
         Route::get('/solicitudes/nueva/correccion', [SolicitudController::class, 'createCorreccion'])->name('solicitudes.correccion.create');
         Route::post('/solicitudes/correccion',      [SolicitudController::class, 'storeCorreccion'])->name('solicitudes.correccion.store');
+
+        // Suscripción a notificaciones push
+        Route::post('/push/subscribe', [PushSubscriptionController::class, 'store'])->name('push.subscribe');
 
     });
 });

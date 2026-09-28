@@ -196,7 +196,38 @@ class CheckinController extends Controller
 
     public function serviceWorker()
     {
-        $content = "self.addEventListener('fetch', function(event) {});";
+        $content = <<<'JS'
+self.addEventListener('fetch', function(event) {});
+
+self.addEventListener('push', function (event) {
+    let data = { title: 'RLabs RRHH', body: 'Tienes una notificación nueva.', url: '/checkin/solicitudes' };
+    try { data = event.data.json(); } catch (e) {}
+
+    event.waitUntil(
+        self.registration.showNotification(data.title, {
+            body: data.body,
+            icon: '/images/checkin/icon-192.png',
+            badge: '/images/checkin/icon-192.png',
+            data: { url: data.url || '/checkin/solicitudes' },
+        })
+    );
+});
+
+self.addEventListener('notificationclick', function (event) {
+    event.notification.close();
+    const url = event.notification.data?.url || '/checkin/solicitudes';
+
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (clientList) {
+            for (const client of clientList) {
+                if (client.url.includes(url) && 'focus' in client) return client.focus();
+            }
+            if (clients.openWindow) return clients.openWindow(url);
+        })
+    );
+});
+JS;
+
         return response($content)->header('Content-Type', 'application/javascript');
     }
 

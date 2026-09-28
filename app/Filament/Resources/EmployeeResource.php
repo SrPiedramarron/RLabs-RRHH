@@ -65,6 +65,13 @@ class EmployeeResource extends Resource
                                 ->length(8)
                                 ->numeric(),
 
+                            Forms\Components\TextInput::make('email')
+                                ->label('Correo electrónico')
+                                ->email()
+                                ->nullable()
+                                ->maxLength(150)
+                                ->helperText('Opcional. Si se completa, aquí llegan los avisos de sus solicitudes (vacaciones/permisos/correcciones).'),
+
                             Forms\Components\FileUpload::make('foto_perfil')
                                 ->label('Foto de Perfil')
                                 ->helperText('Requerida para validación facial en marcado remoto. Foto frontal con buena iluminación.')

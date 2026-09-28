@@ -338,6 +338,11 @@
     @endauth
 
 </div>
+<script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/checkin/sw.js').catch(() => {});
+    }
+</script>
 @stack('scripts')
 </body>
 </html>

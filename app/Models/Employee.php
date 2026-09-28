@@ -17,6 +17,7 @@ class Employee extends Model
         'nombres',
         'apellidos',
         'dni',
+        'email',
         'codigo_empleado',
         'cargo',
         'fecha_ingreso',
@@ -175,6 +176,11 @@ public function devices()
     public function solicitudes(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(Solicitud::class)->latest();
+    }
+
+    public function pushSubscriptions(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(PushSubscription::class);
     }
 
     /**

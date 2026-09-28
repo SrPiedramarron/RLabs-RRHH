@@ -171,6 +171,8 @@ class SolicitudResource extends Resource
                             'comentario_revision'  => $data['comentario'],
                         ]);
 
+                        app(\App\Services\NotificacionSolicitudService::class)->notificarResultado($record->fresh());
+
                         Notification::make()->title('Solicitud rechazada')->success()->send();
                     }),
             ])
@@ -190,6 +192,8 @@ class SolicitudResource extends Resource
             'revisado_por' => Auth::id(),
             'revisado_at'  => now(),
         ]);
+
+        app(\App\Services\NotificacionSolicitudService::class)->notificarResultado($record->fresh());
 
         Notification::make()->title('Solicitud aprobada')->success()->send();
     }
