@@ -6,6 +6,7 @@ use App\Filament\Resources\SolicitudResource\Pages;
 use App\Filament\Traits\HasCompanyScope;
 use App\Models\Solicitud;
 use App\Services\VacacionesService;
+use App\Support\Tabla21Suspension;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -14,6 +15,7 @@ use Filament\Support\Enums\FontWeight;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class SolicitudResource extends Resource
 {
@@ -63,19 +65,32 @@ class SolicitudResource extends Resource
                     ->badge()
                     ->color('info'),
 
-                Tables\Columns\TextColumn::make('fecha_inicio')
-                    ->label('Desde')
-                    ->date('d/m/Y')
-                    ->sortable(),
+                Tables\Columns\TextColumn::make('periodo')
+                    ->label('Periodo / Fecha')
+                    ->getStateUsing(function (Solicitud $record) {
+                        if ($record->tipo === 'correccion_horas') {
+                            $he = $record->hora_entrada_solicitada ? \Carbon\Carbon::parse($record->hora_entrada_solicitada)->format('H:i') : '—';
+                            $hs = $record->hora_salida_solicitada ? \Carbon\Carbon::parse($record->hora_salida_solicitada)->format('H:i') : '—';
+                            return $record->fecha_registro?->format('d/m/Y') . " ({$he} → {$hs})";
+                        }
 
-                Tables\Columns\TextColumn::make('fecha_fin')
-                    ->label('Hasta')
-                    ->date('d/m/Y'),
+                        $desde = $record->fecha_inicio?->format('d/m/Y');
+                        $hasta = $record->fecha_fin?->format('d/m/Y');
+
+                        return $hasta && $hasta !== $desde ? "{$desde} → {$hasta}" : $desde;
+                    }),
 
                 Tables\Columns\TextColumn::make('motivo')
                     ->label('Motivo')
                     ->limit(40)
                     ->placeholder('—'),
+
+                Tables\Columns\IconColumn::make('adjunto_path')
+                    ->label('Adjunto')
+                    ->boolean()
+                    ->trueIcon('heroicon-o-paper-clip')
+                    ->falseIcon('heroicon-o-minus')
+                    ->getStateUsing(fn (Solicitud $record) => (bool) $record->adjunto_path),
 
                 Tables\Columns\TextColumn::make('estado')
                     ->label('Estado')
@@ -112,14 +127,30 @@ class SolicitudResource extends Resource
                     ]),
             ])
             ->actions([
+                Tables\Actions\Action::make('ver_adjunto')
+                    ->label('Ver adjunto')
+                    ->icon('heroicon-o-paper-clip')
+                    ->color('gray')
+                    ->url(fn (Solicitud $record) => Storage::disk('public')->url($record->adjunto_path))
+                    ->openUrlInNewTab()
+                    ->visible(fn (Solicitud $record) => (bool) $record->adjunto_path),
+
                 Tables\Actions\Action::make('aprobar')
                     ->label('Aprobar')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->requiresConfirmation()
                     ->visible(fn (Solicitud $record) => $record->estado === 'pendiente')
-                    ->action(function (Solicitud $record) {
-                        static::aprobar($record);
+                    ->form(fn (Solicitud $record) => $record->tipo === 'permiso' ? [
+                        Forms\Components\Select::make('motivo_suspension_plame')
+                            ->label('Código Tabla 21 SUNAT a aplicar')
+                            ->options(Tabla21Suspension::OPCIONES)
+                            ->required()
+                            ->searchable()
+                            ->helperText('Elige el código que corresponde al motivo del permiso, para que se declare correcto en PLAME.'),
+                    ] : [])
+                    ->action(function (Solicitud $record, array $data) {
+                        static::aprobar($record, $data['motivo_suspension_plame'] ?? null);
                     }),
 
                 Tables\Actions\Action::make('rechazar')
@@ -146,39 +177,13 @@ class SolicitudResource extends Resource
             ->defaultSort('created_at', 'desc');
     }
 
-    public static function aprobar(Solicitud $record): void
+    public static function aprobar(Solicitud $record, ?string $motivoSuspensionPlame = null): void
     {
-        if ($record->tipo === 'vacaciones') {
-            app(VacacionesService::class)->registrarVacacion(
-                $record->employee,
-                $record->fecha_inicio,
-                $record->fecha_fin,
-                'Aprobada vía solicitud del trabajador' . ($record->motivo ? " — {$record->motivo}" : '')
-            );
-
-            $fecha = $record->fecha_inicio->copy();
-            while ($fecha->lte($record->fecha_fin)) {
-                \App\Models\AttendanceRecord::updateOrCreate(
-                    ['employee_id' => $record->employee_id, 'fecha' => $fecha->toDateString()],
-                    [
-                        'company_id'            => $record->company_id,
-                        'location_id'           => $record->employee->location_id,
-                        'estado'                => 'vacaciones',
-                        'hora_entrada'          => null,
-                        'hora_salida'           => null,
-                        'minutos_tarde'         => 0,
-                        'minutos_trabajados'    => 0,
-                        'horas_ordinarias'      => 0,
-                        'horas_extra_diurnas'   => 0,
-                        'horas_extra_nocturnas' => 0,
-                        'justificado'           => true,
-                        'corregido_manualmente' => true,
-                        'observacion'           => 'Vacaciones aprobadas vía solicitud del trabajador ' . now()->format('d/m/Y H:i'),
-                    ]
-                );
-                $fecha->addDay();
-            }
-        }
+        match ($record->tipo) {
+            'vacaciones'       => static::aprobarVacaciones($record),
+            'permiso'          => static::aprobarPermiso($record, $motivoSuspensionPlame),
+            'correccion_horas' => static::aprobarCorreccion($record),
+        };
 
         $record->update([
             'estado'       => 'aprobada',
@@ -187,6 +192,99 @@ class SolicitudResource extends Resource
         ]);
 
         Notification::make()->title('Solicitud aprobada')->success()->send();
+    }
+
+    private static function aprobarVacaciones(Solicitud $record): void
+    {
+        app(VacacionesService::class)->registrarVacacion(
+            $record->employee,
+            $record->fecha_inicio,
+            $record->fecha_fin,
+            'Aprobada vía solicitud del trabajador' . ($record->motivo ? " — {$record->motivo}" : '')
+        );
+
+        $fecha = $record->fecha_inicio->copy();
+        while ($fecha->lte($record->fecha_fin)) {
+            \App\Models\AttendanceRecord::updateOrCreate(
+                ['employee_id' => $record->employee_id, 'fecha' => $fecha->toDateString()],
+                [
+                    'company_id'            => $record->company_id,
+                    'location_id'           => $record->employee->location_id,
+                    'estado'                => 'vacaciones',
+                    'hora_entrada'          => null,
+                    'hora_salida'           => null,
+                    'minutos_tarde'         => 0,
+                    'minutos_trabajados'    => 0,
+                    'horas_ordinarias'      => 0,
+                    'horas_extra_diurnas'   => 0,
+                    'horas_extra_nocturnas' => 0,
+                    'justificado'           => true,
+                    'corregido_manualmente' => true,
+                    'observacion'           => 'Vacaciones aprobadas vía solicitud del trabajador ' . now()->format('d/m/Y H:i'),
+                ]
+            );
+            $fecha->addDay();
+        }
+    }
+
+    private static function aprobarPermiso(Solicitud $record, ?string $motivoSuspensionPlame): void
+    {
+        $fecha = $record->fecha_inicio->copy();
+        while ($fecha->lte($record->fecha_fin)) {
+            \App\Models\AttendanceRecord::updateOrCreate(
+                ['employee_id' => $record->employee_id, 'fecha' => $fecha->toDateString()],
+                [
+                    'company_id'              => $record->company_id,
+                    'location_id'             => $record->employee->location_id,
+                    'estado'                  => 'permiso',
+                    'justificado'             => true,
+                    'corregido_manualmente'   => true,
+                    'motivo_suspension_plame' => $motivoSuspensionPlame,
+                    'observacion'             => 'Permiso aprobado vía solicitud del trabajador — ' . $record->motivo,
+                ]
+            );
+            $fecha->addDay();
+        }
+    }
+
+    private static function aprobarCorreccion(Solicitud $record): void
+    {
+        $datos = [
+            'company_id'            => $record->company_id,
+            'location_id'           => $record->employee->location_id,
+            'corregido_manualmente' => true,
+            'motivo_correccion'     => 'Corrección aprobada vía solicitud del trabajador — ' . $record->motivo,
+        ];
+
+        if ($record->hora_entrada_solicitada) {
+            $datos['hora_entrada'] = $record->fecha_registro->toDateString() . ' ' . $record->hora_entrada_solicitada;
+            $datos['fuente_entrada'] = 'manual';
+        }
+
+        if ($record->hora_salida_solicitada) {
+            $datos['hora_salida'] = $record->fecha_registro->toDateString() . ' ' . $record->hora_salida_solicitada;
+            $datos['fuente_salida'] = 'manual';
+        }
+
+        $existente = \App\Models\AttendanceRecord::where('employee_id', $record->employee_id)
+            ->where('fecha', $record->fecha_registro->toDateString())
+            ->first();
+
+        if (! $existente || ! $existente->hora_entrada) {
+            $datos['estado'] = 'presente';
+        }
+
+        \App\Models\AttendanceRecord::updateOrCreate(
+            ['employee_id' => $record->employee_id, 'fecha' => $record->fecha_registro->toDateString()],
+            $datos
+        );
+
+        Notification::make()
+            ->title('Corrección aplicada')
+            ->body('Revisa el registro de asistencia de ese día en "Asistencia" para ajustar horas de tardanza/extra si corresponde — la corrección solo actualizó la hora de entrada/salida.')
+            ->warning()
+            ->persistent()
+            ->send();
     }
 
     public static function getPages(): array

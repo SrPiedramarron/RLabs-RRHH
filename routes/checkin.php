@@ -38,10 +38,16 @@ Route::prefix('checkin')->name('checkin.')->group(function () {
         // Mis marcaciones del mes
         Route::get('/asistencia', [CheckinController::class, 'asistencia'])->name('asistencia');
 
-        // Mis solicitudes (vacaciones — permisos y corrección de horas en camino)
+        // Mis solicitudes: vacaciones, permisos, corrección de horas
         Route::get('/solicitudes',        [SolicitudController::class, 'index'])->name('solicitudes.index');
         Route::get('/solicitudes/nueva',  [SolicitudController::class, 'create'])->name('solicitudes.create');
         Route::post('/solicitudes',       [SolicitudController::class, 'store'])->name('solicitudes.store');
+
+        Route::get('/solicitudes/nueva/permiso',  [SolicitudController::class, 'createPermiso'])->name('solicitudes.permiso.create');
+        Route::post('/solicitudes/permiso',       [SolicitudController::class, 'storePermiso'])->name('solicitudes.permiso.store');
+
+        Route::get('/solicitudes/nueva/correccion', [SolicitudController::class, 'createCorreccion'])->name('solicitudes.correccion.create');
+        Route::post('/solicitudes/correccion',      [SolicitudController::class, 'storeCorreccion'])->name('solicitudes.correccion.store');
 
     });
 });
