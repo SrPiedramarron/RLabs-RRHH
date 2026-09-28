@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Checkin\AuthController;
 use App\Http\Controllers\Checkin\CheckinController;
+use App\Http\Controllers\Checkin\SolicitudController;
 use Illuminate\Support\Facades\Route;
 
 // ── Rutas públicas (sin autenticación) ───────────────────────────────────────
@@ -36,6 +37,11 @@ Route::prefix('checkin')->name('checkin.')->group(function () {
 
         // Mis marcaciones del mes
         Route::get('/asistencia', [CheckinController::class, 'asistencia'])->name('asistencia');
+
+        // Mis solicitudes (vacaciones — permisos y corrección de horas en camino)
+        Route::get('/solicitudes',        [SolicitudController::class, 'index'])->name('solicitudes.index');
+        Route::get('/solicitudes/nueva',  [SolicitudController::class, 'create'])->name('solicitudes.create');
+        Route::post('/solicitudes',       [SolicitudController::class, 'store'])->name('solicitudes.store');
 
     });
 });

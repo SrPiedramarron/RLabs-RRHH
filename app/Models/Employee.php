@@ -172,6 +172,11 @@ public function devices()
         return $this->hasMany(ComisionEscala::class)->orderBy('monto_desde');
     }
 
+    public function solicitudes(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Solicitud::class)->latest();
+    }
+
     /**
      * Porcentaje de comisión aplicable dado el total de ventas de la base
      * que le corresponde (su propia cartera, o el total de la empresa según
