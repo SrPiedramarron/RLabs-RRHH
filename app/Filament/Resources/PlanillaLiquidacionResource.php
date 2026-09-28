@@ -220,6 +220,26 @@ class PlanillaLiquidacionResource extends Resource
                             ->collapsible()
                             ->helperText('No afecta EsSalud ni ONP — SÍ afecta la base de AFP (aporte, comisión, prima).'),
 
+                        Forms\Components\Repeater::make('retenciones_5ta_manual')
+                            ->label('Retención 5ta categoría manual (excepcional)')
+                            ->schema([
+                                Forms\Components\Select::make('employee_id')
+                                    ->label('Trabajador')
+                                    ->relationship('employee', 'apellidos')
+                                    ->searchable()
+                                    ->required(),
+                                Forms\Components\TextInput::make('monto')
+                                    ->label('Monto S/')
+                                    ->numeric()
+                                    ->prefix('S/')
+                                    ->required()
+                                    ->helperText('Puede ser 0.'),
+                            ])
+                            ->columns(2)
+                            ->defaultItems(0)
+                            ->addActionLabel('Agregar retención manual')
+                            ->collapsible()
+                            ->helperText('Usar SOLO mientras el sistema no tiene histórico de ingresos previo (2026, primer año de uso). Reemplaza el cálculo automático para ese trabajador ese mes. A partir de enero 2027, dejar vacío para que el sistema calcule solo.'),
 
                     ])
                     ->action(function (array $data) {
@@ -251,6 +271,11 @@ class PlanillaLiquidacionResource extends Resource
                             ->map(fn ($s) => floatval($s['monto']))
                             ->toArray();
 
+                        $retencionesManuales5ta = collect($data['retenciones_5ta_manual'] ?? [])
+                            ->keyBy('employee_id')
+                            ->map(fn ($r) => floatval($r['monto']))
+                            ->toArray();
+
                         try {
                             $liquidaciones = app(PlanillaService::class)->calcularPeriodo(
                                 $data['company_id'],
@@ -260,6 +285,7 @@ class PlanillaLiquidacionResource extends Resource
                                 $adelantos,
                                 $subsidiosEnfermedad,
                                 $subsidiosMaternidad,
+                                $retencionesManuales5ta,
                             );
 
                             Notification::make()

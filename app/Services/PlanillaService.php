@@ -31,7 +31,7 @@ class PlanillaService
     const CREDITO_EPS_PORCENTAJE = 0.25;
     const APORTE_EMPRESA_EPS     = 0.30; // el trabajador asume el 70% restante
 
-    public function calcularPeriodo(int $companyId, string $periodo, array $bonosEspeciales = [], array $otrosDescuentos = [], array $adelantos = [], array $subsidiosEnfermedad = [], array $subsidiosMaternidad = []): Collection
+    public function calcularPeriodo(int $companyId, string $periodo, array $bonosEspeciales = [], array $otrosDescuentos = [], array $adelantos = [], array $subsidiosEnfermedad = [], array $subsidiosMaternidad = [], array $retencionesManuales5ta = []): Collection
     {
         [$year, $month] = explode('-', $periodo);
 
@@ -43,7 +43,7 @@ class PlanillaService
 
         $liquidaciones = collect();
 
-        DB::transaction(function () use ($empleados, $companyId, $periodo, $year, $month, $bonosEspeciales, $otrosDescuentos, $adelantos, $subsidiosEnfermedad, $subsidiosMaternidad, &$liquidaciones) {
+        DB::transaction(function () use ($empleados, $companyId, $periodo, $year, $month, $bonosEspeciales, $otrosDescuentos, $adelantos, $subsidiosEnfermedad, $subsidiosMaternidad, $retencionesManuales5ta, &$liquidaciones) {
             foreach ($empleados as $empleado) {
                 $liquidacion = $this->calcularEmpleado(
                     $empleado,
@@ -56,6 +56,7 @@ class PlanillaService
                     $adelantos[$empleado->id] ?? 0,
                     $subsidiosEnfermedad[$empleado->id] ?? 0,
                     $subsidiosMaternidad[$empleado->id] ?? 0,
+                    array_key_exists($empleado->id, $retencionesManuales5ta) ? (float) $retencionesManuales5ta[$empleado->id] : null,
                 );
                 $liquidaciones->push($liquidacion);
             }
@@ -75,6 +76,7 @@ class PlanillaService
         float $adelanto = 0,
         float $subsidioEnfermedad = 0,
         float $subsidioMaternidad = 0,
+        ?float $retencion5taManual = null,
     ): PlanillaLiquidacion {
 
         // Si no se pasó un valor nuevo (default 0), preservar lo que ya
@@ -82,27 +84,31 @@ class PlanillaService
         // que se recalcula la planilla (ej. al editar un registro de
         // asistencia y volver a calcular). Para poner explícitamente en 0,
         // hay que borrar la liquidación o escribir 0 a mano en el Repeater.
-        if ($bonoEspecial == 0.0 || $otroDescuento == 0.0 || $adelanto == 0.0 || $subsidioEnfermedad == 0.0 || $subsidioMaternidad == 0.0) {
-            $existente = PlanillaLiquidacion::where('employee_id', $empleado->id)
-                ->where('periodo', $periodo)
-                ->first();
+        $existente = PlanillaLiquidacion::where('employee_id', $empleado->id)
+            ->where('periodo', $periodo)
+            ->first();
 
-            if ($existente) {
-                if ($bonoEspecial == 0.0 && $existente->bonos_especiales > 0) {
-                    $bonoEspecial = (float) $existente->bonos_especiales;
-                }
-                if ($otroDescuento == 0.0 && $existente->otros_descuentos > 0) {
-                    $otroDescuento = (float) $existente->otros_descuentos;
-                }
-                if ($adelanto == 0.0 && $existente->adelanto > 0) {
-                    $adelanto = (float) $existente->adelanto;
-                }
-                if ($subsidioEnfermedad == 0.0 && $existente->subsidio_enfermedad > 0) {
-                    $subsidioEnfermedad = (float) $existente->subsidio_enfermedad;
-                }
-                if ($subsidioMaternidad == 0.0 && $existente->subsidio_maternidad > 0) {
-                    $subsidioMaternidad = (float) $existente->subsidio_maternidad;
-                }
+        if ($existente) {
+            if ($bonoEspecial == 0.0 && $existente->bonos_especiales > 0) {
+                $bonoEspecial = (float) $existente->bonos_especiales;
+            }
+            if ($otroDescuento == 0.0 && $existente->otros_descuentos > 0) {
+                $otroDescuento = (float) $existente->otros_descuentos;
+            }
+            if ($adelanto == 0.0 && $existente->adelanto > 0) {
+                $adelanto = (float) $existente->adelanto;
+            }
+            if ($subsidioEnfermedad == 0.0 && $existente->subsidio_enfermedad > 0) {
+                $subsidioEnfermedad = (float) $existente->subsidio_enfermedad;
+            }
+            if ($subsidioMaternidad == 0.0 && $existente->subsidio_maternidad > 0) {
+                $subsidioMaternidad = (float) $existente->subsidio_maternidad;
+            }
+            // A diferencia de los anteriores, 0 es un valor válido de
+            // override manual (retención S/0 a propósito) — se preserva lo
+            // guardado solo cuando esta vez NO se pasó nada (null).
+            if ($retencion5taManual === null && $existente->retencion_5ta_manual !== null) {
+                $retencion5taManual = (float) $existente->retencion_5ta_manual;
             }
         }
 
@@ -294,13 +300,22 @@ class PlanillaService
 
         $descuento5ta = 0.0;
         if ($empleado->aplica_5ta_categoria) {
-            $calculadora5ta = app(\App\Services\Renta5taCalculator::class);
+            if ($retencion5taManual !== null) {
+                // Override manual (RRHH, set. 2026): mientras el sistema no
+                // tenga histórico de ingresos ene-ago 2026 para proyectar
+                // correctamente, RRHH calcula la retención aparte y la
+                // ingresa aquí. Desde enero 2027 debería dejarse en
+                // automático (no pasar este valor).
+                $descuento5ta = round($retencion5taManual, 2);
+            } else {
+                $calculadora5ta = app(\App\Services\Renta5taCalculator::class);
 
-            $detalle5ta = $empleado->aplica_comision
-                ? $calculadora5ta->calcular($empleado, $comisiones, $year, $month)
-                : $calculadora5ta->calcularNoComisionado($empleado, $sueldo + $asignacionFamiliar, $year, $month);
+                $detalle5ta = $empleado->aplica_comision
+                    ? $calculadora5ta->calcular($empleado, $comisiones, $year, $month)
+                    : $calculadora5ta->calcularNoComisionado($empleado, $sueldo + $asignacionFamiliar, $year, $month);
 
-            $descuento5ta = $detalle5ta['cuota_mensual'];
+                $descuento5ta = $detalle5ta['cuota_mensual'];
+            }
         }
 
         // ── EsSalud (empleador) — se calcula ANTES del neto porque el crédito
@@ -393,6 +408,7 @@ class PlanillaService
                 'afp_prima_seguro'              => $afpPrimaSeguro,
                 'afp_aporte_obligatorio'        => $afpAporteObligatorio,
                 'descuento_5ta_categoria'       => $descuento5ta,
+                'retencion_5ta_manual'          => $retencion5taManual,
                 'total_descuentos'              => round($totalDescuentos, 2),
                 'neto_pagar'                    => $netoPagar,
                 'essalud_empleador'             => $essaludEmpleador,
