@@ -956,9 +956,15 @@ class PlanillaService
             $empleado, max($inicioSemestreCts, $fechaIngreso), $fechaCese, $inicioSemestreCts, $finSemestreCts
         );
 
-        // 1/6 de la gratificación trunca recién calculada (es la que cae
-        // dentro de este semestre CTS, por construcción).
-        $sextoGratificacion = round($montoGratTrunca / 6, 2);
+        // 1/6 de gratificación para CTS: la que corresponde al semestre de
+        // gratificación que CAE DENTRO de este semestre CTS — julio para
+        // CTS mayo-octubre, diciembre para CTS noviembre-abril. OJO: NO es
+        // la gratificación trunca que se está calculando arriba para el
+        // cese (esa es de un semestre de gratificación distinto, todavía
+        // en curso). Bug real detectado por RRHH set. 2026 comparando
+        // contra un cálculo manual: se estaba usando la trunca del
+        // semestre equivocado.
+        $sextoGratificacion = $this->resolverSextoGratificacionParaCts($empleado, $inicioSemestreCts);
 
         $remuneracionComputableCts = round($sueldo + $asignacionFamiliar + $promComisionesCts + $promHorasExtraCts + $sextoGratificacion, 2);
         $montoCtsTrunca = round($remuneracionComputableCts / 12 * $mesesCtsTrunca, 2);
@@ -1008,6 +1014,41 @@ class PlanillaService
                 'calculado_at'  => now(),
             ]
         );
+    }
+
+    /**
+     * Resuelve 1/6 de la gratificación que corresponde incluir en la
+     * remuneración computable de CTS: la del semestre de gratificación que
+     * cae dentro del semestre CTS dado (julio si el CTS es mayo-octubre,
+     * diciembre si es noviembre-abril) — NO la gratificación trunca del
+     * cese, que es de un semestre distinto.
+     *
+     * Si esa gratificación ya está calculada/guardada (Gratificacion),
+     * usa ese monto real. Si no (la empresa recién empezó a usar el
+     * sistema y ese periodo nunca se procesó), la calcula ahora con la
+     * misma lógica que "Calcular Gratificación" — si el trabajador estuvo
+     * activo todo ese semestre, sale completa; si entró a mitad de ese
+     * semestre, sale prorrateada igual que allá. Esto también la deja
+     * guardada en Gratificacion, como si se hubiera calculado en su
+     * momento.
+     */
+    private function resolverSextoGratificacionParaCts(Employee $empleado, Carbon $inicioSemestreCts): float
+    {
+        [$tipo, $anio] = $inicioSemestreCts->month === 5
+            ? ['julio', $inicioSemestreCts->year]
+            : ['diciembre', $inicioSemestreCts->year];
+
+        $periodo = $tipo === 'julio' ? sprintf('%04d-07', $anio) : sprintf('%04d-12', $anio);
+
+        $gratificacion = \App\Models\Gratificacion::where('employee_id', $empleado->id)
+            ->where('periodo', $periodo)
+            ->first();
+
+        if (! $gratificacion) {
+            $gratificacion = $this->calcularGratificacionEmpleado($empleado, $empleado->company_id, $tipo, $anio);
+        }
+
+        return $gratificacion ? round($gratificacion->monto_gratificacion / 6, 2) : 0.0;
     }
 
     /**
