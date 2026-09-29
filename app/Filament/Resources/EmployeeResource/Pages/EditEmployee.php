@@ -11,6 +11,17 @@ class EditEmployee extends EditRecord
 
     protected static string $resource = EmployeeResource::class;
 
+    /**
+     * Muestra el nombre del trabajador junto al título, para que no se
+     * pierda de vista al cambiar de pestaña (reportado por RRHH, set. 2026:
+     * al editar y cambiar de pestaña ya no se veía a quién se estaba
+     * editando).
+     */
+    public function getTitle(): string
+    {
+        return 'Editar Trabajador — ' . $this->record->nombre_completo;
+    }
+
     protected function getHeaderActions(): array
     {
         return [
