@@ -180,8 +180,8 @@ class CheckinController extends Controller
     public function manifest()
     {
         return response()->json([
-            'name'             => 'SumaRH',
-            'short_name'       => 'SumaRH',
+            'name'             => 'RLabs RRHH',
+            'short_name'       => 'RLabs RRHH',
             'description'      => 'Control de asistencia remoto',
             'start_url'        => '/checkin/home',
             'display'          => 'standalone',
