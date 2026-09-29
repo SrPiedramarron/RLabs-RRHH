@@ -200,6 +200,11 @@ class ReportResource extends Resource
                                     ->label('Incluir columnas de refrigerio')
                                     ->helperText('Agrega inicio y fin de refrigerio según Res. 0055-2025')
                                     ->default(false),
+
+                                Forms\Components\Toggle::make('incluye_geolocalizacion')
+                                    ->label('Incluir geolocalización')
+                                    ->helperText('Agrega latitud y longitud de los días marcados desde la app móvil (checkin remoto). Vacío si ese día se marcó en el reloj biométrico.')
+                                    ->default(false),
                             ]),
                     ])
                     ->action(function (array $data) {
@@ -237,6 +242,7 @@ class ReportResource extends Resource
                             'fecha_inicio'      => $data['fecha_inicio'],
                             'fecha_fin'         => $data['fecha_fin'],
                             'incluye_refrigerio' => $data['incluye_refrigerio'] ?? false,
+                            'incluye_geolocalizacion' => $data['incluye_geolocalizacion'] ?? false,
                             'location_id'       => $data['location_id'] ?? null,
                             'department_id'     => $data['department_id'] ?? null,
                         ];

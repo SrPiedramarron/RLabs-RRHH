@@ -52,8 +52,9 @@ class ReportGenerator
     {
         $meta = $this->buildMeta($options);
         $incluye_refrigerio = $options['incluye_refrigerio'] ?? false;
+        $incluye_geolocalizacion = $options['incluye_geolocalizacion'] ?? false;
 
-        $export = new \App\Exports\SunafilExport($records, $meta, $incluye_refrigerio);
+        $export = new \App\Exports\SunafilExport($records, $meta, $incluye_refrigerio, $incluye_geolocalizacion);
 
         $filename = 'SUNAFIL_' . $meta['periodo_slug'] . '_' . $meta['filtro_slug'] . '.xlsx';
 

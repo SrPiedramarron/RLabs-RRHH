@@ -22,12 +22,30 @@ class SunafilExport implements
 {
     private \Illuminate\Support\Collection $sorted;
     private array $subtotalRows = [];
+    private array $geolocalizacionPorRecord = [];
 
     public function __construct(
         private Collection $records,
         private array $meta,
-        private bool $incluyeRefrigerio = false
+        private bool $incluyeRefrigerio = false,
+        private bool $incluyeGeolocalizacion = false
     ) {
+        if ($this->incluyeGeolocalizacion) {
+            $recordIds = $records->pluck('id')->filter()->values();
+
+            \App\Models\RemoteCheckin::whereIn('attendance_record_id', $recordIds)
+                ->whereNotNull('latitud')
+                ->orderBy('fecha_hora')
+                ->get(['attendance_record_id', 'tipo', 'latitud', 'longitud'])
+                ->each(function ($checkin) {
+                    // Si hay más de una marcación remota el mismo día (ej. reintentos),
+                    // se queda con la primera entrada y la primera salida.
+                    $this->geolocalizacionPorRecord[$checkin->attendance_record_id][$checkin->tipo] ??= [
+                        'lat' => $checkin->latitud,
+                        'lng' => $checkin->longitud,
+                    ];
+                });
+        }
         // Construir colección expandida con todos los días del período por empleado
         $desde = \Carbon\Carbon::parse($meta['fecha_inicio_raw']);
         $hasta = \Carbon\Carbon::parse($meta['fecha_fin_raw']);
@@ -114,6 +132,21 @@ class SunafilExport implements
         return sprintf('%02d:%02d', intdiv($minutos, 60), $minutos % 60);
     }
 
+    /**
+     * Coordenadas de la marcación remota de ese día: prioriza la de entrada
+     * (es la que normalmente responde "desde dónde marcó"); si solo la
+     * salida fue remota, usa esa. Si ninguna fue remota (o no hay
+     * geolocalización activada), devuelve vacío.
+     */
+    private function resolverGeolocalizacion($record): array
+    {
+        $geo = $this->geolocalizacionPorRecord[$record->id ?? null] ?? null;
+
+        $punto = $geo['entrada'] ?? $geo['salida'] ?? null;
+
+        return $punto ? [$punto['lat'], $punto['lng']] : ['—', '—'];
+    }
+
     public function array(): array
     {
         $estadoMap = [
@@ -184,6 +217,10 @@ class SunafilExport implements
                 $record->observacion ?? '',
             ]);
 
+            if ($this->incluyeGeolocalizacion) {
+                $row = array_merge($row, $this->resolverGeolocalizacion($record));
+            }
+
             $rows[] = $row;
             $rowIndex++;
         }
@@ -201,7 +238,8 @@ class SunafilExport implements
     private function buildSubtotalRow(int $acumMinutos, int $acumTardanza, float $acumExtra25, float $acumExtra35): array
     {
         $cols = $this->incluyeRefrigerio ? 11 : 9; // columnas antes de "Horas Trabajadas"
-        $row  = array_fill(0, $cols + 6, '');
+        $totalCols = $cols + 6 + ($this->incluyeGeolocalizacion ? 2 : 0); // +6: Horas..Observación; +2: Latitud/Longitud
+        $row  = array_fill(0, $totalCols, '');
 
         $row[1]         = 'TOTALES DEL PERÍODO';
         $row[$cols]     = $this->minutosToHHMM($acumMinutos);       // Horas Trabajadas
@@ -238,7 +276,7 @@ class SunafilExport implements
             $headers[] = 'Fin Refrigerio';
         }
 
-        return array_merge($headers, [
+        $headers = array_merge($headers, [
             'Horas Trabajadas',
             'Estado',
             'Tardanza (hh:mm)',
@@ -246,11 +284,18 @@ class SunafilExport implements
             'H. Extra 35%',
             'Observación',
         ]);
+
+        if ($this->incluyeGeolocalizacion) {
+            $headers[] = 'Latitud (marcación remota)';
+            $headers[] = 'Longitud (marcación remota)';
+        }
+
+        return $headers;
     }
 
     public function styles(Worksheet $sheet): array
     {
-        $lastCol = $this->incluyeRefrigerio ? 'O' : 'M';
+        $lastCol = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($this->headings()));
 
         $sheet->insertNewRowBefore(1, 3);
 
