@@ -66,11 +66,31 @@ class EmployeeResource extends Resource
                                 ->numeric(),
 
                             Forms\Components\TextInput::make('email')
-                                ->label('Correo electrónico')
+                                ->label('Correo electrónico (avisos)')
                                 ->email()
                                 ->nullable()
                                 ->maxLength(150)
                                 ->helperText('Opcional. Si se completa, aquí llegan los avisos de sus solicitudes (vacaciones/permisos/correcciones).'),
+
+                            Forms\Components\DatePicker::make('fecha_nacimiento')
+                                ->label('Fecha de nacimiento')
+                                ->displayFormat('d/m/Y')
+                                ->native(false),
+
+                            Forms\Components\TextInput::make('celular')
+                                ->label('Celular')
+                                ->tel()
+                                ->maxLength(20),
+
+                            Forms\Components\TextInput::make('correo_corporativo')
+                                ->label('Correo corporativo')
+                                ->email()
+                                ->maxLength(150),
+
+                            Forms\Components\TextInput::make('correo_personal')
+                                ->label('Correo personal')
+                                ->email()
+                                ->maxLength(150),
 
                             Forms\Components\FileUpload::make('foto_perfil')
                                 ->label('Foto de Perfil')
@@ -102,6 +122,10 @@ class EmployeeResource extends Resource
                                 ->relationship('department', 'nombre')
                                 ->searchable()
                                 ->nullable(),
+
+                            Forms\Components\TextInput::make('centro_costos')
+                                ->label('Centro de costos')
+                                ->maxLength(100),
 
                             Forms\Components\Select::make('schedule_id')
                                 ->label('Horario Principal')
@@ -232,6 +256,19 @@ class EmployeeResource extends Resource
                                         ->label('CCI')
                                         ->maxLength(20)
                                         ->helperText('Código de Cuenta Interbancario, 20 dígitos.'),
+
+                                    Forms\Components\TextInput::make('banco_cts')
+                                        ->label('Banco (CTS)')
+                                        ->maxLength(100)
+                                        ->helperText('Por ley, la cuenta CTS puede ser de un banco distinto al de la remuneración.'),
+
+                                    Forms\Components\TextInput::make('numero_cuenta_cts')
+                                        ->label('N° de Cuenta CTS')
+                                        ->maxLength(30),
+
+                                    Forms\Components\TextInput::make('cci_cts')
+                                        ->label('CCI CTS')
+                                        ->maxLength(20),
                                 ])
                                 ->columns(3)
                                 ->columnSpan(2),
