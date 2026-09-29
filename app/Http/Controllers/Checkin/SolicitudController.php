@@ -79,6 +79,7 @@ class SolicitudController extends Controller
 
         $categorias = [
             'medico'   => 'Cita/examen médico',
+            'descanso' => 'Descanso médico',
             'personal' => 'Motivo personal',
             'tramite'  => 'Trámite/diligencia',
             'otro'     => 'Otro',
