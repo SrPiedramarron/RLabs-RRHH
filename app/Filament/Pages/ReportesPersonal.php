@@ -2,14 +2,20 @@
 
 namespace App\Filament\Pages;
 
+use App\Exports\BoletasPendientesExport;
 use App\Exports\ContratosPersonalExport;
 use App\Exports\CuentasBancariasExport;
+use App\Exports\CumpleaniosDelMesExport;
 use App\Exports\InformacionPersonalExport;
+use App\Exports\PuntualidadPorAreaExport;
+use App\Exports\RotacionPersonalExport;
 use App\Exports\VacacionesDelMesExport;
+use App\Models\AttendanceRecord;
 use App\Models\Company;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Location;
+use App\Models\PlanillaLiquidacion;
 use App\Models\VacacionHistorial;
 use Carbon\Carbon;
 use Filament\Actions\Action;
@@ -71,7 +77,7 @@ class ReportesPersonal extends Page implements HasForms
                             ->placeholder('Todas las áreas'),
                     ]),
 
-                Forms\Components\Section::make('Periodo (solo para el reporte de vacaciones)')
+                Forms\Components\Section::make('Periodo (para vacaciones, boletas, rotación, puntualidad y cumpleaños)')
                     ->columns(2)
                     ->schema([
                         Forms\Components\Select::make('mes')
@@ -120,6 +126,30 @@ class ReportesPersonal extends Page implements HasForms
                 ->icon('heroicon-o-document-text')
                 ->color('gray')
                 ->action('exportarContratos'),
+
+            Action::make('cumpleanios')
+                ->label('Cumpleaños del Mes')
+                ->icon('heroicon-o-cake')
+                ->color('info')
+                ->action('exportarCumpleanios'),
+
+            Action::make('boletas_pendientes')
+                ->label('Boletas Pendientes de Firma')
+                ->icon('heroicon-o-exclamation-triangle')
+                ->color('danger')
+                ->action('exportarBoletasPendientes'),
+
+            Action::make('rotacion')
+                ->label('Altas y Bajas')
+                ->icon('heroicon-o-arrows-right-left')
+                ->color('info')
+                ->action('exportarRotacionPersonal'),
+
+            Action::make('puntualidad')
+                ->label('Puntualidad por Área')
+                ->icon('heroicon-o-clock')
+                ->color('primary')
+                ->action('exportarPuntualidadPorArea'),
         ];
     }
 
@@ -195,6 +225,127 @@ class ReportesPersonal extends Page implements HasForms
         }
 
         return Excel::download(new ContratosPersonalExport($empleados), 'contratos_personal_' . now()->format('Y-m-d') . '.xlsx');
+    }
+
+    public function exportarCumpleanios()
+    {
+        $data = $this->form->getState();
+
+        $empleados = Employee::with('department')
+            ->where('company_id', $data['company_id'])
+            ->where('active', true)
+            ->whereNotNull('fecha_nacimiento')
+            ->whereMonth('fecha_nacimiento', $data['mes'])
+            ->when($data['location_id'] ?? null, fn ($q) => $q->where('location_id', $data['location_id']))
+            ->when($data['department_id'] ?? null, fn ($q) => $q->where('department_id', $data['department_id']))
+            ->get();
+
+        if ($empleados->isEmpty()) {
+            $this->sinDatos();
+            return;
+        }
+
+        $mesNombre = Carbon::create($data['anio'], $data['mes'], 1)->locale('es')->isoFormat('MMMM');
+
+        return Excel::download(new CumpleaniosDelMesExport($empleados, $mesNombre, (int) $data['anio']), 'cumpleanios_' . $data['anio'] . '-' . str_pad($data['mes'], 2, '0', STR_PAD_LEFT) . '.xlsx');
+    }
+
+    public function exportarBoletasPendientes()
+    {
+        $data    = $this->form->getState();
+        $periodo = sprintf('%04d-%02d', $data['anio'], $data['mes']);
+
+        $liquidaciones = PlanillaLiquidacion::where('company_id', $data['company_id'])
+            ->where('periodo', $periodo)
+            ->whereNull('boleta_firmada_path')
+            ->when($data['location_id'] ?? null, function ($q) use ($data) {
+                $q->whereHas('employee', fn ($e) => $e->where('location_id', $data['location_id']));
+            })
+            ->when($data['department_id'] ?? null, function ($q) use ($data) {
+                $q->whereHas('employee', fn ($e) => $e->where('department_id', $data['department_id']));
+            })
+            ->orderBy('apellidos')
+            ->get();
+
+        if ($liquidaciones->isEmpty()) {
+            $this->sinDatos();
+            return;
+        }
+
+        $mesNombre = Carbon::create($data['anio'], $data['mes'], 1)->locale('es')->isoFormat('MMMM YYYY');
+
+        return Excel::download(new BoletasPendientesExport($liquidaciones, $mesNombre), 'boletas_pendientes_' . $periodo . '.xlsx');
+    }
+
+    public function exportarRotacionPersonal()
+    {
+        $data  = $this->form->getState();
+        $desde = Carbon::create($data['anio'], $data['mes'], 1)->startOfMonth();
+        $hasta = $desde->copy()->endOfMonth();
+
+        $filtrosComunes = function ($q) use ($data) {
+            $q->where('company_id', $data['company_id'])
+                ->when($data['location_id'] ?? null, fn ($qq) => $qq->where('location_id', $data['location_id']))
+                ->when($data['department_id'] ?? null, fn ($qq) => $qq->where('department_id', $data['department_id']));
+        };
+
+        $altas = Employee::with('department')
+            ->tap($filtrosComunes)
+            ->whereBetween('fecha_ingreso', [$desde->toDateString(), $hasta->toDateString()])
+            ->get();
+
+        $bajas = Employee::with('department')
+            ->tap($filtrosComunes)
+            ->whereNotNull('fecha_cese')
+            ->whereBetween('fecha_cese', [$desde->toDateString(), $hasta->toDateString()])
+            ->get();
+
+        if ($altas->isEmpty() && $bajas->isEmpty()) {
+            $this->sinDatos();
+            return;
+        }
+
+        $periodoNombre = $desde->locale('es')->isoFormat('MMMM YYYY');
+
+        return Excel::download(new RotacionPersonalExport($altas, $bajas, $periodoNombre), 'rotacion_personal_' . $desde->format('Y-m') . '.xlsx');
+    }
+
+    public function exportarPuntualidadPorArea()
+    {
+        $data  = $this->form->getState();
+        $desde = Carbon::create($data['anio'], $data['mes'], 1)->startOfMonth();
+        $hasta = $desde->copy()->endOfMonth();
+
+        $records = AttendanceRecord::with('employee.department')
+            ->whereBetween('fecha', [$desde->toDateString(), $hasta->toDateString()])
+            ->whereIn('estado', ['presente', 'tarde'])
+            ->whereHas('employee', function ($q) use ($data) {
+                $q->where('company_id', $data['company_id'])
+                    ->when($data['location_id'] ?? null, fn ($qq) => $qq->where('location_id', $data['location_id']))
+                    ->when($data['department_id'] ?? null, fn ($qq) => $qq->where('department_id', $data['department_id']));
+            })
+            ->get();
+
+        if ($records->isEmpty()) {
+            $this->sinDatos();
+            return;
+        }
+
+        $filas = $records
+            ->groupBy(fn ($r) => $r->employee->department?->nombre ?? 'Sin área')
+            ->map(function ($grupo, $area) {
+                return [
+                    'area'                => $area,
+                    'dias_trabajados'     => $grupo->count(),
+                    'dias_tarde'          => $grupo->where('minutos_tarde', '>', 0)->count(),
+                    'total_minutos_tarde' => (int) $grupo->sum('minutos_tarde'),
+                ];
+            })
+            ->values();
+
+        $periodoNombre = $desde->locale('es')->isoFormat('MMMM YYYY');
+
+        return Excel::download(new PuntualidadPorAreaExport($filas, $periodoNombre), 'puntualidad_por_area_' . $desde->format('Y-m') . '.xlsx');
     }
 
     private function sinDatos(): void
