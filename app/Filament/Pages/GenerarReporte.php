@@ -194,7 +194,7 @@ class GenerarReporte extends Page implements HasForms
         $this->excelHeaders = [
             'Fecha', 'Apellidos y Nombres', 'DNI', 'Cargo', 'Sede',
             'H. Entrada', 'H. Salida', 'Tardanza (min)',
-            'H. Ordinarias', 'H. Extra Diurna', 'H. Extra Noct.', 'Estado',
+            'H. Ordinarias', 'H. Extra Diurna', 'H. Extra Noct.', 'Estado', 'Observación',
         ];
 
         $this->excelData = $records->map(fn($r) => [
@@ -210,6 +210,7 @@ class GenerarReporte extends Page implements HasForms
             $r->horas_extra_diurnas   > 0 ? sprintf('%02d:%02d', intdiv((int)round($r->horas_extra_diurnas * 60), 60), (int)round($r->horas_extra_diurnas * 60) % 60) : '—',
             $r->horas_extra_nocturnas > 0 ? sprintf('%02d:%02d', intdiv((int)round($r->horas_extra_nocturnas * 60), 60), (int)round($r->horas_extra_nocturnas * 60) % 60) : '—',
             strtoupper($r->estado),
+            $r->corregido_manualmente ? 'CORREGIDO' . ($r->motivo_correccion ? ': ' . $r->motivo_correccion : '') : ($r->observacion ?? '—'),
         ])->toArray();
 
         $this->tipoPrevia    = 'excel';

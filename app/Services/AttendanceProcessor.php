@@ -73,14 +73,16 @@ class AttendanceProcessor
         return $procesados;
     }
 
-    private function calcularYGuardar(Employee $employee, string $fecha, $logs): void
+    /**
+     * Resuelve el horario que le corresponde al empleado ese día: el
+     * principal si cubre ese día de la semana, o el primer horario
+     * alternativo (propio o de la empresa) que sí lo cubra.
+     */
+    private function resolverSchedule(Employee $employee, string $fecha): \App\Models\Schedule
     {
-        // Buscar el horario correcto seg�n el d�a de la semana
         $diaSemana = (int) date('N', strtotime($fecha)); // 1=lun ... 7=dom
         $schedule  = $employee->schedule;
 
-        // Buscar horario alternativo: primero en horarios adicionales del empleado,
-        // luego en todos los horarios de la empresa
         $scheduleAlternativo = $employee->schedules
             ->first(function ($s) use ($diaSemana) {
                 $dias = is_array($s->dias_laborables)
@@ -101,14 +103,110 @@ class AttendanceProcessor
                 });
         }
 
-        // Usar horario alternativo si el principal no cubre este d�a
         $diasPrincipal = is_array($schedule->dias_laborables)
             ? $schedule->dias_laborables
             : json_decode($schedule->dias_laborables, true);
 
         if (!in_array((string)$diaSemana, array_map('strval', $diasPrincipal ?? [])) && $scheduleAlternativo) {
-            $schedule = $scheduleAlternativo;
+            return $scheduleAlternativo;
         }
+
+        return $schedule;
+    }
+
+    /**
+     * Recalcula tardanza, horas ordinarias y horas extra a partir de una
+     * hora de entrada/salida dadas directamente (sin depender de
+     * marcaciones del reloj) — usado al aprobar una "corrección de horas"
+     * desde una Solicitud, para que la tardanza y las horas extra reflejen
+     * la hora YA corregida, no la que estaba antes ni un valor en blanco.
+     * El refrigerio siempre se descuenta según el horario (no hay
+     * marcaciones intermedias que perimitan detectar el real).
+     */
+    public function recalcularDesdeHoras(Employee $employee, string $fecha, ?string $horaEntrada, ?string $horaSalida): array
+    {
+        if (! $employee->relationLoaded('schedules')) {
+            $employee->load('schedules');
+        }
+
+        $schedule = $this->resolverSchedule($employee, $fecha);
+
+        $horaEntradaProgramada = strtotime($fecha . ' ' . $schedule->hora_entrada);
+        $horaSalidaProgramada  = strtotime($fecha . ' ' . $schedule->hora_salida);
+        $toleranciaSegundos    = $schedule->tolerancia_minutos * 60;
+
+        $horaEntradaReal = $horaEntrada ? strtotime($horaEntrada) : null;
+        $horaSalidaReal  = $horaSalida  ? strtotime($horaSalida)  : null;
+
+        $minutosTarde = 0;
+        if ($horaEntradaReal && $horaEntradaReal > ($horaEntradaProgramada + $toleranciaSegundos)) {
+            $minutosTarde = (int) floor(($horaEntradaReal - $horaEntradaProgramada) / 60);
+        }
+
+        $minutosOrdinarios   = 0;
+        $horasExtraDiurnas   = 0;
+        $horasExtraNocturnas = 0;
+
+        if ($horaEntradaReal && $horaSalidaReal) {
+            $horaInicioComputo = max($horaEntradaReal, $horaEntradaProgramada);
+            $minutosTrabajados = (int) (($horaSalidaReal - $horaInicioComputo) / 60);
+
+            $jornadaTerminaEnRefrigerio = $schedule->refrigerio_inicio &&
+                $horaSalidaProgramada === strtotime($fecha . ' ' . $schedule->refrigerio_inicio);
+
+            if (!$jornadaTerminaEnRefrigerio && $schedule->refrigerio_inicio && $schedule->refrigerio_fin) {
+                $refInicio = strtotime($fecha . ' ' . $schedule->refrigerio_inicio);
+                $refFin    = strtotime($fecha . ' ' . $schedule->refrigerio_fin);
+                if ($horaInicioComputo < $refFin && $horaSalidaReal > $refInicio) {
+                    $minutosTrabajados -= (int) (($refFin - $refInicio) / 60);
+                }
+            }
+
+            $minutosJornadaBruta = (int) (($horaSalidaProgramada - $horaEntradaProgramada) / 60);
+            $minutosRefrigerioProgramado = ($schedule->refrigerio_inicio && $schedule->refrigerio_fin && !$jornadaTerminaEnRefrigerio)
+                ? (int) ((strtotime($fecha . ' ' . $schedule->refrigerio_fin) - strtotime($fecha . ' ' . $schedule->refrigerio_inicio)) / 60)
+                : 0;
+            $minutosJornadaNormal = $minutosJornadaBruta - $minutosRefrigerioProgramado;
+
+            $minutosOrdinarios = min($minutosTrabajados, $minutosJornadaNormal);
+            $minutosExtra      = max(0, $minutosTrabajados - $minutosJornadaNormal);
+
+            if ($minutosExtra > 0) {
+                $horasExtraTotales   = $minutosExtra / 60;
+                $horasExtraDiurnas   = min(2, $horasExtraTotales);
+                $horasExtraNocturnas = max(0, $horasExtraTotales - 2);
+            }
+        }
+
+        $esHoliday = Holiday::whereDate('fecha', $fecha)
+            ->where(fn ($q) => $q->whereNull('company_id')->orWhere('company_id', $employee->company_id))
+            ->exists();
+
+        $diasLabor  = array_map('intval', (array) $schedule->dias_laborables);
+        $diaSemana  = (int) date('N', strtotime($fecha));
+        $esDescanso = !in_array($diaSemana, $diasLabor);
+
+        $estado = match (true) {
+            $esHoliday        => 'feriado',
+            $esDescanso       => 'descanso',
+            !$horaEntradaReal => 'ausente',
+            $minutosTarde > 0 => 'tarde',
+            default           => 'presente',
+        };
+
+        return [
+            'minutos_tarde'         => $minutosTarde,
+            'minutos_trabajados'    => $minutosOrdinarios,
+            'horas_ordinarias'      => round($minutosOrdinarios / 60, 2),
+            'horas_extra_diurnas'   => round($horasExtraDiurnas, 2),
+            'horas_extra_nocturnas' => round($horasExtraNocturnas, 2),
+            'estado'                => $estado,
+        ];
+    }
+
+    private function calcularYGuardar(Employee $employee, string $fecha, $logs): void
+    {
+        $schedule = $this->resolverSchedule($employee, $fecha);
 
         // Refrigerio por tipo de marcaci�n (4 = salida refrigerio, 5 = retorno refrigerio)
         $salidasRefrigerio  = $logs->whereIn('tipo', [4])->sortBy('timestamp');

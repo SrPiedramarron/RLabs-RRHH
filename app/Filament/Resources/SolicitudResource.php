@@ -253,41 +253,57 @@ class SolicitudResource extends Resource
 
     private static function aprobarCorreccion(Solicitud $record): void
     {
-        $datos = [
+        $fecha     = $record->fecha_registro->toDateString();
+        $existente = \App\Models\AttendanceRecord::where('employee_id', $record->employee_id)
+            ->where('fecha', $fecha)
+            ->first();
+
+        // La hora corregida reemplaza la que estaba; si la solicitud solo
+        // trae una de las dos (entrada o salida), se conserva la otra tal
+        // como ya estaba guardada.
+        $horaEntradaFinal = $record->hora_entrada_solicitada
+            ? $fecha . ' ' . $record->hora_entrada_solicitada
+            : $existente?->hora_entrada?->format('Y-m-d H:i:s');
+
+        $horaSalidaFinal = $record->hora_salida_solicitada
+            ? $fecha . ' ' . $record->hora_salida_solicitada
+            : $existente?->hora_salida?->format('Y-m-d H:i:s');
+
+        // Recalcula tardanza, horas ordinarias, horas extra y estado con la
+        // hora YA corregida — si la hora corregida sigue estando fuera de
+        // tolerancia, la tardanza se mantiene (correctamente); si ya no lo
+        // está, se limpia a 0. Confirmado con RRHH set. 2026: la corrección
+        // no debe dejar minutos de tardanza "colgados" de antes.
+        $recalculo = app(\App\Services\AttendanceProcessor::class)
+            ->recalcularDesdeHoras($record->employee, $fecha, $horaEntradaFinal, $horaSalidaFinal);
+
+        $datos = array_merge($recalculo, [
             'company_id'            => $record->company_id,
             'location_id'           => $record->employee->location_id,
             'corregido_manualmente' => true,
-            'motivo_correccion'     => 'Corrección aprobada vía solicitud del trabajador — ' . $record->motivo,
-        ];
+            'motivo_correccion'     => $record->motivo,
+            'observacion'           => 'CORREGIDO — vía solicitud del trabajador, aprobada el ' . now()->format('d/m/Y H:i') . '. Motivo: ' . $record->motivo,
+        ]);
 
         if ($record->hora_entrada_solicitada) {
-            $datos['hora_entrada'] = $record->fecha_registro->toDateString() . ' ' . $record->hora_entrada_solicitada;
+            $datos['hora_entrada']   = $horaEntradaFinal;
             $datos['fuente_entrada'] = 'manual';
         }
 
         if ($record->hora_salida_solicitada) {
-            $datos['hora_salida'] = $record->fecha_registro->toDateString() . ' ' . $record->hora_salida_solicitada;
+            $datos['hora_salida']   = $horaSalidaFinal;
             $datos['fuente_salida'] = 'manual';
         }
 
-        $existente = \App\Models\AttendanceRecord::where('employee_id', $record->employee_id)
-            ->where('fecha', $record->fecha_registro->toDateString())
-            ->first();
-
-        if (! $existente || ! $existente->hora_entrada) {
-            $datos['estado'] = 'presente';
-        }
-
         \App\Models\AttendanceRecord::updateOrCreate(
-            ['employee_id' => $record->employee_id, 'fecha' => $record->fecha_registro->toDateString()],
+            ['employee_id' => $record->employee_id, 'fecha' => $fecha],
             $datos
         );
 
         Notification::make()
             ->title('Corrección aplicada')
-            ->body('Revisa el registro de asistencia de ese día en "Asistencia" para ajustar horas de tardanza/extra si corresponde — la corrección solo actualizó la hora de entrada/salida.')
-            ->warning()
-            ->persistent()
+            ->body('Tardanza y horas del día se recalcularon con la hora corregida.')
+            ->success()
             ->send();
     }
 
