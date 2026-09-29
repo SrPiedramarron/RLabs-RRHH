@@ -18,7 +18,6 @@ use App\Models\Location;
 use App\Models\PlanillaLiquidacion;
 use App\Models\VacacionHistorial;
 use Carbon\Carbon;
-use Filament\Actions\Action;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -100,56 +99,29 @@ class ReportesPersonal extends Page implements HasForms
             ->statePath('data');
     }
 
-    protected function getHeaderActions(): array
+    /**
+     * Los 8 reportes se muestran como botones agrupados en el cuerpo de la
+     * página (ver reportes-personal.blade.php), no en el header — con 8
+     * acciones el header las cortaba fuera de la pantalla sin forma de
+     * verlas todas (reportado por RRHH, set. 2026).
+     */
+    public function gruposDeReportes(): array
     {
         return [
-            Action::make('cuentas_bancarias')
-                ->label('Cuentas Bancarias')
-                ->icon('heroicon-o-banknotes')
-                ->color('primary')
-                ->action('exportarCuentasBancarias'),
-
-            Action::make('vacaciones_mes')
-                ->label('Vacaciones del Mes')
-                ->icon('heroicon-o-sun')
-                ->color('warning')
-                ->action('exportarVacacionesDelMes'),
-
-            Action::make('informacion_personal')
-                ->label('Información del Personal')
-                ->icon('heroicon-o-identification')
-                ->color('success')
-                ->action('exportarInformacionPersonal'),
-
-            Action::make('contratos')
-                ->label('Contratos')
-                ->icon('heroicon-o-document-text')
-                ->color('gray')
-                ->action('exportarContratos'),
-
-            Action::make('cumpleanios')
-                ->label('Cumpleaños del Mes')
-                ->icon('heroicon-o-cake')
-                ->color('info')
-                ->action('exportarCumpleanios'),
-
-            Action::make('boletas_pendientes')
-                ->label('Boletas Pendientes de Firma')
-                ->icon('heroicon-o-exclamation-triangle')
-                ->color('danger')
-                ->action('exportarBoletasPendientes'),
-
-            Action::make('rotacion')
-                ->label('Altas y Bajas')
-                ->icon('heroicon-o-arrows-right-left')
-                ->color('info')
-                ->action('exportarRotacionPersonal'),
-
-            Action::make('puntualidad')
-                ->label('Puntualidad por Área')
-                ->icon('heroicon-o-clock')
-                ->color('primary')
-                ->action('exportarPuntualidadPorArea'),
+            'Información del Personal' => [
+                ['metodo' => 'exportarInformacionPersonal', 'label' => 'Información del Personal', 'icon' => 'heroicon-o-identification', 'color' => 'success'],
+                ['metodo' => 'exportarContratos',           'label' => 'Contratos',                 'icon' => 'heroicon-o-document-text', 'color' => 'gray'],
+                ['metodo' => 'exportarCumpleanios',         'label' => 'Cumpleaños del Mes',         'icon' => 'heroicon-o-cake',           'color' => 'info'],
+                ['metodo' => 'exportarRotacionPersonal',    'label' => 'Altas y Bajas',              'icon' => 'heroicon-o-arrows-right-left', 'color' => 'info'],
+            ],
+            'Bancario y Planilla' => [
+                ['metodo' => 'exportarCuentasBancarias',    'label' => 'Cuentas Bancarias',          'icon' => 'heroicon-o-banknotes',      'color' => 'primary'],
+                ['metodo' => 'exportarBoletasPendientes',   'label' => 'Boletas Pendientes de Firma', 'icon' => 'heroicon-o-exclamation-triangle', 'color' => 'danger'],
+            ],
+            'Asistencia y Vacaciones' => [
+                ['metodo' => 'exportarVacacionesDelMes',    'label' => 'Vacaciones del Mes',         'icon' => 'heroicon-o-sun',            'color' => 'warning'],
+                ['metodo' => 'exportarPuntualidadPorArea',  'label' => 'Puntualidad por Área',       'icon' => 'heroicon-o-clock',          'color' => 'primary'],
+            ],
         ];
     }
 
