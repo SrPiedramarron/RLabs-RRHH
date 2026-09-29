@@ -46,7 +46,8 @@ class CompanyResource extends Resource
                         ->label('Email')
                         ->email()
                         ->maxLength(100)
-                        ->columnSpan(2),
+                        ->columnSpan(2)
+                        ->helperText('A este correo llegan los avisos automáticos de contratos por vencer (15 días antes).'),
 
                     Forms\Components\TextInput::make('direccion')
                         ->label('Dirección')

@@ -70,7 +70,7 @@ class SolicitudController extends Controller
         $employee = Auth::guard('employee')->user()->employee;
 
         $data = $request->validate([
-            'categoria'    => ['required', 'in:medico,personal,tramite,otro'],
+            'categoria'    => ['required', 'in:medico,descanso,personal,tramite,otro'],
             'fecha_inicio' => ['required', 'date'],
             'fecha_fin'    => ['required', 'date', 'after_or_equal:fecha_inicio'],
             'motivo'       => ['required', 'string', 'max:500'],

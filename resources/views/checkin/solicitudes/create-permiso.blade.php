@@ -13,6 +13,7 @@
     <select name="categoria" class="form-input" required style="margin-bottom:14px;">
         <option value="">Selecciona una opción</option>
         <option value="medico"   {{ old('categoria') === 'medico' ? 'selected' : '' }}>Cita / examen médico</option>
+        <option value="descanso" {{ old('categoria') === 'descanso' ? 'selected' : '' }}>Descanso médico</option>
         <option value="personal" {{ old('categoria') === 'personal' ? 'selected' : '' }}>Motivo personal</option>
         <option value="tramite"  {{ old('categoria') === 'tramite' ? 'selected' : '' }}>Trámite / diligencia</option>
         <option value="otro"     {{ old('categoria') === 'otro' ? 'selected' : '' }}>Otro</option>
