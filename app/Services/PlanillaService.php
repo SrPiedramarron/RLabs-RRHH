@@ -1072,19 +1072,31 @@ class PlanillaService
     }
 
     /**
-     * Helper compartido por gratificación trunca y CTS trunca: convierte
-     * días transcurridos (desde $desde hasta $fechaCese) a "meses" de 30
-     * días (tope 6), y calcula el promedio de comisiones/horas extra de
-     * los meses del semestre [$inicioSemestre, $finSemestre] que tengan
-     * liquidación mensual registrada — misma regla de "al menos 3 de 6"
-     * que gratificación/CTS regulares.
+     * Helper compartido por gratificación trunca y CTS trunca: convierte el
+     * tiempo transcurrido (desde $desde hasta $fechaCese, ambos incluidos)
+     * a "meses computables" (tope 6) — meses CALENDARIO completos, más los
+     * días sueltos del mes incompleto ÷ 30. Confirmado con RRHH set. 2026,
+     * comparando contra un cálculo manual: usar días÷30 de forma continua
+     * sobrecuenta cuando el periodo incluye meses de 31 días (ej. un cese
+     * el 30/09 tras un periodo desde el 01/07 son 3 meses exactos —
+     * jul/ago/sep—, no 3.07, porque jul y ago tienen 31 días).
+     * También calcula el promedio de comisiones/horas extra de los meses
+     * del semestre [$inicioSemestre, $finSemestre] que tengan liquidación
+     * mensual registrada — misma regla de "al menos 3 de 6" que
+     * gratificación/CTS regulares.
      *
      * @return array{0: float, 1: float, 2: float} [mesesComputables, promedioComisiones, promedioHorasExtra]
      */
     private function prorrateoTrunca(Employee $empleado, Carbon $desde, Carbon $fechaCese, Carbon $inicioSemestre, Carbon $finSemestre): array
     {
-        $dias = max(0, $desde->diffInDays($fechaCese) + 1);
-        $mesesComputables = min(6.0, round($dias / 30, 2));
+        $finInclusive     = $fechaCese->copy()->addDay();
+        // diffInMonths() puede devolver decimales (ej. 2.5) — se trunca a
+        // meses ENTEROS completos; los días sueltos del mes incompleto se
+        // suman aparte, ÷30, para no contarlos dos veces.
+        $mesesCompletos     = max(0, (int) floor($desde->diffInMonths($finInclusive)));
+        $fechaTrasCompletos = $desde->copy()->addMonths($mesesCompletos);
+        $diasRestantes      = max(0, $fechaTrasCompletos->diffInDays($finInclusive));
+        $mesesComputables   = min(6.0, round($mesesCompletos + $diasRestantes / 30, 2));
 
         $mesesConComisiones = 0;
         $sumaComisiones     = 0.0;
