@@ -77,11 +77,25 @@ class LiquidacionCeseResource extends Resource
                     ->alignEnd()
                     ->toggleable(),
 
+                Tables\Columns\TextColumn::make('promedio_comisiones_gratificacion_manual')
+                    ->label('Comisiones grat. (manual)')
+                    ->money('PEN')
+                    ->alignEnd()
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 Tables\Columns\TextColumn::make('monto_cts_trunca')
                     ->label('CTS trunca')
                     ->money('PEN')
                     ->alignEnd()
                     ->toggleable(),
+
+                Tables\Columns\TextColumn::make('promedio_comisiones_cts_manual')
+                    ->label('Comisiones CTS (manual)')
+                    ->money('PEN')
+                    ->alignEnd()
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('indemnizacion')
                     ->label('Indemnización')
@@ -145,6 +159,18 @@ class LiquidacionCeseResource extends Resource
                             ->prefix('S/')
                             ->helperText('Déjalo vacío para que se calcule automáticamente según el motivo. Ingresa un monto solo si hay un acuerdo/transacción distinto al cálculo legal estándar.'),
 
+                        Forms\Components\TextInput::make('promedio_comisiones_gratificacion_manual')
+                            ->label('Promedio de comisiones — Gratificación (S/) — opcional')
+                            ->numeric()
+                            ->prefix('S/')
+                            ->helperText('Déjalo vacío para que el sistema lo calcule solo desde las comisiones ya cargadas. Complétalo solo si el trabajador tuvo comisiones reales que aún no están cargadas en el sistema (el cálculo automático saldría en 0).'),
+
+                        Forms\Components\TextInput::make('promedio_comisiones_cts_manual')
+                            ->label('Promedio de comisiones — CTS (S/) — opcional')
+                            ->numeric()
+                            ->prefix('S/')
+                            ->helperText('Mismo caso que el de gratificación, pero para el cálculo de CTS trunca (puede ser un promedio distinto, según el semestre).'),
+
                         Forms\Components\Placeholder::make('aviso')
                             ->label('')
                             ->content('Calcula vacaciones truncas, gratificación trunca + bonificación 9%, y CTS trunca. NO incluye la remuneración del mes de cese — eso se calcula con "Calcular planilla" en Liquidación de Planilla, usando los días trabajados hasta el cese.'),
@@ -155,6 +181,8 @@ class LiquidacionCeseResource extends Resource
                                 $data['employee_id'],
                                 $data['motivo_cese'],
                                 filled($data['indemnizacion_manual'] ?? null) ? (float) $data['indemnizacion_manual'] : null,
+                                filled($data['promedio_comisiones_gratificacion_manual'] ?? null) ? (float) $data['promedio_comisiones_gratificacion_manual'] : null,
+                                filled($data['promedio_comisiones_cts_manual'] ?? null) ? (float) $data['promedio_comisiones_cts_manual'] : null,
                             );
 
                             Notification::make()

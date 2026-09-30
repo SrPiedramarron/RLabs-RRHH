@@ -873,8 +873,13 @@ class PlanillaService
      * con la "Liquidación de Planilla" normal de ese mes (usando los días
      * realmente trabajados hasta el cese), para no duplicar el cálculo.
      */
-    public function calcularLiquidacionCese(int $employeeId, string $motivoCese, ?float $indemnizacionManual = null): \App\Models\LiquidacionCese
-    {
+    public function calcularLiquidacionCese(
+        int $employeeId,
+        string $motivoCese,
+        ?float $indemnizacionManual = null,
+        ?float $promedioComisionesGratManual = null,
+        ?float $promedioComisionesCtsManual = null,
+    ): \App\Models\LiquidacionCese {
         $empleado = Employee::findOrFail($employeeId);
 
         if (!$empleado->fecha_cese) {
@@ -936,6 +941,15 @@ class PlanillaService
             $empleado, max($inicioSemestreGrat, $fechaIngreso), $fechaCese, $inicioSemestreGrat, $finSemestreGrat
         );
 
+        // Override manual (RRHH set. 2026): mientras la empresa no cargue al
+        // sistema las comisiones históricas (ComisionUpload) de meses
+        // anteriores, el promedio automático sale en 0 aunque el trabajador
+        // sí haya ganado comisiones reales. RRHH puede ingresar el promedio
+        // real a mano en el formulario de "Calcular liquidación por cese".
+        if ($promedioComisionesGratManual !== null) {
+            $promComisionesGrat = round($promedioComisionesGratManual, 2);
+        }
+
         $remuneracionComputableGrat = round($sueldo + $asignacionFamiliar + $promComisionesGrat + $promHorasExtraGrat, 2);
         $montoGratTrunca = round($remuneracionComputableGrat / 6 * $mesesGratTrunca, 2);
         $bonifTrunca     = round($montoGratTrunca * 0.09, 2);
@@ -955,6 +969,10 @@ class PlanillaService
         [$mesesCtsTrunca, $promComisionesCts, $promHorasExtraCts] = $this->prorrateoTrunca(
             $empleado, max($inicioSemestreCts, $fechaIngreso), $fechaCese, $inicioSemestreCts, $finSemestreCts
         );
+
+        if ($promedioComisionesCtsManual !== null) {
+            $promComisionesCts = round($promedioComisionesCtsManual, 2);
+        }
 
         // 1/6 de gratificación para CTS: la que corresponde al semestre de
         // gratificación que CAE DENTRO de este semestre CTS — julio para
@@ -1006,8 +1024,10 @@ class PlanillaService
                 'meses_gratificacion_trunca' => $mesesGratTrunca,
                 'monto_gratificacion_trunca' => $montoGratTrunca,
                 'bonificacion_extraordinaria_trunca' => $bonifTrunca,
+                'promedio_comisiones_gratificacion_manual' => $promedioComisionesGratManual,
                 'meses_cts_trunca' => $mesesCtsTrunca,
                 'monto_cts_trunca' => $montoCtsTrunca,
+                'promedio_comisiones_cts_manual' => $promedioComisionesCtsManual,
                 'indemnizacion' => $indemnizacion,
                 'monto_total'   => $montoTotal,
                 'calculado_por' => Auth::id(),
