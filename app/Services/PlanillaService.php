@@ -947,7 +947,49 @@ class PlanillaService
             }
         }
 
-        $montoVacacionesTruncas = round($baseVacacional / 30 * $diasVacacionesTruncas, 2);
+        // El monto de "truncas" (periodo en curso, sin completar) se calcula
+        // en MESES CALENDARIO desde el último aniversario cumplido — no en
+        // días÷30 sobre el saldo total — para que calce con la metodología
+        // de RRHH (base÷12×meses) y no sobrecuente por meses de 31 días,
+        // mismo criterio ya aplicado a gratificación/CTS trunca. El inicio
+        // del periodo en curso es el aniversario más reciente (fecha de
+        // corte + tantos años completos como periodos ya ganados).
+        $inicioPeriodoEnCurso = $fechaCorteVacaciones->copy()->addYears((int) floor($mesesSinGozar / 12));
+        $finInclusiveVac      = $fechaCese->copy()->addDay();
+        $mesesCompletosVac    = max(0, (int) floor($inicioPeriodoEnCurso->diffInMonths($finInclusiveVac)));
+        $fechaTrasCompletosVac = $inicioPeriodoEnCurso->copy()->addMonths($mesesCompletosVac);
+        $diasRestantesVac      = max(0, $fechaTrasCompletosVac->diffInDays($finInclusiveVac));
+        $mesesTruncasVacaciones = min(12.0, round($mesesCompletosVac + $diasRestantesVac / 30, 2));
+
+        $montoVacacionesTruncas = round($baseVacacional / 12 * $mesesTruncasVacaciones, 2);
+        // Se guarda en días (meses×30) solo para que la columna siga siendo
+        // legible/consistente con el monto — el cálculo real usa meses.
+        $diasVacacionesTruncas = round($mesesTruncasVacaciones * 30, 2);
+
+        // ── AFP/ONP y EsSalud sobre vacaciones (pedido RRHH set. 2026) ──────
+        // La indemnización vacacional NO lleva descuento (es una
+        // indemnización, no remuneración) — solo truncas + remuneración
+        // vacacional pendiente, que sí son remuneración pensionable.
+        $baseAfpVacaciones = round($montoVacacionesTruncas + $remuneracionVacacionalPendiente, 2);
+        $descuentoAfpVacaciones = 0.0;
+
+        if (str_starts_with((string) $empleado->sistema_pensiones, 'afp_')) {
+            $tasaAfpVac = AfpTasa::vigentePara($empleado->sistema_pensiones);
+            if ($tasaAfpVac) {
+                $tasaTotalAfpVac = floatval($tasaAfpVac->aporte_obligatorio)
+                    + ($empleado->aplica_comision_flujo_afp ? floatval($tasaAfpVac->comision_flujo) : 0.0)
+                    + floatval($tasaAfpVac->prima_seguro);
+                $descuentoAfpVacaciones = round($baseAfpVacaciones * $tasaTotalAfpVac, 2);
+            }
+        } else {
+            $descuentoAfpVacaciones = round($baseAfpVacaciones * self::TASA_ONP, 2);
+        }
+
+        $aporteEssaludVacaciones = round($baseAfpVacaciones * self::TASA_ESSALUD, 2);
+        $totalVacacionesPorPagar = round(
+            $montoVacacionesTruncas + $remuneracionVacacionalPendiente + $indemnizacionVacacional - $descuentoAfpVacaciones,
+            2
+        );
 
         // ── Gratificación trunca (semestre en curso al momento del cese) ────
         $inicioSemestreGrat = $fechaCese->month <= 6
@@ -1020,8 +1062,12 @@ class PlanillaService
             $indemnizacion = round(min(1.5 * $sueldo / 12 * $mesesServicio, 12 * $sueldo), 2);
         }
 
+        // El total usa vacaciones NETO (ya con el descuento AFP/ONP de
+        // vacaciones aplicado) — el resto de conceptos (gratificación, CTS)
+        // ya se calculan/guardan como corresponde a cada uno y no llevan
+        // este descuento acá.
         $montoTotal = round(
-            $montoVacacionesTruncas + $remuneracionVacacionalPendiente + $indemnizacionVacacional
+            $totalVacacionesPorPagar
             + $montoGratTrunca + $bonifTrunca + $montoCtsTrunca + $indemnizacion,
             2
         );
@@ -1042,6 +1088,9 @@ class PlanillaService
                 'promedio_comisiones_vacaciones_manual' => $promedioComisionesVacacionesManual,
                 'remuneracion_vacacional_pendiente' => $remuneracionVacacionalPendiente,
                 'indemnizacion_vacacional' => $indemnizacionVacacional,
+                'descuento_afp_vacaciones' => $descuentoAfpVacaciones,
+                'aporte_essalud_vacaciones' => $aporteEssaludVacaciones,
+                'total_vacaciones_por_pagar' => $totalVacacionesPorPagar,
                 'meses_gratificacion_trunca' => $mesesGratTrunca,
                 'monto_gratificacion_trunca' => $montoGratTrunca,
                 'bonificacion_extraordinaria_trunca' => $bonifTrunca,

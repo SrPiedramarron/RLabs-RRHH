@@ -16,6 +16,7 @@ class LiquidacionCese extends Model
         'dias_vacaciones_truncas', 'monto_vacaciones_truncas',
         'promedio_comisiones_vacaciones_manual',
         'remuneracion_vacacional_pendiente', 'indemnizacion_vacacional',
+        'descuento_afp_vacaciones', 'aporte_essalud_vacaciones', 'total_vacaciones_por_pagar',
         'meses_gratificacion_trunca', 'monto_gratificacion_trunca', 'bonificacion_extraordinaria_trunca',
         'promedio_comisiones_gratificacion_manual',
         'meses_cts_trunca', 'monto_cts_trunca',

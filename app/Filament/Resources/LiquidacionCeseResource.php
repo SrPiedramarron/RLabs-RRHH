@@ -78,6 +78,26 @@ class LiquidacionCeseResource extends Resource
                     ->color(fn ($state) => $state > 0 ? 'warning' : 'gray')
                     ->toggleable(),
 
+                Tables\Columns\TextColumn::make('descuento_afp_vacaciones')
+                    ->label('Desc. AFP/ONP vacac.')
+                    ->money('PEN')
+                    ->alignEnd()
+                    ->color('danger')
+                    ->toggleable(),
+
+                Tables\Columns\TextColumn::make('aporte_essalud_vacaciones')
+                    ->label('Aporte EsSalud vacac.')
+                    ->money('PEN')
+                    ->alignEnd()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                Tables\Columns\TextColumn::make('total_vacaciones_por_pagar')
+                    ->label('Total vacac. por pagar')
+                    ->money('PEN')
+                    ->alignEnd()
+                    ->weight('bold')
+                    ->toggleable(),
+
                 Tables\Columns\TextColumn::make('monto_gratificacion_trunca')
                     ->label('Grat. trunca')
                     ->money('PEN')
