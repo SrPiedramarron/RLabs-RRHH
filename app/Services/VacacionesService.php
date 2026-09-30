@@ -28,9 +28,14 @@ class VacacionesService
      *     de los días acumulados borraría el resto — bug real detectado
      *     por Ricardo en set. 2026.
      *
-     * Se generan 2.5 días por cada mes completo transcurrido, y el
-     * resultado se redondea a día entero (RRHH pidió explícitamente
-     * eliminar los decimales de esta pantalla).
+     * Se generan 2.5 días por cada mes completo transcurrido. El
+     * resultado se trunca hacia abajo (floor), no se redondea (RRHH,
+     * set. 2026): con round(), una fracción de apenas 0.2 meses (~6 días)
+     * ya redondeaba a 1 día completo "ganado" sin haberse cumplido — se
+     * detectó porque, tras la carga masiva del histórico de vacaciones
+     * (varios trabajadores con la misma fecha de corte reciente),
+     * "todos" aparecían con un día de más al mismo tiempo. Un día solo
+     * debe aparecer una vez que se cumplió completo.
      */
     public function calcularSaldo(Employee $trabajador, ?Carbon $hasta = null): array
     {
@@ -55,7 +60,7 @@ class VacacionesService
             $mesesTranscurridos = $fechaCorte->diffInMonths($hasta);
         }
 
-        $diasGenerados  = (int) round($mesesTranscurridos * self::DIAS_POR_MES);
+        $diasGenerados  = (int) floor($mesesTranscurridos * self::DIAS_POR_MES);
         $saldoPendiente = floatval($trabajador->saldo_pendiente ?? 0);
         $saldoActual    = round($saldoPendiente + $diasGenerados, 2);
 
