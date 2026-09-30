@@ -42,6 +42,7 @@ class GratificacionResource extends Resource
 
                 Tables\Columns\TextColumn::make('mes_nombre')
                     ->label('Periodo')
+                    ->getStateUsing(fn ($record) => ucfirst($record->tipo) . ' ' . $record->anio)
                     ->sortable(['periodo'])
                     ->badge()
                     ->color('info'),
@@ -80,9 +81,12 @@ class GratificacionResource extends Resource
                     ->label('Periodo')
                     ->options(function () {
                         if (!Gratificacion::exists()) return [];
-                        return Gratificacion::distinct()
+                        return Gratificacion::query()
+                            ->select('periodo', 'tipo', 'anio')
+                            ->distinct()
                             ->orderByDesc('periodo')
-                            ->pluck('mes_nombre', 'periodo')
+                            ->get()
+                            ->mapWithKeys(fn ($g) => [$g->periodo => ucfirst($g->tipo) . ' ' . $g->anio])
                             ->toArray();
                     }),
 
