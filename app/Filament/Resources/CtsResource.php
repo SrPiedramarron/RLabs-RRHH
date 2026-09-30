@@ -42,6 +42,7 @@ class CtsResource extends Resource
 
                 Tables\Columns\TextColumn::make('mes_nombre')
                     ->label('Periodo')
+                    ->getStateUsing(fn ($record) => ucfirst($record->tipo) . ' ' . $record->anio)
                     ->sortable(['periodo'])
                     ->badge()
                     ->color('info'),
@@ -75,9 +76,12 @@ class CtsResource extends Resource
                     ->label('Periodo')
                     ->options(function () {
                         if (!CtsDeposito::exists()) return [];
-                        return CtsDeposito::distinct()
+                        return CtsDeposito::query()
+                            ->select('periodo', 'tipo', 'anio')
+                            ->distinct()
                             ->orderByDesc('periodo')
-                            ->pluck('mes_nombre', 'periodo')
+                            ->get()
+                            ->mapWithKeys(fn ($c) => [$c->periodo => ucfirst($c->tipo) . ' ' . $c->anio])
                             ->toArray();
                     }),
 
