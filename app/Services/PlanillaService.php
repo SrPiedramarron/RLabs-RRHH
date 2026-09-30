@@ -879,6 +879,7 @@ class PlanillaService
         ?float $indemnizacionManual = null,
         ?float $promedioComisionesGratManual = null,
         ?float $promedioComisionesCtsManual = null,
+        ?float $promedioComisionesVacacionesManual = null,
     ): \App\Models\LiquidacionCese {
         $empleado = Employee::findOrFail($employeeId);
 
@@ -927,7 +928,17 @@ class PlanillaService
             $diasVacacionesTruncas = $diasSaldoTotal - 30;
         }
 
-        $montoVacacionesTruncas = round(($sueldo + $asignacionFamiliar) / 30 * $diasVacacionesTruncas, 2);
+        // Promedio de comisiones de los últimos 6 meses (regla RRHH set.
+        // 2026, "≥3 de 6" igual que gratificación/CTS): para comisionistas,
+        // el valor diario de las vacaciones truncas también debe incluir
+        // el promedio de comisiones, no solo el sueldo. Si no hay
+        // comisiones cargadas al sistema (empresa nueva, historial no
+        // migrado), se puede ingresar a mano.
+        $promComisionesVacaciones = $promedioComisionesVacacionesManual !== null
+            ? round($promedioComisionesVacacionesManual, 2)
+            : $this->promedioComisionesUltimosMeses($empleado, $fechaCese);
+
+        $montoVacacionesTruncas = round(($sueldo + $asignacionFamiliar + $promComisionesVacaciones) / 30 * $diasVacacionesTruncas, 2);
 
         // ── Gratificación trunca (semestre en curso al momento del cese) ────
         $inicioSemestreGrat = $fechaCese->month <= 6
@@ -1019,6 +1030,7 @@ class PlanillaService
                 'asignacion_familiar' => $asignacionFamiliar,
                 'dias_vacaciones_truncas'  => $diasVacacionesTruncas,
                 'monto_vacaciones_truncas' => $montoVacacionesTruncas,
+                'promedio_comisiones_vacaciones_manual' => $promedioComisionesVacacionesManual,
                 'remuneracion_vacacional_pendiente' => $remuneracionVacacionalPendiente,
                 'indemnizacion_vacacional' => $indemnizacionVacacional,
                 'meses_gratificacion_trunca' => $mesesGratTrunca,
@@ -1034,6 +1046,33 @@ class PlanillaService
                 'calculado_at'  => now(),
             ]
         );
+    }
+
+    /**
+     * Promedio de comisiones de los últimos 6 meses calendario ANTES del
+     * cese (sin incluir el mes del cese, que aún no cierra) — regla "≥3 de
+     * 6" para no promediar si hubo comisiones en menos de 3 de esos meses.
+     * Usado para el valor diario de vacaciones truncas de comisionistas.
+     */
+    private function promedioComisionesUltimosMeses(Employee $empleado, Carbon $fechaCese): float
+    {
+        $mesesConComisiones = 0;
+        $sumaComisiones     = 0.0;
+
+        for ($i = 1; $i <= 6; $i++) {
+            $periodo = $fechaCese->copy()->subMonthsNoOverflow($i)->format('Y-m');
+
+            $liquidacion = PlanillaLiquidacion::where('employee_id', $empleado->id)
+                ->where('periodo', $periodo)
+                ->first();
+
+            if ($liquidacion && (float) $liquidacion->comisiones > 0) {
+                $mesesConComisiones++;
+                $sumaComisiones += (float) $liquidacion->comisiones;
+            }
+        }
+
+        return $mesesConComisiones >= 3 ? round($sumaComisiones / 6, 2) : 0.0;
     }
 
     /**

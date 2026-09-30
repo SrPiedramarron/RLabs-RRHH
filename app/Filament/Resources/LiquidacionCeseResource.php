@@ -57,6 +57,13 @@ class LiquidacionCeseResource extends Resource
                     ->alignEnd()
                     ->toggleable(),
 
+                Tables\Columns\TextColumn::make('promedio_comisiones_vacaciones_manual')
+                    ->label('Comisiones vacac. (manual)')
+                    ->money('PEN')
+                    ->alignEnd()
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 Tables\Columns\TextColumn::make('remuneracion_vacacional_pendiente')
                     ->label('Remun. vacacional')
                     ->money('PEN')
@@ -73,6 +80,12 @@ class LiquidacionCeseResource extends Resource
 
                 Tables\Columns\TextColumn::make('monto_gratificacion_trunca')
                     ->label('Grat. trunca')
+                    ->money('PEN')
+                    ->alignEnd()
+                    ->toggleable(),
+
+                Tables\Columns\TextColumn::make('bonificacion_extraordinaria_trunca')
+                    ->label('Bonif. 9%')
                     ->money('PEN')
                     ->alignEnd()
                     ->toggleable(),
@@ -171,6 +184,12 @@ class LiquidacionCeseResource extends Resource
                             ->prefix('S/')
                             ->helperText('Mismo caso que el de gratificación, pero para el cálculo de CTS trunca (puede ser un promedio distinto, según el semestre).'),
 
+                        Forms\Components\TextInput::make('promedio_comisiones_vacaciones_manual')
+                            ->label('Promedio de comisiones — Vacaciones (S/) — opcional')
+                            ->numeric()
+                            ->prefix('S/')
+                            ->helperText('El sistema intenta calcularlo solo (promedio de los últimos 6 meses, con al menos 3 de esos 6 con comisiones). Complétalo a mano si esas comisiones no están cargadas en el sistema.'),
+
                         Forms\Components\Placeholder::make('aviso')
                             ->label('')
                             ->content('Calcula vacaciones truncas, gratificación trunca + bonificación 9%, y CTS trunca. NO incluye la remuneración del mes de cese — eso se calcula con "Calcular planilla" en Liquidación de Planilla, usando los días trabajados hasta el cese.'),
@@ -183,6 +202,7 @@ class LiquidacionCeseResource extends Resource
                                 filled($data['indemnizacion_manual'] ?? null) ? (float) $data['indemnizacion_manual'] : null,
                                 filled($data['promedio_comisiones_gratificacion_manual'] ?? null) ? (float) $data['promedio_comisiones_gratificacion_manual'] : null,
                                 filled($data['promedio_comisiones_cts_manual'] ?? null) ? (float) $data['promedio_comisiones_cts_manual'] : null,
+                                filled($data['promedio_comisiones_vacaciones_manual'] ?? null) ? (float) $data['promedio_comisiones_vacaciones_manual'] : null,
                             );
 
                             Notification::make()
