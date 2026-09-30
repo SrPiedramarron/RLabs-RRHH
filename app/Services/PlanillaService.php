@@ -125,12 +125,17 @@ class PlanillaService
             ->get();
 
         $diasTrabajados      = $asistencias->whereIn('estado', ['presente', 'tarde'])->count();
-        $diasFalta           = $asistencias->where('estado', 'ausente')->where('justificado', false)->count();
         $diasVacaciones      = $asistencias->where('estado', 'vacaciones')->count();
         $diasJustificados    = $asistencias->where('justificado', true)->count();
-        $totalMinutosTarde   = $asistencias->sum('minutos_tarde');
         $horasExtraDiurnas   = floatval($asistencias->sum('horas_extra_diurnas'));
         $horasExtraNocturnas = floatval($asistencias->sum('horas_extra_nocturnas'));
+
+        // Trabajadores exonerados de registro (dirección / sin fiscalización
+        // inmediata, Art. 6 D.S. 004-2006-TR) nunca deben tener descuento por
+        // tardanzas ni faltas, aunque el biométrico haya marcado algo — RRHH,
+        // set. 2026 (caso Vizcarra Zapata, Quantum).
+        $diasFalta         = $empleado->exonerado_registro ? 0 : $asistencias->where('estado', 'ausente')->where('justificado', false)->count();
+        $totalMinutosTarde = $empleado->exonerado_registro ? 0 : $asistencias->sum('minutos_tarde');
 
         $valorDia    = $sueldo / 30;
         $valorHora   = $sueldo / 30 / 8;
