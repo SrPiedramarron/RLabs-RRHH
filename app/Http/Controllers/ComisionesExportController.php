@@ -60,10 +60,13 @@ class ComisionesExportController extends Controller
         string $vendedor
     ): void {
         // ── Título ───────────────────────────────────────────────────────────
-        $ws->setCellValue('A1', 'INDUSTRIAL PROCESS SRL — IN PROCESS SRL');
+        // FIX (set. 2026): el nombre de empresa y el "1.5%" estaban quemados
+        // — cualquier empresa distinta a InProcess (Quantum, Anthia, etc.)
+        // veía el nombre de InProcess en su propio reporte de comisiones, y
+        // el 1.5% ya no es universal desde que existen tasas por escala.
+        $ws->setCellValue('A1', $upload->company?->razon_social ?? '—');
         $ws->setCellValue('A2', 'COMISIONES PERÍODO: ' . $upload->mes_nombre);
         $ws->setCellValue('A3', 'Vendedor: ' . $vendedor);
-        $ws->setCellValue('A4', 'Porcentaje: 1.5%');
 
         $ws->getStyle('A1')->getFont()->setBold(true)->setSize(13);
         $ws->getStyle('A2:A4')->getFont()->setBold(true);
@@ -77,7 +80,7 @@ class ComisionesExportController extends Controller
             'E' => 'F. Pago',
             'F' => 'Estado',
             'G' => 'Base cobrada (S/)',
-            'H' => 'Comisión 1.5% (S/)',
+            'H' => 'Comisión (S/)',
         ];
 
         $headerRow = 6;

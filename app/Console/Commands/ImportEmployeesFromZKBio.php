@@ -50,32 +50,43 @@ class ImportEmployeesFromZKBio extends Command
             }
 
             // ── Resolver empresa desde el departamento del reloj ──────────────
+            // FIX (set. 2026): antes, si el departamento no matcheaba el mapeo
+            // o el empleado no traía departamento, se asignaba en silencio a
+            // Company::first() — es decir, "la primera empresa" de la tabla,
+            // sin importar cuál fuera. Eso es exactamente el patrón de "un
+            // dato terminó quemado para una sola empresa" que reportó RRHH:
+            // cualquier reloj/departamento nuevo, mal escrito o sin mapear
+            // caía silenciosamente en la empresa equivocada. Ahora se omite
+            // el registro y se avisa con claridad, en vez de adivinar.
             $company    = null;
             $department = null;
+            $deptName   = $emp['department']['dept_name'] ?? null;
 
-            if (!empty($emp['department']['dept_name'])) {
-                $deptName   = $emp['department']['dept_name'];
-                $deptKey    = strtolower(trim($deptName));
-                $ruc        = $this->departmentCompanyMap[$deptKey] ?? null;
+            if (!empty($deptName)) {
+                $deptKey = strtolower(trim($deptName));
+                $ruc     = $this->departmentCompanyMap[$deptKey] ?? null;
 
                 if ($ruc) {
                     $company = Company::where('ruc', $ruc)->first();
                     if (!$company) {
-                        $this->warn("No se encontró empresa con RUC {$ruc} para dept '{$deptName}'. Usando empresa por defecto.");
+                        $this->error("DNI {$dni}: el RUC {$ruc} mapeado para el departamento '{$deptName}' no existe en la tabla de empresas. Omitido.");
+                        $omitidos++;
+                        continue;
                     }
+                } else {
+                    $this->error("DNI {$dni}: el departamento '{$deptName}' no está mapeado a ninguna empresa en \$departmentCompanyMap. Agrégalo y vuelve a correr el import. Omitido.");
+                    $omitidos++;
+                    continue;
                 }
-
-                // Fallback: primera empresa si no hay mapeo
-                $company ??= Company::first();
 
                 $department = Department::firstOrCreate([
                     'company_id' => $company->id,
                     'nombre'     => $deptName,
                 ]);
-
             } else {
-                // Sin departamento: empresa por defecto
-                $company = Company::first();
+                $this->error("DNI {$dni}: no trae departamento en ZKBio, no se puede determinar la empresa. Omitido.");
+                $omitidos++;
+                continue;
             }
             // ─────────────────────────────────────────────────────────────────
 

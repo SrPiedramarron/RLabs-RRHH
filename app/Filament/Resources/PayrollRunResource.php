@@ -6,6 +6,7 @@ use App\Filament\Resources\PayrollRunResource\Actions\GenerateBbvaFileAction;
 use App\Filament\Resources\PayrollRunResource\Actions\GenerateBcpFileAction;
 use App\Filament\Resources\PayrollRunResource\Pages;
 use App\Filament\Resources\PayrollRunResource\RelationManagers;
+use App\Filament\Traits\HasCompanyScope;
 use App\Models\PayrollRun;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -17,6 +18,8 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class PayrollRunResource extends Resource
 {
+    use HasCompanyScope;
+
     protected static ?string $model = PayrollRun::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';

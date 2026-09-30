@@ -18,6 +18,23 @@ class SepararEmpresaQuantum extends Command
         $this->info('=== Separación de empresa Quantum ===');
         $this->newLine();
 
+        // GUARDA DE SEGURIDAD (set. 2026): este comando ya se ejecutó una
+        // vez — Quantum ya es una empresa real y separada. Si se vuelve a
+        // correr, 'department_id' = 2 y 'company_id' = 2 ya NO representan
+        // lo mismo que representaban cuando se escribió este script (son
+        // IDs quemados de un momento puntual), así que re-ejecutarlo podría
+        // crear una empresa Quantum duplicada y reasignar empleados/
+        // departamentos equivocados. Se aborta si Quantum ya existe con un
+        // RUC real (distinto del RUC temporal que usaba este script).
+        $quantumYaSeparada = Company::where('razon_social', 'like', 'QUANTUM%')
+            ->where('ruc', '!=', '00000000000')
+            ->exists();
+
+        if ($quantumYaSeparada) {
+            $this->error('Quantum ya existe como empresa separada con un RUC real. Este comando ya cumplió su función y no debe volver a ejecutarse (los IDs que usa quedaron quemados del momento en que se escribió). Si necesitas mover empleados/departamentos entre empresas ahora, hazlo desde el panel admin.');
+            return 1;
+        }
+
         // 1. Mostrar estado actual
         $inprocess = Company::find(2);
         $this->info("Empresa origen: [{$inprocess->id}] {$inprocess->razon_social}");

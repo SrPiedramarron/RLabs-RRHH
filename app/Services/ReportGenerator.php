@@ -65,8 +65,18 @@ class ReportGenerator
 
     private function buildMeta(array $options): array
     {
-        $user    = Auth::user();
-        $company = $user->company_id ? Company::find($user->company_id) : Company::first();
+        $user = Auth::user();
+
+        // FIX (set. 2026): antes usaba $user->company_id, que para un
+        // superadmin (o cualquier usuario sin empresa fija) es null y caía
+        // en Company::first() — mostrando en el membrete del reporte una
+        // empresa distinta a la que realmente se seleccionó en "Cambiar
+        // Empresa" (CompanyContext), aunque los datos del reporte sí
+        // estuvieran bien filtrados por esa empresa. Ahora usa la misma
+        // fuente de verdad que el resto de la app.
+        $company = \App\Helpers\CompanyContext::company()
+            ?? ($user->company_id ? Company::find($user->company_id) : null)
+            ?? Company::first();
 
         $location   = isset($options['location_id']) ? Location::find($options['location_id']) : null;
         $department = isset($options['department_id']) ? Department::find($options['department_id']) : null;
