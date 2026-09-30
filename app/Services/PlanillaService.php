@@ -895,21 +895,25 @@ class PlanillaService
             : 0.0;
 
         // ── Vacaciones: truncas vs. remuneración vacacional + indemnización ──
-        // Regla confirmada por RRHH (set. 2026):
+        // Regla LEGAL correcta (corregida set. 2026 tras revisión con RRHH —
+        // "vacaciones no gozadas" en el lenguaje de RRHH ES la misma cosa
+        // que "remuneración vacacional pendiente" aquí, solo con otro
+        // nombre; antes este código las trataba como si solo aplicaran
+        // juntas a los 24 meses, lo cual era el bug):
         //  - "Vacaciones truncas" = el saldo del periodo EN CURSO, todavía
         //    sin completar los 12 meses para ganarlo.
-        //  - Si ya ganó un periodo COMPLETO (30 días = 12 meses) y no lo
-        //    gozó dentro del año siguiente (24 meses en total desde que
-        //    empezó a generarlo, sin tomar vacaciones), corresponde pagar
-        //    la "remuneración vacacional" pendiente de ese periodo completo
-        //    (1 sueldo) MÁS la "indemnización vacacional" (1 sueldo
-        //    adicional) — y esos 30 días salen del saldo de truncas para
+        //  - Apenas hay un periodo COMPLETO ya ganado (30 días = 12 meses)
+        //    y no gozado, corresponde pagar la "remuneración vacacional"
+        //    de ese periodo completo (1 remuneración) — SIN esperar ningún
+        //    plazo adicional. Esos 30 días salen del saldo de truncas para
         //    no contarlos dos veces.
+        //  - SOLO SI, ADEMÁS, pasó más de un año desde que se pudo gozar sin
+        //    hacerlo (24 meses en total desde que se empezó a generar ese
+        //    periodo), se suma la "indemnización vacacional" (1 remuneración
+        //    MÁS, como penalidad) — esta sí depende del plazo vencido.
         // El saldo (VacacionesService) no distingue de qué periodo viene
         // cada día acumulado, así que se aproxima con la antigüedad desde
-        // fecha_ultima_vacacion (o fecha_ingreso si nunca tomó): si pasaron
-        // >= 24 meses sin gozar Y el saldo alcanza para un periodo completo,
-        // se separa un periodo (30 días) como vencido.
+        // fecha_ultima_vacacion (o fecha_ingreso si nunca tomó).
         $saldoVacaciones = app(VacacionesService::class)->calcularSaldo($empleado, $fechaCese);
         $diasSaldoTotal = max(0, floatval($saldoVacaciones['saldo_actual'] ?? 0));
 
@@ -918,27 +922,32 @@ class PlanillaService
             : $fechaIngreso;
         $mesesSinGozar = $fechaCorteVacaciones->diffInMonths($fechaCese);
 
-        $remuneracionVacacionalPendiente = 0.0;
-        $indemnizacionVacacional = 0.0;
-        $diasVacacionesTruncas = $diasSaldoTotal;
-
-        if ($mesesSinGozar >= 24 && $diasSaldoTotal >= 30) {
-            $remuneracionVacacionalPendiente = round($sueldo + $asignacionFamiliar, 2);
-            $indemnizacionVacacional         = round($sueldo + $asignacionFamiliar, 2);
-            $diasVacacionesTruncas = $diasSaldoTotal - 30;
-        }
-
         // Promedio de comisiones de los últimos 6 meses (regla RRHH set.
         // 2026, "≥3 de 6" igual que gratificación/CTS): para comisionistas,
-        // el valor diario de las vacaciones truncas también debe incluir
-        // el promedio de comisiones, no solo el sueldo. Si no hay
-        // comisiones cargadas al sistema (empresa nueva, historial no
-        // migrado), se puede ingresar a mano.
+        // TODA la remuneración vacacional (pendiente, truncas e
+        // indemnización) debe incluir el promedio de comisiones, no solo el
+        // sueldo. Si no hay comisiones cargadas al sistema (empresa nueva,
+        // historial no migrado), se puede ingresar a mano.
         $promComisionesVacaciones = $promedioComisionesVacacionesManual !== null
             ? round($promedioComisionesVacacionesManual, 2)
             : $this->promedioComisionesUltimosMeses($empleado, $fechaCese);
 
-        $montoVacacionesTruncas = round(($sueldo + $asignacionFamiliar + $promComisionesVacaciones) / 30 * $diasVacacionesTruncas, 2);
+        $baseVacacional = round($sueldo + $asignacionFamiliar + $promComisionesVacaciones, 2);
+
+        $remuneracionVacacionalPendiente = 0.0;
+        $indemnizacionVacacional = 0.0;
+        $diasVacacionesTruncas = $diasSaldoTotal;
+
+        if ($diasSaldoTotal >= 30) {
+            $remuneracionVacacionalPendiente = $baseVacacional;
+            $diasVacacionesTruncas = $diasSaldoTotal - 30;
+
+            if ($mesesSinGozar >= 24) {
+                $indemnizacionVacacional = $baseVacacional;
+            }
+        }
+
+        $montoVacacionesTruncas = round($baseVacacional / 30 * $diasVacacionesTruncas, 2);
 
         // ── Gratificación trunca (semestre en curso al momento del cese) ────
         $inicioSemestreGrat = $fechaCese->month <= 6
