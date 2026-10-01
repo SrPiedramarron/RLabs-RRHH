@@ -18,6 +18,10 @@
     <p style="font-size:13px; color:var(--gris); margin-top:4px;">Ingresa tus datos para marcar asistencia</p>
 </div>
 
+@if (session('error'))
+<div class="form-error" style="margin: 0 0 16px;">{{ session('error') }}</div>
+@endif
+
 <div class="card">
     <form method="POST" action="{{ route('checkin.login.submit') }}">
         @csrf
