@@ -75,7 +75,7 @@ class AdminPanelProvider extends PanelProvider
             )
 
             // ─── LOGIN PAGE ───────────────────────────────────────────────
-            ->login()
+            ->login(\App\Filament\Pages\Auth\Login::class)
 
             // ─── NOTIFICACIONES (campanita) ─────────────────────────────────
             ->databaseNotifications()

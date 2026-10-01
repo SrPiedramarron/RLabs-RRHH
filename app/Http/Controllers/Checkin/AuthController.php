@@ -55,8 +55,11 @@ class AuthController extends Controller
             return back()->withErrors(['password' => 'Contraseña incorrecta.']);
         }
 
-        // Iniciar sesión con el guard 'employee'
-        Auth::guard('employee')->login($credential, $request->boolean('remember'));
+        // Iniciar sesión con el guard 'employee'. Siempre con "recuérdame"
+        // (cookie de larga duración, ~5 años): es una app de marcado diario
+        // desde el celular, no tiene sentido pedir login de nuevo cada vez
+        // que la sesión de 24h expira por estar la pantalla bloqueada.
+        Auth::guard('employee')->login($credential, true);
 
         // Registrar último acceso
         $credential->update(['ultimo_acceso' => now()]);
