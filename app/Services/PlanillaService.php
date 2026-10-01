@@ -60,6 +60,48 @@ class PlanillaService
                 );
                 $liquidaciones->push($liquidacion);
             }
+
+            // ── Segunda pasada: crédito EPS como fondo compartido ───────────
+            // El crédito (25%) se calcula sobre el EsSalud TOTAL de todos los
+            // afiliados a EPS de la empresa este periodo, y se reparte en
+            // partes iguales entre ellos (no 25% del EsSalud de cada uno por
+            // separado) — confirmado con RRHH (Cielo, oct. 2026). Se necesita
+            // el essalud_empleador ya calculado en la primera pasada para
+            // armar el fondo, por eso va después.
+            $afiliadosEps = $empleados->filter(fn ($e) => floatval($e->monto_eps_mensual_con_igv) > 0);
+
+            if ($afiliadosEps->isNotEmpty()) {
+                $sumaEssaludAfiliados = (float) PlanillaLiquidacion::where('company_id', $companyId)
+                    ->where('periodo', $periodo)
+                    ->whereIn('employee_id', $afiliadosEps->pluck('id'))
+                    ->sum('essalud_empleador');
+
+                $creditoPorAfiliado = round(
+                    $sumaEssaludAfiliados * self::CREDITO_EPS_PORCENTAJE / $afiliadosEps->count(),
+                    2
+                );
+
+                foreach ($afiliadosEps as $empleado) {
+                    $liquidacion = $this->calcularEmpleado(
+                        $empleado,
+                        $companyId,
+                        $periodo,
+                        (int) $year,
+                        (int) $month,
+                        $bonosEspeciales[$empleado->id] ?? 0,
+                        $otrosDescuentos[$empleado->id] ?? 0,
+                        $adelantos[$empleado->id] ?? 0,
+                        $subsidiosEnfermedad[$empleado->id] ?? 0,
+                        $subsidiosMaternidad[$empleado->id] ?? 0,
+                        array_key_exists($empleado->id, $retencionesManuales5ta) ? (float) $retencionesManuales5ta[$empleado->id] : null,
+                        $creditoPorAfiliado,
+                    );
+
+                    $liquidaciones = $liquidaciones->map(
+                        fn ($l) => $l->employee_id === $empleado->id ? $liquidacion : $l
+                    );
+                }
+            }
         });
 
         return $liquidaciones;
@@ -77,6 +119,7 @@ class PlanillaService
         float $subsidioEnfermedad = 0,
         float $subsidioMaternidad = 0,
         ?float $retencion5taManual = null,
+        ?float $epsCreditoPool = null,
     ): PlanillaLiquidacion {
 
         // Si no se pasó un valor nuevo (default 0), preservar lo que ya
@@ -329,9 +372,15 @@ class PlanillaService
         $essaludEmpleador = round($baseEssalud * self::TASA_ESSALUD, 2);
 
         // ── EPS: solo si el trabajador tiene plan asignado (monto > 0).
-        // Fórmula validada con RRHH (ago 2026):
+        // Fórmula corregida con RRHH (Cielo, oct. 2026): el crédito EPS NO es
+        // 25% del EsSalud de CADA trabajador por separado — es un fondo único
+        // por empresa (25% del EsSalud mensual de TODOS los afiliados a EPS)
+        // que se reparte EN PARTES IGUALES entre esos afiliados, sin importar
+        // cuánto gane cada uno. $epsCreditoPool ya viene calculado así desde
+        // calcularPeriodo(); si no se pasa (ej. prueba aislada), se usa el
+        // 25% individual como aproximación de respaldo.
         //   1) quitar IGV del costo del plan
-        //   2) restar crédito EPS (25% del EsSalud que le correspondería)
+        //   2) restar el crédito EPS (del fondo compartido)
         //   3) repartir el resto 30% empresa / 70% trabajador
         $epsCredito             = 0.0;
         $epsAporteEmpresa       = 0.0;
@@ -339,7 +388,9 @@ class PlanillaService
 
         if (floatval($empleado->monto_eps_mensual_con_igv) > 0) {
             $importeEpsSinIgv = round(floatval($empleado->monto_eps_mensual_con_igv) / (1 + self::IGV), 2);
-            $epsCredito       = round($essaludEmpleador * self::CREDITO_EPS_PORCENTAJE, 2);
+            $epsCredito       = $epsCreditoPool !== null
+                ? round($epsCreditoPool, 2)
+                : round($essaludEmpleador * self::CREDITO_EPS_PORCENTAJE, 2);
             $importeEpsNeto   = max(0, $importeEpsSinIgv - $epsCredito);
 
             $epsAporteEmpresa       = round($importeEpsNeto * self::APORTE_EMPRESA_EPS, 2);
