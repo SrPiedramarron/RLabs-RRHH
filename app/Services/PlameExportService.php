@@ -124,10 +124,22 @@ class PlameExportService
 
     /**
      * Tributos y aportes — no están en la lista de "conceptos personalizados"
-     * porque no son seleccionables, son estándar. Se declaran según régimen
-     * pensionario del trabajador (AFP vs ONP).
+     * porque no son seleccionables, son estándar.
+     *
+     * 0605 (Renta 5ta) va siempre, sin importar el régimen pensionario.
+     *
+     * 0601, 0606 y 0608 el manual SUNAT (Anexo 3, Estructura 18) dice
+     * explícitamente que "se incluyen cuando el régimen pensionario
+     * corresponda al Sistema Privado de Pensiones" — es decir, SOLO para
+     * trabajadores con AFP, nunca para ONP. Corregido oct. 2026 (antes se
+     * enviaban siempre, para todos).
+     *
+     * 0607 el mismo manual lo tiene en la lista de códigos que NO se deben
+     * incluir nunca en este archivo — se había agregado por error.
      */
-    const CATALOGO_TRIBUTOS_E18 = ['0601', '0605', '0606', '0607', '0608'];
+    const CATALOGO_TRIBUTOS_E18 = ['0605'];
+
+    const CATALOGO_TRIBUTOS_AFP_E18 = ['0601', '0606', '0608'];
 
     public function generarE18Ingresos(\Illuminate\Support\Collection $liquidaciones, \App\Services\BoletaPagoService $boletaService): string
     {
@@ -155,7 +167,11 @@ class PlameExportService
             // directo desde descuento_5ta_categoria de la liquidación.
             $montosPorCodigo['0605'] = (float) $l->descuento_5ta_categoria;
 
-            $catalogoCompleto = array_merge(self::CATALOGO_INGRESOS_DESCUENTOS_E18, self::CATALOGO_TRIBUTOS_E18);
+            $catalogoCompleto = array_merge(
+                self::CATALOGO_INGRESOS_DESCUENTOS_E18,
+                self::CATALOGO_TRIBUTOS_E18,
+                str_starts_with((string) $empleado->sistema_pensiones, 'afp_') ? self::CATALOGO_TRIBUTOS_AFP_E18 : []
+            );
 
             foreach ($catalogoCompleto as $codigo) {
                 $monto = $montosPorCodigo[$codigo] ?? 0;
