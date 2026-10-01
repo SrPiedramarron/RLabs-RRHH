@@ -469,6 +469,18 @@ Tables\Actions\Action::make('exportar_plame')
                     ->label('Bono')
                     ->icon('heroicon-o-plus-circle')
                     ->successNotificationTitle('Bono actualizado'),
+
+                Tables\Actions\DeleteAction::make()
+                    ->label('Eliminar')
+                    ->modalHeading('Eliminar este cálculo de planilla')
+                    ->modalDescription('Se borra el cálculo de este trabajador para este periodo (no afecta a los demás). Útil para corregir un error (ej. un "Adelanto" duplicado) y volver a calcular desde cero con "Calcular planilla".')
+                    ->successNotificationTitle('Cálculo eliminado'),
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->label('Eliminar seleccionados'),
+                ]),
             ])
             ->defaultSort('periodo', 'desc');
     }
