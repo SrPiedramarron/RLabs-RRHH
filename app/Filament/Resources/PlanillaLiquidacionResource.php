@@ -172,6 +172,7 @@ class PlanillaLiquidacionResource extends Resource
                                     ->label('Trabajador')
                                     ->relationship('employee', 'apellidos')
                                     ->searchable()
+                                    ->live()
                                     ->required(),
                                 Forms\Components\Select::make('tipo')
                                     ->label('Tipo')
@@ -186,12 +187,34 @@ class PlanillaLiquidacionResource extends Resource
                                     ->numeric()
                                     ->prefix('S/')
                                     ->required(),
+                                Forms\Components\Placeholder::make('aviso_quincena')
+                                    ->label('Ya pagado por quincena este periodo')
+                                    ->columnSpanFull()
+                                    ->content(function (Forms\Get $get) {
+                                        $employeeId = $get('employee_id');
+                                        $periodo    = $get('../../periodo');
+
+                                        if (! $employeeId || ! $periodo) {
+                                            return '—';
+                                        }
+
+                                        $yaPagado = \App\Models\PlanillaQuincena::where('employee_id', $employeeId)
+                                            ->where('periodo', $periodo)
+                                            ->value('neto_pagar');
+
+                                        if (! $yaPagado) {
+                                            return 'No tiene quincena calculada este periodo.';
+                                        }
+
+                                        return "S/ " . number_format((float) $yaPagado, 2)
+                                            . " — si el \"Adelanto\" que vas a ingresar es ese mismo pago de quincena, NO lo repitas aquí (el sistema ya lo descuenta solo del neto).";
+                                    }),
                             ])
                             ->columns(3)
                             ->defaultItems(0)
                             ->addActionLabel('Agregar descuento')
                             ->collapsible()
-                            ->helperText('No afecta EsSalud, AFP/ONP ni 5ta categoría — se resta directo del neto a pagar.'),
+                            ->helperText('No afecta EsSalud, AFP/ONP ni 5ta categoría — se resta directo del neto a pagar. OJO: la quincena ya pagada se descuenta sola, no la vuelvas a poner aquí como "Adelanto" (revisa el aviso que aparece al elegir el trabajador).'),
                         Forms\Components\Repeater::make('subsidios')
                             ->label('Subsidios EsSalud')
                             ->schema([
