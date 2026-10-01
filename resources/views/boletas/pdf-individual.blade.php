@@ -43,7 +43,6 @@
                 <td><span class="label">Días Laborados</span><br>{{ $d['dias_laborados'] }}</td>
                 <td><span class="label">Días No Laborados</span><br>{{ $d['dias_no_laborados'] }}</td>
                 <td><span class="label">Condición</span><br>{{ $d['condicion'] }}</td>
-                <td><span class="label">Sobretiempo</span><br>{{ sprintf('%02d:%02d', $d['sobretiempo_horas'], $d['sobretiempo_minutos']) }}</td>
             </tr>
         </table>
     </div>

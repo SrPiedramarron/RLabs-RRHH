@@ -9,6 +9,7 @@ use App\Models\ComisionUpload;
 use App\Services\ComisionesService;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Forms\Get;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -50,6 +51,18 @@ class ComisionUploadResource extends Resource
                     ])
                     ->columns(2),
 
+                Forms\Components\Radio::make('modo')
+                    ->label('Tipo de carga')
+                    ->options([
+                        'excel'  => 'Subir Excel (cobranzas + comisiones)',
+                        'manual' => 'Ajuste manual (un trabajador)',
+                    ])
+                    ->default('excel')
+                    ->inline()
+                    ->inlineLabel(false)
+                    ->live()
+                    ->columnSpanFull(),
+
                 Forms\Components\Section::make('Archivos Excel')
                     ->schema([
                         Forms\Components\FileUpload::make('archivo_cobranzas')
@@ -57,16 +70,42 @@ class ComisionUploadResource extends Resource
                             ->helperText('Archivo "OFI_Detalles_de_cobranzas_XXXX.xlsx"')
                             ->acceptedFileTypes(['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'])
                             ->directory('comisiones/cobranzas')
-                            ->required(),
+                            ->required(fn (Get $get) => ($get('modo') ?? 'excel') === 'excel'),
 
                         Forms\Components\FileUpload::make('archivo_comisiones')
                             ->label('Excel de Comisiones')
                             ->helperText('Archivo "OFI_COMISIONES_XXXX.xlsx"')
                             ->acceptedFileTypes(['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'])
                             ->directory('comisiones/comisiones')
-                            ->required(),
+                            ->required(fn (Get $get) => ($get('modo') ?? 'excel') === 'excel'),
                     ])
-                    ->columns(2),
+                    ->columns(2)
+                    ->visible(fn (Get $get) => ($get('modo') ?? 'excel') === 'excel'),
+
+                Forms\Components\Section::make('Ajuste manual')
+                    ->description('Para cuando no hay Excel (ej. un bono/ajuste puntual) — se suma a la planilla de ese trabajador igual que una comisión normal.')
+                    ->schema([
+                        Forms\Components\Select::make('employee_id')
+                            ->label('Trabajador')
+                            ->options(fn (Get $get) => \App\Models\Employee::when(
+                                    $get('company_id'),
+                                    fn ($q, $companyId) => $q->where('company_id', $companyId)
+                                )
+                                ->where('active', true)
+                                ->orderBy('apellidos')
+                                ->get()
+                                ->mapWithKeys(fn ($e) => [$e->id => $e->nombre_completo]))
+                            ->searchable()
+                            ->required(fn (Get $get) => $get('modo') === 'manual'),
+
+                        Forms\Components\TextInput::make('monto_manual')
+                            ->label('Monto de comisión (S/)')
+                            ->numeric()
+                            ->prefix('S/')
+                            ->required(fn (Get $get) => $get('modo') === 'manual'),
+                    ])
+                    ->columns(2)
+                    ->visible(fn (Get $get) => $get('modo') === 'manual'),
             ]);
     }
 
