@@ -54,12 +54,30 @@ class VacacionesRelationManager extends RelationManager
                 Tables\Actions\DeleteAction::make()
                     ->label('Eliminar')
                     ->requiresConfirmation()
-                    ->modalDescription('Se borra este registro del historial y se recalcula automáticamente la fecha de última vacación, el saldo pendiente y los días tomados del trabajador (incluyendo lo que se ve en "Control de Vacaciones").')
+                    ->modalDescription('Se borra este registro del historial, se recalcula el saldo del trabajador (lo que se ve en "Control de Vacaciones") y se quita la marca de "vacaciones" en Registro de Asistencia para esos días, reprocesando sus marcaciones reales si las hay.')
                     ->after(function ($record) {
                         $empleado = $record->employee;
-                        if ($empleado) {
-                            app(\App\Services\VacacionesService::class)->recalcularDesdeHistorial($empleado);
+                        if (!$empleado) {
+                            return;
                         }
+
+                        // Quita la marca 'vacaciones' puesta en Registro de
+                        // Asistencia para este rango — antes quedaba como
+                        // vacaciones para siempre aunque se borrara el
+                        // historial (reportado por Cielo, oct. 2026).
+                        \App\Models\AttendanceRecord::where('employee_id', $empleado->id)
+                            ->where('estado', 'vacaciones')
+                            ->whereBetween('fecha', [$record->fecha_inicio->toDateString(), $record->fecha_fin->toDateString()])
+                            ->delete();
+
+                        // Si había marcaciones reales del reloj esos días,
+                        // las vuelve a calcular en vez de dejar el día vacío.
+                        app(\App\Services\AttendanceProcessor::class)->reprocesarRango(
+                            $record->fecha_inicio->toDateString(),
+                            $record->fecha_fin->toDateString()
+                        );
+
+                        app(\App\Services\VacacionesService::class)->recalcularDesdeHistorial($empleado);
                     }),
             ])
             ->defaultSort('fecha_inicio', 'desc')
