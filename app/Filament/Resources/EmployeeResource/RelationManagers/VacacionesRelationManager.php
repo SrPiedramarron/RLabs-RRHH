@@ -54,7 +54,13 @@ class VacacionesRelationManager extends RelationManager
                 Tables\Actions\DeleteAction::make()
                     ->label('Eliminar')
                     ->requiresConfirmation()
-                    ->modalDescription('Esto solo borra el registro del historial — no recalcula automáticamente la fecha_ultima_vacacion ni el contador de días tomados del trabajador. Ajusta esos campos manualmente en la ficha si es necesario.'),
+                    ->modalDescription('Se borra este registro del historial y se recalcula automáticamente la fecha de última vacación, el saldo pendiente y los días tomados del trabajador (incluyendo lo que se ve en "Control de Vacaciones").')
+                    ->after(function ($record) {
+                        $empleado = $record->employee;
+                        if ($empleado) {
+                            app(\App\Services\VacacionesService::class)->recalcularDesdeHistorial($empleado);
+                        }
+                    }),
             ])
             ->defaultSort('fecha_inicio', 'desc')
             ->emptyStateHeading('Sin vacaciones registradas')

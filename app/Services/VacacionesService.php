@@ -94,7 +94,12 @@ class VacacionesService
     {
         $dias = $inicio->diffInDays($fin) + 1;
 
-        $saldoAntes     = $this->calcularSaldo($trabajador)['saldo_actual'] ?? 0;
+        // El saldo "antes" se calcula al día justo anterior al inicio de
+        // ESTA vacación, no "hoy" — si se registra con fecha pasada (ej.
+        // carga de histórico), usar "hoy" inflaba el saldo con meses de
+        // acumulación que todavía no habían pasado en ese momento. Mismo
+        // criterio que recalcularDesdeHistorial() (oct. 2026).
+        $saldoAntes     = $this->calcularSaldo($trabajador, $inicio->copy()->subDay())['saldo_actual'] ?? 0;
         $saldoPendiente = round($saldoAntes - $dias, 2);
 
         $trabajador->update([
@@ -112,5 +117,41 @@ class VacacionesService
         ]);
 
         return $dias;
+    }
+
+    /**
+     * Recalcula fecha_ultima_vacacion, saldo_pendiente y dias_tomados
+     * reproduciendo TODO el historial de vacaciones del trabajador desde
+     * cero. Se usa al eliminar un registro del historial — antes borrar un
+     * registro dejaba la ficha desincronizada: el historial ya no mostraba
+     * esa vacación, pero fecha_ultima_vacacion/saldo_pendiente seguían
+     * reflejándola, y por lo tanto "Control de Vacaciones" también
+     * (confirmado por Cielo, oct. 2026).
+     */
+    public function recalcularDesdeHistorial(Employee $trabajador): void
+    {
+        $historial = $trabajador->vacaciones()->orderBy('fecha_inicio')->get();
+
+        // Simulación en memoria (sin tocar la BD hasta el final), igual
+        // lógica que registrarVacacion() pero sin volver a crear historial.
+        $simulado = clone $trabajador;
+        $simulado->fecha_ultima_vacacion = null;
+        $simulado->saldo_pendiente = 0;
+
+        $diasTomadosTotal = 0;
+
+        foreach ($historial as $h) {
+            $saldoAntes = $this->calcularSaldo($simulado, $h->fecha_inicio->copy()->subDay())['saldo_actual'] ?? 0;
+
+            $simulado->saldo_pendiente       = round($saldoAntes - $h->dias, 2);
+            $simulado->fecha_ultima_vacacion = $h->fecha_fin->copy()->addDay();
+            $diasTomadosTotal                += $h->dias;
+        }
+
+        $trabajador->update([
+            'fecha_ultima_vacacion' => $simulado->fecha_ultima_vacacion,
+            'saldo_pendiente'       => $simulado->saldo_pendiente,
+            'dias_tomados'          => $diasTomadosTotal,
+        ]);
     }
 }
