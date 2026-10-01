@@ -158,8 +158,16 @@ class PlanillaService
 
         $mesNombre     = $this->periodoANombre($periodo);
         $sueldo        = floatval($empleado->sueldo_base);
-        $inicioPeriodo = Carbon::create($year, $month, 1)->startOfMonth();
-        $finPeriodo    = Carbon::create($year, $month, 1)->endOfMonth();
+
+        // Rango de asistencia (tardanzas, faltas, horas extra, días
+        // trabajados): del 26 del mes anterior al 25 de este mes, NO el mes
+        // calendario — así es como RRHH corta para calcular planilla en
+        // todas las empresas (confirmado con Cielo, oct. 2026), igual que ya
+        // se hacía para comisiones. El "Periodo" que se muestra en la
+        // boleta/PLAME sigue siendo el mes calendario (ej. "09/2026") para
+        // efectos legales ante SUNAT — esto solo cambia qué días se cuentan.
+        $finPeriodo    = Carbon::create($year, $month, 25)->endOfDay();
+        $inicioPeriodo = $finPeriodo->copy()->subMonthNoOverflow()->addDay()->startOfDay();
 
         $diasLaborables = $this->contarDiasLaborables($inicioPeriodo, $finPeriodo);
 
