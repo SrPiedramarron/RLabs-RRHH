@@ -43,7 +43,7 @@ class PlameExportService
             $horasExtra          = min(360, (int) floor($horasExtraTotales));
             $minutosExtra        = min(59, (int) round(($horasExtraTotales - $horasExtra) * 60));
 
-            $lineas[] = implode('|', [
+            $lineas[] = $this->lineaPlame([
                 '01', // Tipo de documento: 01 = DNI
                 $l->dni,
                 $horasOrdinarias,
@@ -53,7 +53,34 @@ class PlameExportService
             ]);
         }
 
-        return implode("\r\n", $lineas);
+        return $this->unirLineasPlame($lineas);
+    }
+
+    /**
+     * Arma una línea del formato SUNAT: campos separados por "|" Y CON UN
+     * "|" FINAL después del último campo — confirmado contra un archivo
+     * real ya aceptado por SUNAT (oct. 2026, PLAME Agosto 2026 de otra
+     * empresa que Cielo consiguió): cada línea real termina en "campo|\r\n",
+     * no en "campo\r\n". Sin ese pipe final, el PDT rechaza TODAS las filas
+     * con "la cantidad de columnas no coincide" — esta era la causa real
+     * del rechazo total reportado por SUNAT, no un problema de catálogo.
+     */
+    private function lineaPlame(array $campos): string
+    {
+        return implode('|', $campos) . '|';
+    }
+
+    /**
+     * Une las líneas con "\r\n" Y agrega un "\r\n" final después de la
+     * última línea — el archivo real de referencia también termina así.
+     */
+    private function unirLineasPlame(array $lineas): string
+    {
+        if (empty($lineas)) {
+            return '';
+        }
+
+        return implode("\r\n", $lineas) . "\r\n";
     }
 
     /**
@@ -179,7 +206,7 @@ class PlameExportService
             }
         }
 
-        return implode("\r\n", $lineas);
+        return $this->unirLineasPlame($lineas);
     }
 
     private function lineaE18(string $dni, string $codigo, float $monto): string
@@ -188,7 +215,7 @@ class PlameExportService
         // real: en 1,115 líneas de ejemplo nunca difirieron.
         $montoFormateado = $this->formatearMontoPlame($monto);
 
-        return implode('|', [
+        return $this->lineaPlame([
             '01', // Tipo de documento: 01 = DNI
             $dni,
             $codigo,
@@ -249,7 +276,7 @@ class PlameExportService
 
             $dias = min(31, $grupo->count());
 
-            $lineas[] = implode('|', [
+            $lineas[] = $this->lineaPlame([
                 '01', // Tipo de documento: 01 = DNI
                 $empleado->dni,
                 $primero->motivo_suspension_plame,
@@ -257,7 +284,7 @@ class PlameExportService
             ]);
         }
 
-        return implode("\r\n", $lineas);
+        return $this->unirLineasPlame($lineas);
     }
 
     public function nombreArchivoE15(string $periodo, string $rucEmpleador): string
