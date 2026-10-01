@@ -167,8 +167,19 @@ class PlanillaQuincenaResource extends Resource
                         ]);
                     }),
             ])
-            ->actions([])
-            ->bulkActions([])
+            ->actions([
+                Tables\Actions\DeleteAction::make()
+                    ->label('Eliminar')
+                    ->modalHeading('Eliminar este cálculo de quincena')
+                    ->modalDescription('Se borra el cálculo de este trabajador para este periodo (no afecta a los demás). Útil para corregir un error y volver a calcular desde cero con "Calcular quincena".')
+                    ->successNotificationTitle('Cálculo eliminado'),
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->label('Eliminar seleccionados'),
+                ]),
+            ])
             ->defaultSort('periodo', 'desc');
     }
 
