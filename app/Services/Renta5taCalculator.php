@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Employee;
 use App\Models\IngresoHistorico5ta;
+use App\Models\ParametroLegal;
 
 /**
  * Corregido tras reunión de RRHH con contabilidad (set. 2026): la versión
@@ -22,19 +23,27 @@ use App\Models\IngresoHistorico5ta;
  */
 class Renta5taCalculator
 {
-    const UIT_2026 = 5500; // DS N° 301-2025-EF
-
     // Umbral mínimo de exoneración: por debajo de esto no hay retención,
     // ni mensual ni proyectada (RRHH, set. 2026).
     const UMBRAL_MENSUAL_EXONERADO = 2700.0;
     const UIT_EXONERADAS = 7;
 
-    const TRAMOS = [
-        ['desde' => 0,      'hasta' => 27500,  'tasa' => 0.08],
-        ['desde' => 27500,  'hasta' => 110000, 'tasa' => 0.14],
-        ['desde' => 110000, 'hasta' => 192500, 'tasa' => 0.17],
-        ['desde' => 192500, 'hasta' => null,   'tasa' => 0.20],
+    // Tramos del impuesto, en múltiplos de UIT (método oficial SUNAT,
+    // Art. 53 LIR): hasta 5 UIT 8%, de 5 a 20 UIT 14%, de 20 a 35 UIT 17%,
+    // más de 35 UIT 20%. Antes estaban hardcodeados en soles (27500,
+    // 110000, 192500 = 5/20/35 × UIT 5500) — ahora se recalculan solos
+    // según la UIT vigente (Administración > Parámetros Legales), oct. 2026.
+    const TRAMOS_UIT = [
+        ['desde' => 0,  'hasta' => 5,  'tasa' => 0.08],
+        ['desde' => 5,  'hasta' => 20, 'tasa' => 0.14],
+        ['desde' => 20, 'hasta' => 35, 'tasa' => 0.17],
+        ['desde' => 35, 'hasta' => null, 'tasa' => 0.20],
     ];
+
+    private function uit($fecha = null): float
+    {
+        return ParametroLegal::valor(ParametroLegal::UIT, $fecha);
+    }
 
     const CONCEPTO_SUELDO      = 'SUELDO + ASIG FAM';
     const CONCEPTO_COMISIONES  = 'COMISIONES';
@@ -49,6 +58,8 @@ class Renta5taCalculator
     ): array {
         $periodoActual   = sprintf('%04d-%02d', $year, $month);
         $mesesRestantes  = 13 - $month; // incluye el mes actual
+        $fechaRef        = \Carbon\Carbon::create($year, $month, 1);
+        $uit             = $this->uit($fechaRef);
 
         // ── Último sueldo conocido (mes anterior) ───────────────────────────
         $periodoAnterior = sprintf('%04d-%02d', $month === 1 ? $year - 1 : $year, $month === 1 ? 12 : $month - 1);
@@ -62,9 +73,10 @@ class Renta5taCalculator
             // lo calculó) — usar sueldo_base + asignación familiar (si
             // aplica) como aproximación, consistente con el concepto
             // combinado "SUELDO + ASIG FAM" que trae el histórico importado.
-            // NOTA: 113 = RMV_2026 (1130) × 10%, mismo cálculo que usa
-            // PlanillaService — si cambia la RMV, actualizar aquí también.
-            $ultimoSueldo = floatval($empleado->sueldo_base) + ($empleado->aplica_asignacion_familiar ? 113.0 : 0);
+            // Asignación familiar = 10% de la RMV vigente (Administración >
+            // Parámetros Legales), mismo cálculo que usa PlanillaService.
+            $ultimoSueldo = floatval($empleado->sueldo_base)
+                + ($empleado->aplica_asignacion_familiar ? round(ParametroLegal::valor(ParametroLegal::RMV, $fechaRef) * 0.10, 2) : 0);
         }
 
         // ── Promedio de comisiones de los últimos 3 meses (incluye el actual) ──
@@ -106,11 +118,11 @@ class Renta5taCalculator
         $totalRemuneraciones = $proyeccionAlMes;
 
         $brutoMesActual = $ultimoSueldo + $comisionesMesActual;
-        $exonerado = $this->estaExonerado($brutoMesActual, $totalRemuneraciones);
+        $exonerado = $this->estaExonerado($brutoMesActual, $totalRemuneraciones, $uit);
 
-        $baseImponible = $exonerado ? 0.0 : max(0, $totalRemuneraciones - (self::UIT_EXONERADAS * self::UIT_2026));
+        $baseImponible = $exonerado ? 0.0 : max(0, $totalRemuneraciones - (self::UIT_EXONERADAS * $uit));
 
-        $impuestoAnual = $this->aplicarTramos($baseImponible);
+        $impuestoAnual = $this->aplicarTramos($baseImponible, $uit);
 
         $retencionesPrevias = (float) IngresoHistorico5ta::where('employee_id', $empleado->id)
             ->where('periodo', '<', $periodoActual)
@@ -154,6 +166,7 @@ class Renta5taCalculator
     ): array {
         $periodoActual  = sprintf('%04d-%02d', $year, $month);
         $mesesRestantes = 13 - $month;
+        $uit            = $this->uit(\Carbon\Carbon::create($year, $month, 1));
 
         // CORREGIDO (verificado contra archivo real de agosto): se
         // mantienen 2 gratificaciones en la proyección durante casi todo
@@ -180,11 +193,11 @@ class Renta5taCalculator
             + ($gratificacionUnitaria * $gratificacionesPendientes)
             + $sumaVariablesYTD;
 
-        $exonerado = $this->estaExonerado($sueldoMesActual, $totalRemuneraciones);
+        $exonerado = $this->estaExonerado($sueldoMesActual, $totalRemuneraciones, $uit);
 
-        $baseImponible = $exonerado ? 0.0 : max(0, $totalRemuneraciones - (self::UIT_EXONERADAS * self::UIT_2026));
+        $baseImponible = $exonerado ? 0.0 : max(0, $totalRemuneraciones - (self::UIT_EXONERADAS * $uit));
 
-        $impuestoAnual = $this->aplicarTramos($baseImponible);
+        $impuestoAnual = $this->aplicarTramos($baseImponible, $uit);
 
         $retencionesPrevias = (float) IngresoHistorico5ta::where('employee_id', $empleado->id)
             ->where('periodo', '<', $periodoActual)
@@ -216,12 +229,16 @@ class Renta5taCalculator
      * tope y calculaban sobre la base completa en vez de su excedente,
      * lo que sobre-retenía a los sueldos altos.
      */
-    private function aplicarTramos(float $baseImponible): float
+    private function aplicarTramos(float $baseImponible, float $uit): float
     {
-        $tramo1 = min($baseImponible, 27500) * self::TRAMOS[0]['tasa'];
-        $tramo2 = min(max(0, $baseImponible - 27500), 110000 - 27500) * self::TRAMOS[1]['tasa'];
-        $tramo3 = min(max(0, $baseImponible - 110000), 192500 - 110000) * self::TRAMOS[2]['tasa'];
-        $tramo4 = max(0, $baseImponible - 192500) * self::TRAMOS[3]['tasa'];
+        $limite1 = 5 * $uit;
+        $limite2 = 20 * $uit;
+        $limite3 = 35 * $uit;
+
+        $tramo1 = min($baseImponible, $limite1) * self::TRAMOS_UIT[0]['tasa'];
+        $tramo2 = min(max(0, $baseImponible - $limite1), $limite2 - $limite1) * self::TRAMOS_UIT[1]['tasa'];
+        $tramo3 = min(max(0, $baseImponible - $limite2), $limite3 - $limite2) * self::TRAMOS_UIT[2]['tasa'];
+        $tramo4 = max(0, $baseImponible - $limite3) * self::TRAMOS_UIT[3]['tasa'];
 
         return $tramo1 + $tramo2 + $tramo3 + $tramo4;
     }
@@ -232,9 +249,9 @@ class Renta5taCalculator
      * retención — se evita correr toda la proyección para quien
      * claramente no debería tributar.
      */
-    private function estaExonerado(float $brutoMesActual, float $totalRemuneracionesProyectadas): bool
+    private function estaExonerado(float $brutoMesActual, float $totalRemuneracionesProyectadas, float $uit): bool
     {
         return $brutoMesActual <= self::UMBRAL_MENSUAL_EXONERADO
-            && $totalRemuneracionesProyectadas <= (self::UIT_EXONERADAS * self::UIT_2026);
+            && $totalRemuneracionesProyectadas <= (self::UIT_EXONERADAS * $uit);
     }
 }

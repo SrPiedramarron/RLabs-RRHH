@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\AfpTasa;
 use App\Models\AttendanceRecord;
 use App\Models\Employee;
+use App\Models\ParametroLegal;
 use App\Models\PlanillaLiquidacion;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
@@ -14,22 +15,36 @@ use Illuminate\Support\Facades\DB;
 
 class PlanillaService
 {
-    // ── ONP: tasa fija por ley ─────────────────────────────────────────────
-    const TASA_ONP = 0.1300;
-
     // ── Recargos horas extra (Ley 25593 Perú) ────────────────────────────────
     const RECARGO_HE_DIURNA   = 0.25; // primeras 2h del día: +25%
     const RECARGO_HE_NOCTURNA = 0.35; // horas adicionales:   +35%
 
     // ── Aportes de empleador ──────────────────────────────────────────────
     const TASA_ESSALUD       = 0.09;   // 9% sobre remuneración bruta
-    const RMV_2026            = 1130;   // Remuneración Mínima Vital vigente — VERIFICAR antes de correr
     const TASA_SEGURO_VIDA_EMPLEADO = 0.0053; // 0.53% empleados (D.Leg 688). Obreros: 0.71%/1.46% — no soportado aún.
 
     // ── EPS (Sanitas Perú) ────────────────────────────────────────────────
     const IGV                   = 0.18;
     const CREDITO_EPS_PORCENTAJE = 0.25;
     const APORTE_EMPRESA_EPS     = 0.30; // el trabajador asume el 70% restante
+
+    /**
+     * RMV y tasa ONP ya NO son constantes fijas en código — se leen de la
+     * tabla parametros_legales (pantalla "Parámetros Legales" en
+     * Administración), con vigencia por fecha igual que afp_tasas. Así,
+     * cuando el gobierno sube la RMV, se actualiza desde el sistema sin
+     * tocar código ni redesplegar, y los periodos pasados se siguen
+     * recalculando con el valor que tenían en su momento (oct. 2026).
+     */
+    private function rmv($fecha = null): float
+    {
+        return ParametroLegal::valor(ParametroLegal::RMV, $fecha);
+    }
+
+    private function tasaOnp($fecha = null): float
+    {
+        return ParametroLegal::valor(ParametroLegal::TASA_ONP, $fecha);
+    }
 
     public function calcularPeriodo(int $companyId, string $periodo, array $bonosEspeciales = [], array $otrosDescuentos = [], array $adelantos = [], array $subsidiosEnfermedad = [], array $subsidiosMaternidad = [], array $retencionesManuales5ta = []): Collection
     {
@@ -158,6 +173,8 @@ class PlanillaService
 
         $mesNombre     = $this->periodoANombre($periodo);
         $sueldo        = floatval($empleado->sueldo_base);
+        $fechaRef      = Carbon::create($year, $month, 1);
+        $rmv           = $this->rmv($fechaRef);
 
         // Rango de asistencia (tardanzas, faltas, horas extra, días
         // trabajados): del 26 del mes anterior al 25 de este mes, NO el mes
@@ -278,9 +295,10 @@ class PlanillaService
 
         // Asignación familiar: monto fijo = 10% de la RMV, solo si el
         // empleado tiene el switch activado (hijos menores de 18, o hasta
-        // 24 si estudian). Se recalcula sola si cambia RMV_2026.
+        // 24 si estudian). Se recalcula sola si cambia la RMV en
+        // Administración > Parámetros Legales.
         $asignacionFamiliar = $empleado->aplica_asignacion_familiar
-            ? round(self::RMV_2026 * 0.10, 2)
+            ? round($rmv * 0.10, 2)
             : 0.0;
 
         // Bono de movilidad: monto MÁXIMO mensual, prorrateado por asistencia
@@ -320,7 +338,7 @@ class PlanillaService
         $afpComisionFlujo    = 0.0;
         $afpPrimaSeguro      = 0.0;
         $afpAporteObligatorio = 0.0;
-        $tasaPension          = self::TASA_ONP;
+        $tasaPension          = $this->tasaOnp($fechaRef);
         $descuentoPension      = 0.0;
 
         if ($esAfp) {
@@ -351,7 +369,7 @@ class PlanillaService
         } else {
             // ONP: subsidios NO afectan esta base — se calcula sobre $bruto
             // puro, sin sumar subsidios (a diferencia de AFP).
-            $descuentoPension = round($bruto * self::TASA_ONP, 2);
+            $descuentoPension = round($bruto * $tasaPension, 2);
         }
 
         $descuento5ta = 0.0;
@@ -376,7 +394,7 @@ class PlanillaService
 
         // ── EsSalud (empleador) — se calcula ANTES del neto porque el crédito
         // EPS depende de este monto. Base mínima es la RMV.
-        $baseEssalud      = max($bruto, self::RMV_2026);
+        $baseEssalud      = max($bruto, $rmv);
         $essaludEmpleador = round($baseEssalud * self::TASA_ESSALUD, 2);
 
         // ── EPS: solo si el trabajador tiene plan asignado (monto > 0).
@@ -545,9 +563,10 @@ class PlanillaService
     ): \App\Models\PlanillaQuincena {
         $mesNombre = $this->periodoANombre($periodo);
         $sueldo    = floatval($empleado->sueldo_base);
+        $fechaRef  = Carbon::create($year, $month, 1);
 
         $asignacionFamiliar = $empleado->aplica_asignacion_familiar
-            ? round(self::RMV_2026 * 0.10, 2)
+            ? round($this->rmv($fechaRef) * 0.10, 2)
             : 0.0;
 
         $baseQuincenal = round($sueldo + $asignacionFamiliar, 2);
@@ -562,7 +581,7 @@ class PlanillaService
         $afpComisionFlujo     = 0.0;
         $afpPrimaSeguro       = 0.0;
         $afpAporteObligatorio = 0.0;
-        $tasaPension          = self::TASA_ONP;
+        $tasaPension          = $this->tasaOnp($fechaRef);
         $descuentoPension     = 0.0;
 
         if ($esAfp) {
@@ -586,7 +605,7 @@ class PlanillaService
             $descuentoPension = $afpAporteObligatorio + $afpComisionFlujo + $afpPrimaSeguro;
             $tasaPension      = floatval($tasaAfp->aporte_obligatorio) + floatval($tasaAfp->comision_flujo) + floatval($tasaAfp->prima_seguro);
         } else {
-            $descuentoPension = round($baseQuincenal * self::TASA_ONP / 2, 2);
+            $descuentoPension = round($baseQuincenal * $tasaPension / 2, 2);
         }
 
         // ── Renta 5ta sobre la base quincenal (sin comisiones), dividida ────
@@ -730,7 +749,7 @@ class PlanillaService
         }
 
         $asignacionFamiliar = $empleado->aplica_asignacion_familiar
-            ? round(self::RMV_2026 * 0.10, 2)
+            ? round($this->rmv($periodoPago . '-01') * 0.10, 2)
             : 0.0;
 
         // Regla legal: solo se promedia si hubo en >= 3 de los 6 meses.
@@ -885,7 +904,7 @@ class PlanillaService
         }
 
         $asignacionFamiliar = $empleado->aplica_asignacion_familiar
-            ? round(self::RMV_2026 * 0.10, 2)
+            ? round($this->rmv($periodoPago . '-01') * 0.10, 2)
             : 0.0;
 
         $promedioComisiones = $mesesConComisiones >= 3 ? round($sumaComisiones / 6, 2) : 0.0;
@@ -955,7 +974,7 @@ class PlanillaService
         $fechaIngreso = $empleado->fecha_ingreso ? Carbon::parse($empleado->fecha_ingreso) : $fechaCese;
         $sueldo       = floatval($empleado->sueldo_base);
         $asignacionFamiliar = $empleado->aplica_asignacion_familiar
-            ? round(self::RMV_2026 * 0.10, 2)
+            ? round($this->rmv($fechaCese) * 0.10, 2)
             : 0.0;
 
         // ── Vacaciones: truncas vs. remuneración vacacional + indemnización ──
@@ -1046,7 +1065,7 @@ class PlanillaService
                 $descuentoAfpVacaciones = round($baseAfpVacaciones * $tasaTotalAfpVac, 2);
             }
         } else {
-            $descuentoAfpVacaciones = round($baseAfpVacaciones * self::TASA_ONP, 2);
+            $descuentoAfpVacaciones = round($baseAfpVacaciones * $this->tasaOnp($fechaCese), 2);
         }
 
         $aporteEssaludVacaciones = round($baseAfpVacaciones * self::TASA_ESSALUD, 2);
