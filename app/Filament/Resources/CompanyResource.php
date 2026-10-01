@@ -47,7 +47,14 @@ class CompanyResource extends Resource
                         ->email()
                         ->maxLength(100)
                         ->columnSpan(2)
-                        ->helperText('A este correo llegan los avisos automáticos de contratos por vencer (15 días antes).'),
+                        ->helperText('A este correo llegan los avisos de contratos por vencer y las nuevas solicitudes (permisos/vacaciones) que envían los trabajadores desde la app.'),
+
+                    Forms\Components\TextInput::make('email_cc')
+                        ->label('Email en copia (CC) — opcional')
+                        ->email()
+                        ->maxLength(100)
+                        ->columnSpan(2)
+                        ->helperText('Recibe copia de los mismos avisos que el correo de arriba (contratos por vencer y nuevas solicitudes).'),
 
                     Forms\Components\TextInput::make('direccion')
                         ->label('Dirección')

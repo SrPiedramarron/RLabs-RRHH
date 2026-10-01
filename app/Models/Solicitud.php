@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Mail\NuevaSolicitudMail;
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Mail;
 
 class Solicitud extends Model
 {
@@ -93,6 +95,17 @@ class Solicitud extends Model
                         ->button(),
                 ])
                 ->sendToDatabase($destinatarios);
+
+            // Correo a RRHH (genérico por empresa, igual patrón que los
+            // avisos de contratos por vencer) — pedido explícito oct. 2026
+            // de que las solicitudes lleguen también por correo, no solo
+            // como notificación dentro del sistema.
+            $company = $solicitud->company;
+            if ($company?->email) {
+                Mail::to($company->email)
+                    ->cc($company->email_cc ? [$company->email_cc] : [])
+                    ->queue(new NuevaSolicitudMail($solicitud));
+            }
         });
     }
 }

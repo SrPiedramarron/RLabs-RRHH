@@ -39,7 +39,9 @@ class AvisarContratosPorVencer extends Command
                 continue;
             }
 
-            Mail::to($company->email)->queue(new ContratosPorVencerMail($company, $trabajadores, $dias));
+            Mail::to($company->email)
+                ->cc($company->email_cc ? [$company->email_cc] : [])
+                ->queue(new ContratosPorVencerMail($company, $trabajadores, $dias));
             $this->info("Aviso enviado a {$company->email} ({$company->razon_social}) — {$trabajadores->count()} contrato(s).");
         }
     }

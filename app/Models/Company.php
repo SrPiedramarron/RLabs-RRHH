@@ -16,6 +16,7 @@ class Company extends Model
         'ubigeo',
         'telefono',
         'email',
+        'email_cc',
         'logo_path',
         'active',
         'pago_quincenal',
