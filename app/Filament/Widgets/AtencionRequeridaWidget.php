@@ -62,30 +62,36 @@ class AtencionRequeridaWidget extends BaseWidget
             ];
         });
 
-        return [
+        $stats = [
             Stat::make('Solicitudes pendientes', $solicitudes)
                 ->description($solicitudes ? 'Por aprobar o rechazar' : 'Todo al día')
                 ->descriptionIcon('heroicon-o-inbox-arrow-down')
                 ->color($solicitudes ? 'warning' : 'success')
-                ->url(SolicitudResource::getUrl('index', ['tableFilters[estado][value]' => 'pendiente'])),
+                ->url(SolicitudResource::getUrl('index', ['tableFilters[estado][value]' => 'pendiente']))
+                ->extraAttributes(['data-visible' => SolicitudResource::canViewAny() ? '1' : '0']),
 
             Stat::make('Contratos por vencer', $contratos)
                 ->description($contratos ? 'En los próximos 30 días' : 'Ninguno en 30 días')
                 ->descriptionIcon('heroicon-o-clock')
                 ->color($contratos ? 'warning' : 'success')
-                ->url(EmployeeResource::getUrl('index')),
+                ->url(EmployeeResource::getUrl('index'))
+                ->extraAttributes(['data-visible' => EmployeeResource::canViewAny() ? '1' : '0']),
 
             Stat::make('Vacaciones vencidas', $vencidas['trabajadores'])
                 ->description($vencidas['trabajadores'] ? "{$vencidas['dias']} días en riesgo" : 'Sin saldo vencido')
                 ->descriptionIcon('heroicon-o-sun')
                 ->color($vencidas['trabajadores'] ? 'danger' : 'success')
-                ->url(DashboardVacaciones::getUrl()),
+                ->url(DashboardVacaciones::getUrl())
+                ->extraAttributes(['data-visible' => DashboardVacaciones::canAccess() ? '1' : '0']),
 
             Stat::make('Ceses sin liquidar', $cesesSinLiquidar)
                 ->description($cesesSinLiquidar ? 'Últimos 60 días' : 'Ninguno pendiente')
                 ->descriptionIcon('heroicon-o-arrow-right-start-on-rectangle')
                 ->color($cesesSinLiquidar ? 'danger' : 'success')
-                ->url(LiquidacionCeseResource::getUrl('index')),
+                ->url(LiquidacionCeseResource::getUrl('index'))
+                ->extraAttributes(['data-visible' => LiquidacionCeseResource::canViewAny() ? '1' : '0']),
         ];
+
+        return array_values(array_filter($stats, fn ($s) => ($s->getExtraAttributes()['data-visible'] ?? '1') === '1'));
     }
 }

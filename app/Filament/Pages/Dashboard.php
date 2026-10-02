@@ -11,6 +11,7 @@ class Dashboard extends BaseDashboard
         return [
             \App\Filament\Widgets\AtencionRequeridaWidget::class,
             \App\Filament\Widgets\PlanillaMesWidget::class,
+            \App\Filament\Widgets\PersonalWidget::class,
             \App\Filament\Widgets\StatsOverview::class,
             \App\Filament\Resources\StatisticsResource\Widgets\TardanzaResumenWidget::class,
         ];

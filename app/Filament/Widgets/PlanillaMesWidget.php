@@ -20,6 +20,11 @@ class PlanillaMesWidget extends Widget
     protected static string $view = 'filament.widgets.planilla-mes';
     protected int|string|array $columnSpan = 'full';
 
+    public static function canView(): bool
+    {
+        return PlanillaLiquidacionResource::canViewAny();
+    }
+
     /**
      * Periodo que se está trabajando: el del último corte (día 25) ya
      * cumplido — ej. el 2 de octubre se trabaja la planilla 09/2026
