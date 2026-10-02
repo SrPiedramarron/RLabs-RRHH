@@ -73,7 +73,7 @@ class ZKTecoADMSController extends Controller
     public function getRequest(Request $request)
     {
         $sn = $request->query('SN', '');
-        Log::info("[ADMS] getrequest SN={$sn}");
+        Log::debug("[ADMS] getrequest SN={$sn}");
 
         $location = $this->getLocationBySN($sn);
 
@@ -124,7 +124,7 @@ $employees = $empleadosVinculados
         }
 
         $body = implode("\r\n", $commands);
-        Log::info("[ADMS] Enviando " . count($commands) . " usuarios al reloj SN={$sn} sede={$location->nombre}");
+        Log::debug("[ADMS] Enviando " . count($commands) . " usuarios al reloj SN={$sn} sede={$location->nombre}");
 
         return response($body, 200)->header('Content-Type', 'text/plain');
     }
@@ -132,7 +132,7 @@ $employees = $empleadosVinculados
     public function deviceCmd(Request $request)
     {
         $content = $request->getContent();
-        Log::info("[ADMS] devicecmd recibido", ['body' => substr($content, 0, 300)]);
+        Log::debug("[ADMS] devicecmd recibido", ['body' => substr($content, 0, 300)]);
         return response("OK", 200)->header('Content-Type', 'text/plain');
     }
 
