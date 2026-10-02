@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\AfpTasa;
 use App\Models\CtsDeposito;
 use App\Models\Gratificacion;
 use App\Models\LiquidacionCese;
@@ -178,7 +179,7 @@ class BoletaPagoService
             ]),
 
             // ── Aportes del trabajador ────────────────────────────────────────
-            'aportes_trabajador' => $this->aportesTrabajador($l),
+            'aportes_trabajador' => $this->aportesTrabajador($l, $cese),
 
             // Del cese solo se suman los conceptos que se pagan en efectivo:
             // gratificación proporcional + su bonificación, vacaciones
@@ -194,7 +195,8 @@ class BoletaPagoService
                 + ($cese->monto_vacaciones_truncas ?? 0)
                 + ($cese->remuneracion_vacacional_pendiente ?? 0)
                 + ($cese->indemnizacion_vacacional ?? 0)
-                + ($cese->indemnizacion ?? 0),
+                + ($cese->indemnizacion ?? 0)
+                - ($cese->descuento_afp_vacaciones ?? 0),
                 2
             ),
 
@@ -203,8 +205,10 @@ class BoletaPagoService
                 '0803' => $l->seguro_vida_empleador > 0
                     ? ['PÓLIZA DE SEGURO - D. LEG. 688', $l->seguro_vida_empleador]
                     : null,
-                '0804' => $l->essalud_empleador > 0
-                    ? ['ESSALUD (REGULAR CBSSP AGRAR/AC) TRAB', $l->essalud_empleador]
+                // EsSalud mensual + el de las vacaciones del cese (se declara
+                // junto en la misma boleta, pedido de Cielo oct. 2026).
+                '0804' => ($l->essalud_empleador + ($cese->aporte_essalud_vacaciones ?? 0)) > 0
+                    ? ['ESSALUD (REGULAR CBSSP AGRAR/AC) TRAB', round($l->essalud_empleador + ($cese->aporte_essalud_vacaciones ?? 0), 2)]
                     : null,
             ]),
 
@@ -219,19 +223,55 @@ class BoletaPagoService
         ];
     }
 
-    private function aportesTrabajador(PlanillaLiquidacion $l): array
+    private function aportesTrabajador(PlanillaLiquidacion $l, ?LiquidacionCese $cese = null): array
     {
         $aportes = [];
 
+        // AFP/ONP de las vacaciones del cese (truncas + remuneración
+        // vacacional pendiente): la liquidación guarda solo el total, así
+        // que se reparte por código PLAME según las tasas de la AFP,
+        // ajustando para que la suma coincida exacto con ese total.
+        $vac = ['0601' => 0.0, '0606' => 0.0, '0608' => 0.0, 'onp' => 0.0];
+        $totalVac = (float) ($cese->descuento_afp_vacaciones ?? 0);
+
+        if ($totalVac > 0) {
+            if (str_starts_with($l->sistema_pensiones, 'afp_') && ($tasa = AfpTasa::vigentePara($l->sistema_pensiones))) {
+                $base = (float) $cese->monto_vacaciones_truncas + (float) $cese->remuneracion_vacacional_pendiente;
+                $crudo = [
+                    '0608' => $base * (float) $tasa->aporte_obligatorio,
+                    '0601' => $l->employee?->aplica_comision_flujo_afp ? $base * (float) $tasa->comision_flujo : 0.0,
+                    '0606' => $base * (float) $tasa->prima_seguro,
+                ];
+                $sumaCruda = array_sum($crudo);
+
+                if ($sumaCruda > 0) {
+                    foreach ($crudo as $cod => $v) {
+                        $vac[$cod] = round($v / $sumaCruda * $totalVac, 2);
+                    }
+                    $vac['0608'] = round($vac['0608'] + ($totalVac - ($vac['0601'] + $vac['0606'] + $vac['0608'])), 2);
+                } else {
+                    $vac['0608'] = $totalVac;
+                }
+            } else {
+                $vac['onp'] = $totalVac;
+            }
+        }
+
         if (str_starts_with($l->sistema_pensiones, 'afp_')) {
+            $comision = round($l->afp_comision_flujo + $vac['0601'], 2);
+            $prima    = round($l->afp_prima_seguro + $vac['0606'], 2);
+            $aporte   = round($l->afp_aporte_obligatorio + $vac['0608'], 2);
+
             $aportes = array_filter([
-                '0601' => $l->afp_comision_flujo > 0 ? ['COMISIÓN AFP PORCENTUAL', $l->afp_comision_flujo] : null,
-                '0606' => $l->afp_prima_seguro > 0   ? ['PRIMA DE SEGURO AFP', $l->afp_prima_seguro] : null,
-                '0608' => $l->afp_aporte_obligatorio > 0 ? ['SPP - APORTACIÓN OBLIGATORIA', $l->afp_aporte_obligatorio] : null,
+                '0601' => $comision > 0 ? ['COMISIÓN AFP PORCENTUAL', $comision] : null,
+                '0606' => $prima > 0    ? ['PRIMA DE SEGURO AFP', $prima] : null,
+                '0608' => $aporte > 0   ? ['SPP - APORTACIÓN OBLIGATORIA', $aporte] : null,
             ]);
         } else {
+            $onp = round($l->descuento_pension + $vac['onp'], 2);
+
             $aportes = array_filter([
-                '0607' => $l->descuento_pension > 0 ? ['SISTEMA NACIONAL DE PENSIONES - DL 19990', $l->descuento_pension] : null,
+                '0607' => $onp > 0 ? ['SISTEMA NACIONAL DE PENSIONES - DL 19990', $onp] : null,
             ]);
         }
 
