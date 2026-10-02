@@ -31,9 +31,16 @@ $middleware->trustProxies(at: '*');
         // pantalla bloqueada): en vez de la pantalla fría "419 Page Expired",
         // lo regresamos al login de donde vino con un aviso claro — pedido
         // recurrente, oct. 2026.
-        $exceptions->render(function (\Illuminate\Session\TokenMismatchException $e, \Illuminate\Http\Request $request) {
+        // Laravel convierte TokenMismatchException en HttpException(419)
+        // ANTES de llegar a los render(); por eso se captura por código de
+        // estado. Se deja pasar a Livewire/JSON, que manejan su propio 419.
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\HttpException $e, \Illuminate\Http\Request $request) {
+            if ($e->getStatusCode() !== 419 || $request->expectsJson() || $request->hasHeader('X-Livewire')) {
+                return null;
+            }
+
             $login = $request->is('checkin*') ? route('checkin.login') : route('filament.admin.auth.login');
 
-            return redirect($login)->with('error', 'Tu sesión expiró por inactividad. Vuelve a ingresar tus datos.');
+            return redirect($login)->with('error', 'Tu sesión expiró o la conexión se cortó. Vuelve a intentar.');
         });
     })->create();

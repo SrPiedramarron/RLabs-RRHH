@@ -23,7 +23,7 @@
 @endif
 
 <div class="card">
-    <form method="POST" action="{{ route('checkin.login.submit') }}">
+    <form method="POST" action="{{ route('checkin.login.submit') }}" id="form-login">
         @csrf
 
         <div class="form-group">
@@ -60,12 +60,30 @@
             @enderror
         </div>
 
-        <button type="submit" class="btn btn-verde" style="margin-top:8px;">
+        <button type="submit" class="btn btn-verde" id="btn-login" style="margin-top:8px;">
             Ingresar
         </button>
 
     </form>
 </div>
+
+<script>
+// Evita el doble envío: con conexión lenta el trabajador tocaba "Ingresar"
+// varias veces; el primer envío ya consumía/rotaba la sesión en el servidor
+// y los siguientes llegaban con el token viejo → 419 (oct. 2026).
+(function () {
+    var form = document.getElementById('form-login');
+    var btn  = document.getElementById('btn-login');
+    function reset() { btn.disabled = false; btn.textContent = 'Ingresar'; }
+    form.addEventListener('submit', function (e) {
+        if (btn.disabled) { e.preventDefault(); return; }
+        btn.disabled = true;
+        btn.textContent = 'Ingresando…';
+        setTimeout(reset, 20000);
+    });
+    window.addEventListener('pageshow', reset);
+})();
+</script>
 
 <p style="text-align:center; font-size:12px; color:var(--gris); margin-top:8px;">
     ¿Problemas para ingresar? Contacta a RR.HH.
