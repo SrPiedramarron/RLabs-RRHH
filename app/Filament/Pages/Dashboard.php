@@ -9,8 +9,15 @@ class Dashboard extends BaseDashboard
     public function getWidgets(): array
     {
         return [
+            \App\Filament\Widgets\AtencionRequeridaWidget::class,
+            \App\Filament\Widgets\PlanillaMesWidget::class,
+            \App\Filament\Widgets\StatsOverview::class,
             \App\Filament\Resources\StatisticsResource\Widgets\TardanzaResumenWidget::class,
-            // aquí puedes agregar otros widgets que ya tengas
         ];
+    }
+
+    public function getColumns(): int|string|array
+    {
+        return 1;
     }
 }
