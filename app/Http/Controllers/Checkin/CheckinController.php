@@ -39,8 +39,16 @@ class CheckinController extends Controller
         $tieneSalida = $checkinHoy->where('tipo', 'salida')->isNotEmpty()
             || ($recordHoy && $recordHoy->hora_salida !== null);
 
+        // Refrigerio: solo si el horario del trabajador lo contempla. Se
+        // decide solo con las marcaciones de la app (no con el registro de
+        // asistencia, que puede traer el refrigerio inferido del horario).
+        $usaRefrigerio = (bool) $employee->schedule?->refrigerio_inicio;
+        $tieneSalidaRefrigerio  = $checkinHoy->where('tipo', 'salida_refrigerio')->isNotEmpty();
+        $tieneRegresoRefrigerio = $checkinHoy->where('tipo', 'regreso_refrigerio')->isNotEmpty();
+
         return view('checkin.home', compact(
-            'employee', 'checkinHoy', 'tieneEntrada', 'tieneSalida', 'recordHoy'
+            'employee', 'checkinHoy', 'tieneEntrada', 'tieneSalida', 'recordHoy',
+            'usaRefrigerio', 'tieneSalidaRefrigerio', 'tieneRegresoRefrigerio'
         ));
     }
 
@@ -48,15 +56,22 @@ class CheckinController extends Controller
 
     public function marcar(Request $request)
     {
+        $request->validate(['tipo' => ['required', 'in:entrada,salida,salida_refrigerio,regreso_refrigerio']]);
+
+        $credential = Auth::guard('employee')->user();
+        $employee   = $credential->employee;
+
+        // Salida/regreso de refrigerio: sin foto ni validación facial (igual
+        // que en el reloj, pedido de RRHH oct. 2026). El GPS es opcional.
+        if (in_array($request->tipo, RemoteCheckin::TIPOS_REFRIGERIO, true)) {
+            return $this->marcarRefrigerio($request, $employee);
+        }
+
         $request->validate([
-            'tipo'     => ['required', 'in:entrada,salida'],
             'latitud'  => ['required', 'numeric'],
             'longitud' => ['required', 'numeric'],
             'foto'     => ['required', 'string'], // base64
         ]);
-
-        $credential = Auth::guard('employee')->user();
-        $employee   = $credential->employee;
 
         // ── 1. Guardar la foto del checkin ────────────────────────────────────
         $fotoPath = $this->guardarFotoCheckin($request->foto, $employee->id);
@@ -127,6 +142,61 @@ class CheckinController extends Controller
         return redirect()->route('checkin.home')->with(
             'success',
             "{$emoji} {$label} registrada correctamente a las " . now()->format('H:i')
+        );
+    }
+
+    // ── Refrigerio (sin foto) ─────────────────────────────────────────────────
+
+    private function marcarRefrigerio(Request $request, $employee)
+    {
+        $request->validate([
+            'latitud'  => ['nullable', 'numeric'],
+            'longitud' => ['nullable', 'numeric'],
+        ]);
+
+        $hoy    = RemoteCheckin::where('employee_id', $employee->id)->whereDate('fecha_hora', today())->get();
+        $record = AttendanceRecord::where('employee_id', $employee->id)->where('fecha', today())->first();
+
+        $tieneEntrada = $hoy->where('tipo', 'entrada')->isNotEmpty() || ($record && $record->hora_entrada !== null);
+        $tieneSalida  = $hoy->where('tipo', 'salida')->isNotEmpty() || ($record && $record->hora_salida !== null);
+        $yaSalioRef   = $hoy->where('tipo', 'salida_refrigerio')->isNotEmpty();
+        $yaRegreso    = $hoy->where('tipo', 'regreso_refrigerio')->isNotEmpty();
+
+        $error = match (true) {
+            ! $tieneEntrada => 'Primero registra tu entrada.',
+            $tieneSalida    => 'Ya registraste tu salida de hoy.',
+            $request->tipo === 'salida_refrigerio' && $yaSalioRef  => 'Ya registraste tu salida a refrigerio.',
+            $request->tipo === 'regreso_refrigerio' && ! $yaSalioRef => 'Primero registra tu salida a refrigerio.',
+            $request->tipo === 'regreso_refrigerio' && $yaRegreso  => 'Ya registraste tu regreso de refrigerio.',
+            default         => null,
+        };
+
+        if ($error) {
+            return redirect()->route('checkin.home')->with('error', $error);
+        }
+
+        $checkin = RemoteCheckin::create([
+            'employee_id'      => $employee->id,
+            'company_id'       => $employee->company_id,
+            'tipo'             => $request->tipo,
+            'fecha_hora'       => now(),
+            'latitud'          => $request->latitud,
+            'longitud'         => $request->longitud,
+            'precision_metros' => $request->precision,
+            'foto_path'        => null,
+            'estado_facial'    => 'no_aplica',
+            'estado_procesado' => 'pendiente',
+            'ip_address'       => $request->ip(),
+            'user_agent'       => $request->userAgent(),
+        ]);
+
+        $this->procesarCheckin($checkin, $employee);
+
+        $label = $request->tipo === 'salida_refrigerio' ? '🍽️ Salida a refrigerio' : '🍽️ Regreso de refrigerio';
+
+        return redirect()->route('checkin.home')->with(
+            'success',
+            "{$label} registrado a las " . now()->format('H:i')
         );
     }
 
@@ -272,6 +342,10 @@ JS;
                 'fuente_entrada' => 'remoto',
                 'estado'        => 'presente',
             ]);
+        } elseif ($checkin->tipo === 'salida_refrigerio') {
+            $record->update(['inicio_refrigerio' => $checkin->fecha_hora]);
+        } elseif ($checkin->tipo === 'regreso_refrigerio') {
+            $record->update(['fin_refrigerio' => $checkin->fecha_hora]);
         } else {
             $record->update([
                 'hora_salida'  => $checkin->fecha_hora,

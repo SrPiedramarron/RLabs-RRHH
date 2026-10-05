@@ -77,11 +77,12 @@
     <div class="card-title">Marcaciones de hoy</div>
     @foreach($checkinHoy as $c)
     <div class="estado-item">
-        <span class="badge {{ $c->tipo === 'entrada' ? 'badge-verde' : 'badge-rojo' }}">
-            {{ strtoupper($c->tipo) }}
+        <span class="badge {{ $c->tipo_badge }}">
+            {{ $c->tipo_label }}
         </span>
         <span style="font-size:13px; color:var(--gris);">
-            @if($c->estado_facial === 'aprobado') ✅ Facial OK
+            @if($c->es_refrigerio) 🍽️
+            @elseif($c->estado_facial === 'aprobado') ✅ Facial OK
             @elseif($c->estado_facial === 'sin_perfil') ⚠️ Sin foto perfil
             @elseif($c->estado_facial === 'rechazado') ❌ Facial rechazado
             @else ⏳ Pendiente
@@ -91,6 +92,33 @@
     </div>
     @endforeach
 </div>
+@endif
+
+{{-- Refrigerio (sin foto) --}}
+@if($usaRefrigerio && $tieneEntrada && !$tieneSalida && !$tieneRegresoRefrigerio)
+<div class="card">
+    <div class="card-title">Refrigerio</div>
+    <form method="POST" action="{{ route('checkin.marcar') }}" id="form-refrigerio"
+          data-confirm="{{ !$tieneSalidaRefrigerio ? '¿Registrar tu SALIDA a refrigerio ahora?' : '¿Registrar tu REGRESO de refrigerio ahora?' }}">
+        @csrf
+        <input type="hidden" name="tipo" value="{{ !$tieneSalidaRefrigerio ? 'salida_refrigerio' : 'regreso_refrigerio' }}">
+        <button type="submit" id="btn-refrigerio" class="btn btn-azul">
+            {{ !$tieneSalidaRefrigerio ? '🍽️ Salida a refrigerio' : '🍽️ Regreso de refrigerio' }}
+        </button>
+    </form>
+    <div style="font-size:12px; color:var(--gris); margin-top:8px; text-align:center;">No necesita foto.</div>
+</div>
+<script>
+(function () {
+    var f = document.getElementById('form-refrigerio'), b = document.getElementById('btn-refrigerio');
+    f.addEventListener('submit', function (e) {
+        if (b.disabled) { e.preventDefault(); return; }
+        if (!confirm(f.dataset.confirm)) { e.preventDefault(); return; }
+        b.disabled = true; b.textContent = 'Registrando…';
+    });
+    window.addEventListener('pageshow', function () { b.disabled = false; });
+})();
+</script>
 @endif
 
 {{-- Formulario de marcado --}}

@@ -10,11 +10,13 @@
 <div class="card" style="padding:14px 16px; margin-bottom:10px;">
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
         <div style="display:flex; align-items:center; gap:8px;">
-            <span class="badge {{ $checkin->tipo === 'entrada' ? 'badge-verde' : 'badge-rojo' }}">
-                {{ strtoupper($checkin->tipo) }}
+            <span class="badge {{ $checkin->tipo_badge }}">
+                {{ $checkin->tipo_label }}
             </span>
             {{-- Estado facial --}}
-            @if($checkin->estado_facial === 'aprobado')
+            @if($checkin->es_refrigerio)
+                <span class="badge badge-gris">🍽️ Sin foto</span>
+            @elseif($checkin->estado_facial === 'aprobado')
                 <span class="badge badge-verde">✅ Facial OK</span>
             @elseif($checkin->estado_facial === 'rechazado')
                 <span class="badge badge-rojo">❌ Rechazado</span>

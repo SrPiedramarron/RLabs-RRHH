@@ -34,6 +34,35 @@ class RemoteCheckin extends Model
         'longitud'         => 'decimal:7',
     ];
 
+    // ── Tipos de marcación ────────────────────────────────────────────────────
+
+    public const TIPOS_REFRIGERIO = ['salida_refrigerio', 'regreso_refrigerio'];
+
+    public function getEsRefrigerioAttribute(): bool
+    {
+        return in_array($this->tipo, self::TIPOS_REFRIGERIO, true);
+    }
+
+    public function getTipoLabelAttribute(): string
+    {
+        return match ($this->tipo) {
+            'entrada'           => 'ENTRADA',
+            'salida'            => 'SALIDA',
+            'salida_refrigerio' => 'SALIDA A REFRIGERIO',
+            'regreso_refrigerio' => 'REGRESO DE REFRIGERIO',
+            default             => strtoupper((string) $this->tipo),
+        };
+    }
+
+    public function getTipoBadgeAttribute(): string
+    {
+        return match ($this->tipo) {
+            'entrada' => 'badge-verde',
+            'salida'  => 'badge-rojo',
+            default   => 'badge-amarillo',
+        };
+    }
+
     // ── Relaciones ────────────────────────────────────────────────────────────
 
     public function employee(): \Illuminate\Database\Eloquent\Relations\BelongsTo
