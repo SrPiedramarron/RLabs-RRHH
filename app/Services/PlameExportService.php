@@ -195,6 +195,11 @@ class PlameExportService
             // 0605 (Renta 5ta) no viene de aportes_trabajador hoy — se mapea
             // directo desde descuento_5ta_categoria de la liquidación.
             $montosPorCodigo['0605'] = (float) $l->descuento_5ta_categoria;
+            // 0803 (Póliza de seguro D.Leg. 688 / Seguro de vida ley): aporte del
+            // empleador que el PDT NO calcula solo (a diferencia del 0804 EsSalud,
+            // que está en la lista de códigos excluidos del Anexo 3), así que
+            // debe ir en el .rem — reportado por Cielo, oct. 2026.
+            $montosPorCodigo['0803'] = (float) ($datos['aportes_empleador']['0803'][1] ?? 0);
 
             // Ingresos/descuentos: SOLO los que tienen monto. Un archivo .rem
             // ya aceptado por el PDT (de otra empresa, oct. 2026) trae por
@@ -212,7 +217,8 @@ class PlameExportService
             $catalogoCompleto = array_merge(
                 $conceptosConMonto,
                 self::CATALOGO_TRIBUTOS_E18,
-                str_starts_with((string) $empleado->sistema_pensiones, 'afp_') ? self::CATALOGO_TRIBUTOS_AFP_E18 : []
+                str_starts_with((string) $empleado->sistema_pensiones, 'afp_') ? self::CATALOGO_TRIBUTOS_AFP_E18 : [],
+                abs($montosPorCodigo['0803']) >= 0.005 ? ['0803'] : []
             );
 
             foreach ($catalogoCompleto as $codigo) {
