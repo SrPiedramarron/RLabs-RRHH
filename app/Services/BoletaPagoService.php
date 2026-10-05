@@ -181,6 +181,13 @@ class BoletaPagoService
                     : null,
             ]),
 
+            // Quincena ya pagada: ya se resta del neto, pero no es un concepto
+            // PLAME (no entra al .rem): se muestra solo en la boleta para que
+            // ingresos - descuentos - aportes = neto (pedido de Cielo, oct. 2026).
+            'adelanto_quincena' => $l->adelanto_quincena > 0
+                ? ['ADELANTO DE QUINCENA (ya pagado)', (float) $l->adelanto_quincena]
+                : null,
+
             // ── Aportes del trabajador ────────────────────────────────────────
             'aportes_trabajador' => $this->aportesTrabajador($l, $cese),
 
