@@ -23,11 +23,14 @@ class BoletaPagoService
      * sus montos se agregan a la misma boleta — se pagan juntos el mismo
      * mes, no en un documento aparte.
      *
-     * La CTS (regular o trunca en un cese), en cambio, NO se suma a
-     * neto_pagar: por ley se deposita directo a la cuenta CTS del
-     * trabajador en el banco que él eligió, no se paga junto al sueldo.
-     * Aparece solo como dato informativo y para declarar el código PLAME
-     * 0904 (confirmado por RRHH, set. 2026).
+     * La CTS REGULAR (mayo/noviembre), en cambio, NO se suma a neto_pagar:
+     * por ley se deposita directo a la cuenta CTS del trabajador en el banco
+     * que él eligió, no se paga junto al sueldo. Aparece solo como dato
+     * informativo y para declarar el código PLAME 0904 (confirmado por RRHH,
+     * set. 2026). La CTS TRUNCA de un cese SÍ se suma: se paga en la
+     * liquidación (confirmado por RRHH, caso Chilingano, oct. 2026: el neto
+     * es la suma de todos los ingresos de la boleta menos descuentos y
+     * aportes).
      */
     public function datosBoleta(PlanillaLiquidacion $l): array
     {
@@ -181,17 +184,18 @@ class BoletaPagoService
             // ── Aportes del trabajador ────────────────────────────────────────
             'aportes_trabajador' => $this->aportesTrabajador($l, $cese),
 
-            // Del cese solo se suman los conceptos que se pagan en efectivo:
-            // gratificación proporcional + su bonificación, vacaciones
-            // truncas, remuneración vacacional pendiente + su indemnización,
-            // e indemnización por despido (si aplica). La CTS trunca queda
-            // fuera — va depositada, igual que la CTS regular.
+            // Del cese se suman todos los conceptos de la liquidación:
+            // gratificación proporcional + su bonificación, CTS trunca,
+            // vacaciones truncas, remuneración vacacional pendiente + su
+            // indemnización, e indemnización por despido (si aplica); y se
+            // resta el AFP/ONP de las vacaciones.
             'neto_pagar' => round(
                 (float) $l->neto_pagar
                 + ($gratificacion->monto_total ?? 0)
                 + ($utilidad->monto_pagado ?? 0)
                 + ($cese->monto_gratificacion_trunca ?? 0)
                 + ($cese->bonificacion_extraordinaria_trunca ?? 0)
+                + ($cese->monto_cts_trunca ?? 0)
                 + ($cese->monto_vacaciones_truncas ?? 0)
                 + ($cese->remuneracion_vacacional_pendiente ?? 0)
                 + ($cese->indemnizacion_vacacional ?? 0)
