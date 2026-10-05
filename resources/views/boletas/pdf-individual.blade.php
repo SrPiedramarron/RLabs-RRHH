@@ -65,13 +65,6 @@
                 <td class="right">S/ {{ number_format($monto, 2) }}</td>
             </tr>
         @endforeach
-        @if(!empty($d['adelanto_quincena']))
-            <tr>
-                <td>—</td>
-                <td>{{ $d['adelanto_quincena'][0] }}</td>
-                <td class="right">S/ {{ number_format($d['adelanto_quincena'][1], 2) }}</td>
-            </tr>
-        @endif
 
         <tr><th colspan="3">Aportes del Trabajador</th></tr>
         @foreach($d['aportes_trabajador'] as $codigo => [$concepto, $monto])

@@ -127,7 +127,7 @@ class PlameExportService
         '0501', // [SIN CALCULAR HOY — indemnización por despido arbitrario ya se calcula en LiquidacionCeseResource, pero RRHH no ha confirmado su código PLAME (0504 es OTRO concepto, ver abajo). Se muestra en la boleta sin declarar en PLAME hasta confirmarlo]
         '0504', // Indemnización por vacaciones NO GOZADAS (cese) — periodo completo ganado y no gozado dentro del año siguiente, DISTINTO de vacaciones truncas (0114) y de la indemnización por despido arbitrario (sin código aún) — calculado, confirmado por RRHH
         // 0700 - Descuentos al trabajador
-        '0701', // Adelanto [SIN CALCULAR HOY]
+        '0701', // Adelanto: adelantos manuales + quincena ya pagada (confirmado por el contador, oct. 2026)
         '0702', // Cuota sindical [SIN CALCULAR HOY]
         '0703', // Descuento por mandato judicial [SIN CALCULAR HOY]
         '0704', // Tardanzas
