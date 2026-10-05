@@ -84,7 +84,12 @@ class BoletaPagoService
 
             // ── Ingresos (código PLAME => [concepto, monto]) ───────────────────
             'ingresos' => array_filter([
-                '0121' => ['REMUNERACIÓN O JORNAL BÁSICO', $l->sueldo_proporcional],
+                // 0121 va con el sueldo COMPLETO (menos solo los días de
+                // vacaciones, que pasan a 0118): las inasistencias se declaran
+                // aparte en 0705 — confirmado por el contador, oct. 2026.
+                // sueldo_proporcional ya viene reducido por las faltas, por
+                // eso se le suma de vuelta el descuento por faltas.
+                '0121' => ['REMUNERACIÓN O JORNAL BÁSICO', round((float) $l->sueldo_proporcional + (float) $l->descuento_faltas, 2)],
                 // 0118 se usa tanto para vacaciones gozadas en un mes normal
                 // ($l->vacaciones) como para la remuneración vacacional
                 // pendiente en un cese — se suman por si algún mes coinciden
