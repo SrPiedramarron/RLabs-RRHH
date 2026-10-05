@@ -43,7 +43,7 @@ class AfpnetExport implements FromArray, WithStrictNullComparison
                 continue;
             }
 
-            [$paterno, $materno] = $this->separarApellidos((string) $emp->apellidos);
+            [$paterno, $materno] = $this->separarApellidos($this->limpiar($emp->apellidos));
 
             $inicio = $emp->fecha_ingreso && $emp->fecha_ingreso->betweenIncluded($inicioMes, $finMes);
             $cese   = $emp->fecha_cese && $emp->fecha_cese->betweenIncluded($inicioMes, $finMes);
@@ -55,7 +55,7 @@ class AfpnetExport implements FromArray, WithStrictNullComparison
                 $emp->dni,
                 $paterno,
                 $materno,
-                (string) $emp->nombres,
+                $this->limpiar($emp->nombres),
                 'S',
                 $inicio ? 'S' : 'N',
                 $cese ? 'S' : 'N',
@@ -91,6 +91,12 @@ class AfpnetExport implements FromArray, WithStrictNullComparison
         }
 
         return round($base, 2);
+    }
+
+    /** Quita espacios sobrantes (hay fichas con espacios al final o dobles). */
+    private function limpiar(?string $texto): string
+    {
+        return trim(preg_replace('/\s+/u', ' ', (string) $texto));
     }
 
     /** "DE LA CRUZ PEREZ" → ["DE LA CRUZ", "PEREZ"]; "LOPEZ YARINGAÑO" → ["LOPEZ", "YARINGAÑO"]. */
