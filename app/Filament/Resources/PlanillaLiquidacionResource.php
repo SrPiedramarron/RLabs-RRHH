@@ -392,6 +392,57 @@ Tables\Actions\Action::make('exportar_plame')
     }),
  
 
+                Tables\Actions\Action::make('exportar_afpnet')
+                    ->label('Exportar AFP (AFPnet)')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->color('gray')
+                    ->form([
+                        Forms\Components\Select::make('periodo')
+                            ->label('Periodo')
+                            ->options(function () {
+                                if (!PlanillaLiquidacion::exists()) return [];
+                                return PlanillaLiquidacion::distinct()
+                                    ->orderByDesc('periodo')
+                                    ->pluck('mes_nombre', 'periodo')
+                                    ->toArray();
+                            })
+                            ->required()
+                            ->native(false),
+
+                        Forms\Components\Select::make('company_id')
+                            ->label('Empresa')
+                            ->relationship('company', 'razon_social')
+                            ->required()
+                            ->searchable(),
+
+                        Forms\Components\Placeholder::make('aviso_afpnet')
+                            ->label('')
+                            ->content('Archivo para AFPnet: solo trabajadores afiliados a AFP, sin cabeceras, con el CUSPP, los ingresos afectos y las marcas S/N de inicio/cese de relación laboral.'),
+                    ])
+                    ->action(function (array $data) {
+                        $sinCuspp = PlanillaLiquidacion::with('employee')
+                            ->where('periodo', $data['periodo'])
+                            ->where('company_id', $data['company_id'])
+                            ->where('sistema_pensiones', 'like', 'afp_%')
+                            ->get()
+                            ->filter(fn ($l) => $l->employee && blank($l->employee->cuspp))
+                            ->map(fn ($l) => $l->apellidos . ', ' . $l->nombres);
+
+                        if ($sinCuspp->isNotEmpty()) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('Trabajadores sin CUSPP en el archivo')
+                                ->body('Quedaron en blanco: ' . $sinCuspp->implode('; ') . '. Complétalos en la ficha si ya tienen CUSPP.')
+                                ->warning()
+                                ->persistent()
+                                ->send();
+                        }
+
+                        return redirect()->route('afpnet.exportar', [
+                            'periodo'   => $data['periodo'],
+                            'companyId' => $data['company_id'],
+                        ]);
+                    }),
+
                 Tables\Actions\Action::make('exportar')
                     ->label('Exportar Excel')
                     ->icon('heroicon-o-arrow-down-tray')

@@ -24,6 +24,8 @@ Route::get('/boletas/exportar/{periodo}/{companyId}', [\App\Http\Controllers\Bol
     ->name('boletas.exportar');
 Route::get('/plame/exportar/{periodo}/{companyId}', [\App\Http\Controllers\PlameExportController::class, 'exportarZip'])
     ->name('plame.exportar');
+Route::get('/afpnet/exportar/{periodo}/{companyId}', [\App\Http\Controllers\AfpnetExportController::class, 'exportar'])
+    ->name('afpnet.exportar');
 Route::get('/boletas/pdf/{liquidacion}', [\App\Http\Controllers\BoletaExportController::class, 'exportarPdf'])
     ->name('boletas.pdf');
 

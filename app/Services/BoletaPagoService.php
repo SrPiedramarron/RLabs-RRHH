@@ -67,7 +67,7 @@ class BoletaPagoService
             'fecha_ingreso'    => $empleado?->fecha_ingreso ? Carbon::parse($empleado->fecha_ingreso)->format('d/m/Y') : '',
             'tipo_trabajador'  => 'EMPLEADO', // Único tipo soportado hoy
             'regimen_pensionario' => $l->sistema_pensiones_label,
-            'cuspp'            => '', // Pendiente: no existe en el sistema aún
+            'cuspp'            => $empleado?->cuspp ?? '',
 
             // ── Asistencia ───────────────────────────────────────────────────
             'dias_laborados'    => $l->dias_trabajados,

@@ -330,6 +330,13 @@ class EmployeeResource extends Resource
                                 ->default('onp')
                                 ->native(false),
 
+                            Forms\Components\TextInput::make('cuspp')
+                                ->label('CUSPP')
+                                ->maxLength(12)
+                                ->dehydrateStateUsing(fn ($state) => $state ? strtoupper(trim($state)) : null)
+                                ->helperText('Código único del afiliado al SPP (12 caracteres). Va en el archivo de AFPnet y en la boleta. Vacío si aún no tiene (ingreso reciente).')
+                                ->visible(fn (Forms\Get $get) => str_starts_with($get('sistema_pensiones') ?? '', 'afp_')),
+
                             Forms\Components\Toggle::make('aplica_comision_flujo_afp')
                                 ->label('Paga comisión sobre flujo AFP')
                                 ->default(true)

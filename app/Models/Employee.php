@@ -36,6 +36,7 @@ class Employee extends Model
         'reloj_id',
         'sueldo_base',
         'sistema_pensiones',
+        'cuspp',
         'aplica_comision_flujo_afp',
         'movilidad_mensual_maxima',
         'aplica_5ta_categoria',
