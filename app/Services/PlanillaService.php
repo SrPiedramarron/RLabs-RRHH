@@ -213,11 +213,23 @@ class PlanillaService
         // mueve a 0118, para no duplicar — confirmado con RRHH.
         $sueldoProporcional = $sueldo - ($valorDia * $diasFalta) - ($valorDia * $diasVacaciones);
 
-        // Remuneración vacacional (0118): sueldo de esos días (mismo valorDia
-        // de arriba) + promedio de COMISIONES de los últimos 6 meses ANTES
-        // del mes actual, prorrateado por los días de vacaciones tomados.
+        // Asignación familiar: monto fijo = 10% de la RMV, solo si el
+        // empleado tiene el switch activado (hijos menores de 18, o hasta
+        // 24 si estudian). Se recalcula sola si cambia la RMV en
+        // Administración > Parámetros Legales.
+        $asignacionFamiliar = $empleado->aplica_asignacion_familiar
+            ? round($rmv * 0.10, 2)
+            : 0.0;
+
+        // Remuneración vacacional (0118): (sueldo + asignación familiar) ÷ 30
+        // × días de vacaciones — la asignación forma parte de la remuneración
+        // vacacional (corregido con RRHH, oct. 2026; antes solo el sueldo) —
+        // + promedio de COMISIONES de los últimos 6 meses ANTES del mes
+        // actual, prorrateado por los días de vacaciones tomados.
         // Confirmado con RRHH: "x" = solo comisiones, no otras variables.
-        $sueldoVacacional     = round($valorDia * $diasVacaciones, 2);
+        // El 0121 sigue descontando solo el sueldo de esos días y la
+        // asignación (0201) sigue pagándose completa en el mes.
+        $sueldoVacacional     = round((($sueldo + $asignacionFamiliar) / 30) * $diasVacaciones, 2);
         $comisionesVacaciones = 0.0;
 
         if ($diasVacaciones > 0) {
@@ -293,13 +305,8 @@ class PlanillaService
         $descuentoTardanzas = round($valorMinuto * $totalMinutosTarde, 2);
         $descuentoFaltas    = round($valorDia    * $diasFalta, 2);
 
-        // Asignación familiar: monto fijo = 10% de la RMV, solo si el
-        // empleado tiene el switch activado (hijos menores de 18, o hasta
-        // 24 si estudian). Se recalcula sola si cambia la RMV en
-        // Administración > Parámetros Legales.
-        $asignacionFamiliar = $empleado->aplica_asignacion_familiar
-            ? round($rmv * 0.10, 2)
-            : 0.0;
+        // (La asignación familiar se calcula más arriba, antes de las
+        // vacaciones, porque forma parte de su base de pago.)
 
         // Bono de movilidad: monto MÁXIMO mensual, prorrateado por asistencia
         // real. Si trabajó todos los días laborables del periodo, recibe el
