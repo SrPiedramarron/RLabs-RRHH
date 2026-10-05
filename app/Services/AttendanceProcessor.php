@@ -39,6 +39,26 @@ class AttendanceProcessor
     }
 
     /**
+     * Recalcula el día de UN trabajador a partir de TODAS sus marcaciones de
+     * ese día (reloj y app por igual). Lo usa la app de asistencia para que
+     * sus marcaciones pasen exactamente por el mismo cálculo que las del
+     * reloj biométrico: tardanza, horas, extras y refrigerio real.
+     */
+    public function procesarDia(Employee $employee, string $fecha, int $relojId): void
+    {
+        $employee->loadMissing('schedules');
+
+        $logs = AttendanceLog::where('reloj_id', $relojId)
+            ->whereDate('timestamp', $fecha)
+            ->orderBy('timestamp')
+            ->get();
+
+        if ($logs->isEmpty()) return;
+
+        $this->calcularYGuardar($employee, $fecha, $logs);
+    }
+
+    /**
      * Recalcula un rango de fechas ya procesado, sin depender del flag
      * `procesado` (para aplicar retroactivamente una corrección de lógica).
      * Respeta igual que siempre los registros con corregido_manualmente.
@@ -214,8 +234,12 @@ class AttendanceProcessor
 
         // Entrada = primer log del d�a, Salida = �ltimo log del d�a
         // No confiamos en el tipo del reloj ZKBio (a veces marca entrada como tipo 1)
-        $logEntrada = $logs->first();
-        $logSalida  = $logs->count() > 1 ? $logs->last() : null;
+        // Las marcas tipo 4/5 son refrigerio declarado (reloj o app): nunca
+        // pueden ser la entrada ni la salida de la jornada. Sin esto, una
+        // salida a refrigerio sin salida final se tomaba como salida del día.
+        $marcasJornada = $logs->reject(fn ($log) => in_array((int) $log->tipo, [4, 5], true))->values();
+        $logEntrada = $marcasJornada->first();
+        $logSalida  = $marcasJornada->count() > 1 ? $marcasJornada->last() : null;
 
         if ($logEntrada && $logSalida && $logEntrada->id === $logSalida->id) {
             $logSalida = null;

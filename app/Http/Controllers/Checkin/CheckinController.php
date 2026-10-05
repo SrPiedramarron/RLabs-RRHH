@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Checkin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AttendanceLog;
 use App\Models\AttendanceRecord;
 use App\Models\RemoteCheckin;
+use App\Services\AttendanceProcessor;
 use App\Services\FacialValidationService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -323,9 +325,48 @@ JS;
         }
     }
 
+    /**
+     * La app es solo otro medio de marcación: cada marcación aprobada se
+     * guarda como una marcación más (igual que las del reloj biométrico) y
+     * el día se recalcula con el MISMO procesador — así tardanza, horas,
+     * horas extra y refrigerio real se calculan idéntico al reloj (pedido
+     * de RRHH, oct. 2026). Tipos de marcación: 0 entrada, 1 salida,
+     * 4 salida a refrigerio, 5 regreso de refrigerio.
+     */
+    /**
+     * La app es solo otro medio de marcación: cada marcación aprobada se
+     * guarda como una marcación más (igual que las del reloj biométrico) y
+     * el día se recalcula con el MISMO procesador — así tardanza, horas,
+     * horas extra y refrigerio real se calculan idéntico al reloj (pedido
+     * de RRHH, oct. 2026). Tipos de marcación: 0 entrada, 1 salida,
+     * 4 salida a refrigerio, 5 regreso de refrigerio.
+     */
     private function procesarCheckin(RemoteCheckin $checkin, $employee): void
     {
-        $fecha = $checkin->fecha_hora->toDateString();
+        $fecha    = $checkin->fecha_hora->toDateString();
+        $relojId  = (int) ($employee->reloj_id ?: $employee->dni);
+        $tipoLog  = ['entrada' => 0, 'salida' => 1, 'salida_refrigerio' => 4, 'regreso_refrigerio' => 5][$checkin->tipo];
+
+        if ($employee->location_id) {
+            AttendanceLog::create([
+                'location_id' => $employee->location_id,
+                'reloj_uid'   => 0,
+                'reloj_id'    => $relojId,
+                'timestamp'   => $checkin->fecha_hora,
+                'tipo'        => $tipoLog,
+                'estado'      => 0,
+                'raw_data'    => [
+                    'fuente'            => 'app',
+                    'remote_checkin_id' => $checkin->id,
+                    'latitud'           => $checkin->latitud,
+                    'longitud'          => $checkin->longitud,
+                ],
+                'procesado'   => true,
+                'created_at'  => now(),
+            ]);
+
+            app(AttendanceProcessor::class)->procesarDia($employee, $fecha, $relojId);
+        }
 
         $record = AttendanceRecord::firstOrCreate(
             ['employee_id' => $employee->id, 'fecha' => $fecha],
@@ -336,21 +377,27 @@ JS;
             ]
         );
 
-        if ($checkin->tipo === 'entrada') {
-            $record->update([
-                'hora_entrada'  => $checkin->fecha_hora,
-                'fuente_entrada' => 'remoto',
-                'estado'        => 'presente',
-            ]);
-        } elseif ($checkin->tipo === 'salida_refrigerio') {
-            $record->update(['inicio_refrigerio' => $checkin->fecha_hora]);
-        } elseif ($checkin->tipo === 'regreso_refrigerio') {
-            $record->update(['fin_refrigerio' => $checkin->fecha_hora]);
+        // Respaldo (trabajador sin sede: no se puede crear marcación): se
+        // guarda directo la hora, como antes.
+        if (! $employee->location_id) {
+            match ($checkin->tipo) {
+                'entrada'            => $record->update(['hora_entrada' => $checkin->fecha_hora]),
+                'salida'             => $record->update(['hora_salida' => $checkin->fecha_hora]),
+                'salida_refrigerio'  => $record->update(['inicio_refrigerio' => $checkin->fecha_hora]),
+                'regreso_refrigerio' => $record->update(['fin_refrigerio' => $checkin->fecha_hora]),
+            };
+            $record->refresh();
         } else {
-            $record->update([
-                'hora_salida'  => $checkin->fecha_hora,
-                'fuente_salida' => 'remoto',
-            ]);
+            $record->refresh();
+        }
+
+        // Fuente "App móvil" solo si esta marcación ES la hora que quedó en
+        // el registro (si el reloj marcó antes/después, manda el reloj).
+        if ($checkin->tipo === 'entrada' && $record->hora_entrada && $record->hora_entrada->equalTo($checkin->fecha_hora)) {
+            $record->update(['fuente_entrada' => 'remoto']);
+        }
+        if ($checkin->tipo === 'salida' && $record->hora_salida && $record->hora_salida->equalTo($checkin->fecha_hora)) {
+            $record->update(['fuente_salida' => 'remoto']);
         }
 
         $checkin->update([
