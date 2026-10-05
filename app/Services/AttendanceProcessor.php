@@ -198,6 +198,16 @@ class AttendanceProcessor
             }
         }
 
+        // Jornada "por marcación": horas exactas entrada→salida (ver arriba).
+        if ($employee->horas_por_marcacion) {
+            $minutosTarde        = 0;
+            $horasExtraDiurnas   = 0;
+            $horasExtraNocturnas = 0;
+            $minutosOrdinarios   = ($horaEntradaReal && $horaSalidaReal)
+                ? max(0, intdiv($horaSalidaReal - $horaEntradaReal, 60))
+                : 0;
+        }
+
         $esHoliday = Holiday::whereDate('fecha', $fecha)
             ->where(fn ($q) => $q->whereNull('company_id')->orWhere('company_id', $employee->company_id))
             ->exists();
@@ -354,6 +364,19 @@ class AttendanceProcessor
             }
         }
 
+        // Jornada "por marcación" (ej. 3 h diarias a otra hora que el horario):
+        // las horas son exactamente de la entrada a la salida, sin descontar
+        // refrigerio ni recortar al horario; sin tardanza ni horas extra.
+        $porMarcacion = (bool) $employee->horas_por_marcacion;
+        if ($porMarcacion) {
+            $minutosTarde        = 0;
+            $horasExtraDiurnas   = 0;
+            $horasExtraNocturnas = 0;
+            $minutosOrdinarios   = ($horaEntradaReal && $horaSalidaReal)
+                ? max(0, intdiv($horaSalidaReal - $horaEntradaReal, 60))
+                : 0;
+        }
+
         // Determinar estado
         $esHoliday = Holiday::whereDate('fecha', $fecha)
             ->where(fn($q) => $q->whereNull('company_id')
@@ -376,7 +399,7 @@ class AttendanceProcessor
         $inicioRefrigerio = $logInicioRefrigerio?->timestamp;
         $finRefrigerio    = $logFinRefrigerio?->timestamp;
 
-        if (!$inicioRefrigerio && $schedule->refrigerio_inicio && $horaEntradaReal && $horaSalidaReal) {
+        if (!$porMarcacion && !$inicioRefrigerio && $schedule->refrigerio_inicio && $horaEntradaReal && $horaSalidaReal) {
 
             // Intentar inferir refrigerio de marcaciones tipo 0 intermedias
             // La entrada real ya es el primer tipo 0 � buscar los siguientes en ventana de refrigerio

@@ -390,6 +390,11 @@ class EmployeeResource extends Resource
                                 ->dehydrateStateUsing(fn ($state) => filled($state) ? $state / 100 : null)
                                 ->visible(fn (Forms\Get $get) => $get('aplica_comision')),
 
+                            Forms\Components\Toggle::make('horas_por_marcacion')
+                                ->label('Horas = de la entrada a la salida marcadas')
+                                ->helperText('Para jornadas cortas o a otra hora que el horario asignado (ej. 3 horas diarias): las horas ordinarias son exactamente salida menos entrada, sin descontar refrigerio, sin recortar al horario, sin tardanza ni horas extra.')
+                                ->default(false),
+
                             Forms\Components\Toggle::make('compensa_horas_extras')
                                 ->label('Compensa horas extras')
                                 ->helperText('Activo = el trabajador NO cobra sus horas extra, las compensa saliendo tarde y entrando tarde otro día. Las horas siguen registrándose en asistencia, pero no se pagan en la liquidación.')

@@ -47,6 +47,7 @@ class Employee extends Model
         'tipo_base_comision',
         'porcentaje_comision',
         'compensa_horas_extras',
+        'horas_por_marcacion',
         'aplica_asignacion_familiar',
         'movilidad_diaria',
         'monto_eps_mensual_con_igv',
@@ -75,6 +76,7 @@ class Employee extends Model
         'exonerado_registro'    => 'boolean',
         'active'                => 'boolean',
         'compensa_horas_extras' => 'boolean',
+        'horas_por_marcacion'   => 'boolean',
         'porcentaje_comision'   => 'decimal:4',
     ];
 
