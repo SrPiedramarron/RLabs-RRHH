@@ -50,7 +50,10 @@ class PlameExportService
             $horasOrdinarias   = min(360, intdiv($minutosOrdinariosTotales, 60));
             $minutosOrdinarios = min(59, $minutosOrdinariosTotales % 60);
 
-            $horasExtraTotales   = $l->horas_extra_diurnas + $l->horas_extra_nocturnas;
+            // Los no fiscalizados (exonerados de registro) no declaran horas extra.
+            $horasExtraTotales   = $empleado->exonerado_registro
+                ? 0
+                : $l->horas_extra_diurnas + $l->horas_extra_nocturnas;
             $horasExtra          = min(360, (int) floor($horasExtraTotales));
             $minutosExtra        = min(59, (int) round(($horasExtraTotales - $horasExtra) * 60));
 
@@ -291,34 +294,70 @@ class PlameExportService
      * (un empleado puede tener varias líneas si tuvo motivos distintos,
      * ej: 2 días de falta + 3 días de licencia con goce).
      */
-    public function generarE15DiasNoLaborados(\Illuminate\Support\Collection $attendanceRecords): string
+    public function generarE15DiasNoLaborados(\Illuminate\Support\Collection $liquidaciones): string
     {
-        $agrupado = $attendanceRecords
-            ->whereNotNull('motivo_suspension_plame')
-            ->groupBy(fn ($r) => $r->employee_id . '|' . $r->motivo_suspension_plame);
+        $jornada = app(\App\Services\JornadaReferencialService::class);
+        $lineas  = [];
 
-        $lineas = [];
-
-        foreach ($agrupado as $grupo) {
-            $primero  = $grupo->first();
-            $empleado = $primero->employee;
+        foreach ($liquidaciones as $l) {
+            $empleado = $l->employee;
             if (!$empleado) {
                 continue;
             }
 
-            $dias = min(31, $grupo->count());
+            // [codigo => [fechas]]; una fecha solo se declara una vez.
+            $porCodigo = [];
+            $usadas    = [];
 
-            $lineas[] = $this->lineaPlame([
-                '01', // Tipo de documento: 01 = DNI
-                $empleado->dni,
-                $primero->motivo_suspension_plame,
-                $dias,
-            ]);
+            // 1) Días con código de suspensión en asistencia (faltas, descansos
+            //    médicos, licencias, permisos), por el periodo de corte.
+            [$desde, $hasta] = $jornada->ventanaCorte($empleado, $l->periodo);
+            $registros = \App\Models\AttendanceRecord::where('employee_id', $empleado->id)
+                ->whereNotNull('motivo_suspension_plame')
+                ->whereBetween('fecha', [$desde->toDateString(), $hasta->toDateString()])
+                ->get();
+            foreach ($registros as $r) {
+                $fecha = \Carbon\Carbon::parse($r->fecha)->toDateString();
+                if (isset($usadas[$fecha])) {
+                    continue;
+                }
+                $usadas[$fecha] = true;
+                $porCodigo[(string) $r->motivo_suspension_plame][] = $fecha;
+            }
+
+            // 2) Vacaciones gozadas (código 23), por mes calendario del periodo.
+            $inicioMes = \Carbon\Carbon::parse($l->periodo . '-01')->startOfDay();
+            $finMes    = $inicioMes->copy()->endOfMonth()->startOfDay();
+            $vacaciones = \App\Models\VacacionHistorial::where('employee_id', $empleado->id)
+                ->where('fecha_inicio', '<=', $finMes->toDateString())
+                ->where('fecha_fin', '>=', $inicioMes->toDateString())
+                ->get();
+            foreach ($vacaciones as $v) {
+                $ini = $v->fecha_inicio->copy()->startOfDay()->max($inicioMes);
+                $fin = $v->fecha_fin->copy()->startOfDay()->min($finMes);
+                for ($d = $ini->copy(); $d->lte($fin); $d->addDay()) {
+                    $fecha = $d->toDateString();
+                    if (isset($usadas[$fecha])) {
+                        continue;
+                    }
+                    $usadas[$fecha] = true;
+                    $porCodigo['23'][] = $fecha;
+                }
+            }
+
+            ksort($porCodigo, SORT_NUMERIC);
+            foreach ($porCodigo as $codigo => $fechas) {
+                $lineas[] = $this->lineaPlame([
+                    '01', // Tipo de documento: 01 = DNI
+                    $empleado->dni,
+                    $codigo,
+                    min(31, count($fechas)),
+                ]);
+            }
         }
 
         return $this->unirLineasPlame($lineas);
     }
-
     public function nombreArchivoE15(string $periodo, string $rucEmpleador): string
     {
         [$year, $month] = explode('-', $periodo);

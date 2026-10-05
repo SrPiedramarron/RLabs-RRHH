@@ -32,14 +32,10 @@ class PlameExportController extends Controller
         $inicioMes = Carbon::parse($periodo . '-01')->startOfMonth();
         $finMes    = Carbon::parse($periodo . '-01')->endOfMonth();
 
-        $attendanceDelMes = AttendanceRecord::with('employee')
-            ->whereIn('employee_id', $liquidaciones->pluck('employee_id'))
-            ->whereBetween('fecha', [$inicioMes->toDateString(), $finMes->toDateString()])
-            ->get();
 
         // Generar los 3 archivos
         $e14 = $plame->generarE14Jornada($liquidaciones);
-        $e15 = $plame->generarE15DiasNoLaborados($attendanceDelMes);
+        $e15 = $plame->generarE15DiasNoLaborados($liquidaciones);
         $e18 = $plame->generarE18Ingresos($liquidaciones, $boletaService);
 
         $nombreE14 = $plame->nombreArchivoE14($periodo, $ruc);
