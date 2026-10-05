@@ -36,6 +36,14 @@ class PlameExportService
                     ->sum('horas_ordinarias') * 60
             );
 
+            // Exonerados de registro (no fiscalizados): no marcan, así que se
+            // declara su jornada ordinaria REFERENCIAL del periodo de corte
+            // (L-V 8:30 h, sábados 4 h x 2 al mes, configurable en su ficha).
+            if ($empleado->exonerado_registro) {
+                $minutosOrdinariosTotales = app(\App\Services\JornadaReferencialService::class)
+                    ->minutosPeriodo($empleado, $l->periodo);
+            }
+
             $horasOrdinarias   = min(360, intdiv($minutosOrdinariosTotales, 60));
             $minutosOrdinarios = min(59, $minutosOrdinariosTotales % 60);
 

@@ -309,6 +309,22 @@ class EmployeeResource extends Resource
                                 ->maxLength(200)
                                 ->visible(fn(Get $get) => $get('exonerado_registro')),
 
+                            Forms\Components\TextInput::make('jornada_ref_horas_dia')
+                                ->label('Jornada referencial lun-vie (horas por día)')
+                                ->numeric()->minValue(0)->maxValue(24)->step(0.25)->default(8.5)
+                                ->helperText('Para el archivo de PLAME: como no marca asistencia, sus horas ordinarias se calculan solas por los días del periodo de corte (26 al 25), sin feriados ni vacaciones.')
+                                ->visible(fn(Get $get) => $get('exonerado_registro')),
+
+                            Forms\Components\TextInput::make('jornada_ref_horas_sabado')
+                                ->label('Jornada referencial sábado (horas)')
+                                ->numeric()->minValue(0)->maxValue(24)->step(0.25)->default(4)
+                                ->visible(fn(Get $get) => $get('exonerado_registro')),
+
+                            Forms\Components\TextInput::make('jornada_ref_sabados_mes')
+                                ->label('Sábados que cuentan por periodo')
+                                ->numeric()->minValue(0)->maxValue(5)->default(2)
+                                ->visible(fn(Get $get) => $get('exonerado_registro')),
+
                             Forms\Components\TextInput::make('sueldo_base')
                                 ->label('Sueldo Base (S/)')
                                 ->numeric()
