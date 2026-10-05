@@ -349,7 +349,7 @@ class PlanillaService
         $descuentoPension      = 0.0;
 
         if ($esAfp) {
-            $tasaAfp = AfpTasa::vigentePara($empleado->sistema_pensiones);
+            $tasaAfp = AfpTasa::vigentePara($empleado->sistema_pensiones, Carbon::create($year, $month, 25)->toDateString());
 
             if (!$tasaAfp) {
                 throw new \RuntimeException(
@@ -592,7 +592,7 @@ class PlanillaService
         $descuentoPension     = 0.0;
 
         if ($esAfp) {
-            $tasaAfp = AfpTasa::vigentePara($empleado->sistema_pensiones);
+            $tasaAfp = AfpTasa::vigentePara($empleado->sistema_pensiones, Carbon::create($year, $month, 25)->toDateString());
 
             if (!$tasaAfp) {
                 throw new \RuntimeException(
