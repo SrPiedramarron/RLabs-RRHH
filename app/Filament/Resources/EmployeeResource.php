@@ -563,6 +563,13 @@ class EmployeeResource extends Resource
     ->sortable()
     ->toggleable(isToggledHiddenByDefault: true),
 
+Tables\Columns\TextColumn::make('cuspp')
+    ->label('CUSPP')
+    ->placeholder(fn ($record) => str_starts_with((string) $record->sistema_pensiones, 'afp_') ? 'Falta' : '—')
+    ->color(fn ($state, $record) => blank($state) && str_starts_with((string) $record->sistema_pensiones, 'afp_') ? 'danger' : null)
+    ->searchable()
+    ->toggleable(),
+
 Tables\Columns\TextColumn::make('sistema_pensiones')
     ->label('Pensiones')
     ->formatStateUsing(fn($state) => match($state) {
@@ -612,6 +619,11 @@ Tables\Columns\TextColumn::make('sistema_pensiones')
                     ->boolean(),
             ])
             ->filters([
+                Tables\Filters\Filter::make('afp_sin_cuspp')
+                    ->label('AFP sin CUSPP')
+                    ->toggle()
+                    ->query(fn ($query) => $query->where('sistema_pensiones', 'like', 'afp_%')->where(fn ($q) => $q->whereNull('cuspp')->orWhere('cuspp', ''))),
+
                 Tables\Filters\SelectFilter::make('company_id')
                     ->label('Empresa')
                     ->relationship('company', 'razon_social'),
