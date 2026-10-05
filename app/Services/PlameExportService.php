@@ -90,8 +90,10 @@ class PlameExportService
      * empresas). NO es una lista genérica — es la lista real y oficial que
      * el PDT espera para este RUC específico.
      *
-     * Se declaran TODOS con 0 cuando no aplica ese mes (confirmado contra
-     * archivo .rem real: el catálogo completo va siempre, sin omitir ceros).
+     * Solo se declaran los que tienen monto ese mes (corregido oct. 2026: un
+     * .rem aceptado por el PDT trae únicamente los conceptos con valor; antes
+     * se mandaba el catálogo completo en 0). Los tributos (0605 y, para AFP,
+     * 0601/0606/0608) van siempre.
      *
      * Conceptos marcados [SIN CALCULAR HOY] existen en el catálogo SUNAT
      * pero el sistema aún no los calcula (gratificaciones, liquidaciones,
@@ -194,8 +196,21 @@ class PlameExportService
             // directo desde descuento_5ta_categoria de la liquidación.
             $montosPorCodigo['0605'] = (float) $l->descuento_5ta_categoria;
 
-            $catalogoCompleto = array_merge(
+            // Ingresos/descuentos: SOLO los que tienen monto. Un archivo .rem
+            // ya aceptado por el PDT (de otra empresa, oct. 2026) trae por
+            // trabajador únicamente sus conceptos con valor, no el catálogo
+            // completo en cero; y RRHH espera ver vacío lo que no aplica
+            // (antes se mandaban ~49 líneas por trabajador casi todas en
+            // 0.00 y el PDT las mostraba). Los tributos (0605 y, para AFP,
+            // 0601/0606/0608) siguen yendo siempre, aun en 0, como en el
+            // archivo aceptado y como pide el Anexo 3.
+            $conceptosConMonto = array_values(array_filter(
                 self::CATALOGO_INGRESOS_DESCUENTOS_E18,
+                fn ($codigo) => abs((float) ($montosPorCodigo[$codigo] ?? 0)) >= 0.005
+            ));
+
+            $catalogoCompleto = array_merge(
+                $conceptosConMonto,
                 self::CATALOGO_TRIBUTOS_E18,
                 str_starts_with((string) $empleado->sistema_pensiones, 'afp_') ? self::CATALOGO_TRIBUTOS_AFP_E18 : []
             );
