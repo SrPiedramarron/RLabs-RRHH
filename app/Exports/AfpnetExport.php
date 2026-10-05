@@ -7,6 +7,7 @@ use App\Models\PlanillaLiquidacion;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromArray;
+use Maatwebsite\Excel\Concerns\WithStrictNullComparison;
 
 /**
  * Planilla para AFPnet: sin cabeceras (el sistema de las AFP la recibe así),
@@ -18,7 +19,9 @@ use Maatwebsite\Excel\Concerns\FromArray;
  *  13-15 Aportes voluntarios (0) · 16 Trabajo de riesgo (N) · 17 vacío
  * Formato confirmado con RRHH (Cielo, oct. 2026) con su archivo de ejemplo.
  */
-class AfpnetExport implements FromArray
+// WithStrictNullComparison: sin esto la librería omite los ceros (el 0 de
+// tipo de documento y los aportes voluntarios deben escribirse).
+class AfpnetExport implements FromArray, WithStrictNullComparison
 {
     private const PARTICULAS = ['DE', 'DEL', 'LA', 'LAS', 'LOS', 'SAN', 'SANTA', 'VAN', 'VON', 'DA', 'DI'];
 
