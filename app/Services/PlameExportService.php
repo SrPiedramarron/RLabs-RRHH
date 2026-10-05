@@ -27,12 +27,15 @@ class PlameExportService
             // son las horas efectivamente laboradas, sin sumar tardanzas
             // ni faltas). Sumamos directo de attendance_records, que ya
             // calcula esto neto por día con el fix de refrigerio/tardanza.
+            // Las horas se suman por el periodo de corte (26 al 25), no por mes
+            // calendario — confirmado por RRHH, oct. 2026 — y si el trabajador
+            // cesó, hasta su fecha de cese aunque pase del 25.
+            [$desdeCorte, $hastaCorte] = app(\App\Services\JornadaReferencialService::class)
+                ->ventanaCorte($empleado, $l->periodo);
+
             $minutosOrdinariosTotales = (int) round(
                 \App\Models\AttendanceRecord::where('employee_id', $empleado->id)
-                    ->whereBetween('fecha', [
-                        \Carbon\Carbon::parse($l->periodo . '-01')->startOfMonth()->toDateString(),
-                        \Carbon\Carbon::parse($l->periodo . '-01')->endOfMonth()->toDateString(),
-                    ])
+                    ->whereBetween('fecha', [$desdeCorte->toDateString(), $hastaCorte->toDateString()])
                     ->sum('horas_ordinarias') * 60
             );
 
