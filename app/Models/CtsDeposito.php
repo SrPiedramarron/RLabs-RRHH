@@ -16,6 +16,7 @@ class CtsDeposito extends Model
         'meses_computables',
         'meses_con_comisiones', 'promedio_comisiones',
         'meses_con_horas_extra', 'promedio_horas_extra',
+        'meses_con_bonos', 'promedio_bonos',
         'gratificacion_id', 'sexto_gratificacion',
         'remuneracion_computable', 'monto_cts',
         'calculado_por', 'calculado_at',

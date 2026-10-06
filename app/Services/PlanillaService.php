@@ -735,16 +735,26 @@ class PlanillaService
                 ->where('periodo', $periodoMes)
                 ->first();
 
-            if (!$liquidacion) {
-                continue;
-            }
+            // Montos pagados fuera del sistema (cts_insumos_historicos): se usan
+            // solo si la liquidación del mes no trae ese concepto.
+            $insumos = \App\Models\CtsInsumoHistorico::where('employee_id', $empleado->id)
+                ->where('periodo', $periodoMes)
+                ->pluck('monto', 'concepto');
 
-            if ((float) $liquidacion->comisiones > 0) {
+            $comisionesMes = (float) ($liquidacion?->comisiones ?? 0);
+            if ($comisionesMes <= 0) {
+                $comisionesMes = (float) ($insumos['comisiones'] ?? 0);
+            }
+            if ($comisionesMes > 0) {
                 $mesesConComisiones++;
-                $sumaComisiones += (float) $liquidacion->comisiones;
+                $sumaComisiones += $comisionesMes;
             }
 
-            $horasExtraMes = (float) $liquidacion->importe_horas_extra_diurnas + (float) $liquidacion->importe_horas_extra_nocturnas;
+            $horasExtraMes = (float) ($liquidacion?->importe_horas_extra_diurnas ?? 0)
+                + (float) ($liquidacion?->importe_horas_extra_nocturnas ?? 0);
+            if ($horasExtraMes <= 0) {
+                $horasExtraMes = (float) ($insumos['horas_extra'] ?? 0);
+            }
             if ($horasExtraMes > 0) {
                 $mesesConHorasExtra++;
                 $sumaHorasExtra += $horasExtraMes;
@@ -873,6 +883,8 @@ class PlanillaService
         $sumaComisiones      = 0.0;
         $mesesConHorasExtra  = 0;
         $sumaHorasExtra      = 0.0;
+        $mesesConBonos       = 0;
+        $sumaBonos           = 0.0;
 
         foreach ($mesesSemestre as [$y, $m]) {
             $inicioMes = Carbon::create($y, $m, 1)->startOfMonth();
@@ -890,19 +902,39 @@ class PlanillaService
                 ->where('periodo', $periodoMes)
                 ->first();
 
-            if (!$liquidacion) {
-                continue;
-            }
+            // Montos pagados fuera del sistema (cts_insumos_historicos): se usan
+            // solo si la liquidación del mes no trae ese concepto.
+            $insumos = \App\Models\CtsInsumoHistorico::where('employee_id', $empleado->id)
+                ->where('periodo', $periodoMes)
+                ->pluck('monto', 'concepto');
 
-            if ((float) $liquidacion->comisiones > 0) {
+            $comisionesMes = (float) ($liquidacion?->comisiones ?? 0);
+            if ($comisionesMes <= 0) {
+                $comisionesMes = (float) ($insumos['comisiones'] ?? 0);
+            }
+            if ($comisionesMes > 0) {
                 $mesesConComisiones++;
-                $sumaComisiones += (float) $liquidacion->comisiones;
+                $sumaComisiones += $comisionesMes;
             }
 
-            $horasExtraMes = (float) $liquidacion->importe_horas_extra_diurnas + (float) $liquidacion->importe_horas_extra_nocturnas;
+            $horasExtraMes = (float) ($liquidacion?->importe_horas_extra_diurnas ?? 0)
+                + (float) ($liquidacion?->importe_horas_extra_nocturnas ?? 0);
+            if ($horasExtraMes <= 0) {
+                $horasExtraMes = (float) ($insumos['horas_extra'] ?? 0);
+            }
             if ($horasExtraMes > 0) {
                 $mesesConHorasExtra++;
                 $sumaHorasExtra += $horasExtraMes;
+            }
+
+            // Bono regular (encargatura / bono fijo mensual): computable.
+            $bonoMes = (float) ($liquidacion?->bono_encargatura ?? 0);
+            if ($bonoMes <= 0) {
+                $bonoMes = (float) ($insumos['bono'] ?? 0);
+            }
+            if ($bonoMes > 0) {
+                $mesesConBonos++;
+                $sumaBonos += $bonoMes;
             }
         }
 
@@ -916,13 +948,14 @@ class PlanillaService
 
         $promedioComisiones = $mesesConComisiones >= 3 ? round($sumaComisiones / 6, 2) : 0.0;
         $promedioHorasExtra = $mesesConHorasExtra >= 3 ? round($sumaHorasExtra / 6, 2) : 0.0;
+        $promedioBonos      = $mesesConBonos >= 3 ? round($sumaBonos / 6, 2) : 0.0;
 
         $sextoGratificacion = $gratificacionRelevante
             ? round($gratificacionRelevante->monto_gratificacion / 6, 2)
             : 0.0;
 
         $remuneracionComputable = round(
-            floatval($empleado->sueldo_base) + $asignacionFamiliar + $promedioComisiones + $promedioHorasExtra + $sextoGratificacion,
+            floatval($empleado->sueldo_base) + $asignacionFamiliar + $promedioComisiones + $promedioHorasExtra + $promedioBonos + $sextoGratificacion,
             2
         );
 
@@ -945,6 +978,8 @@ class PlanillaService
                 'promedio_comisiones'     => $promedioComisiones,
                 'meses_con_horas_extra'   => $mesesConHorasExtra,
                 'promedio_horas_extra'    => $promedioHorasExtra,
+                'meses_con_bonos'         => $mesesConBonos,
+                'promedio_bonos'          => $promedioBonos,
                 'gratificacion_id'        => $gratificacionRelevante?->id,
                 'sexto_gratificacion'     => $sextoGratificacion,
                 'remuneracion_computable' => $remuneracionComputable,
