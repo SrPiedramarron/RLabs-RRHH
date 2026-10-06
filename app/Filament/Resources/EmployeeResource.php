@@ -164,6 +164,17 @@ class EmployeeResource extends Resource
                                 ->label('Código')
                                 ->maxLength(20),
 
+                            Forms\Components\Select::make('jefe_directo_id')
+                                ->label('Jefe directo')
+                                ->helperText('Aprueba primero sus vacaciones y permisos desde la app. Sin jefe, van directo a RRHH.')
+                                ->options(fn ($record) => \App\Models\Employee::where('active', true)
+                                    ->when($record, fn ($q) => $q->where('id', '!=', $record->id))
+                                    ->orderBy('apellidos')
+                                    ->get()
+                                    ->mapWithKeys(fn ($e) => [$e->id => $e->apellidos . ', ' . $e->nombres]))
+                                ->searchable()
+                                ->nullable(),
+
                             Forms\Components\TextInput::make('cargo')
                                 ->label('Cargo')
                                 ->maxLength(100),

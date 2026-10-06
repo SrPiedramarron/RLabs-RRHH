@@ -14,6 +14,10 @@ class Solicitud extends Model
 
     protected $fillable = [
         'employee_id',
+        'jefe_id',
+        'jefe_resuelto_at',
+        'comentario_jefe',
+        'escalada_at',
         'company_id',
         'tipo',
         'estado',
@@ -35,6 +39,8 @@ class Solicitud extends Model
         'fecha_fin'      => 'date',
         'fecha_registro' => 'date',
         'revisado_at'    => 'datetime',
+        'jefe_resuelto_at' => 'datetime',
+        'escalada_at'    => 'datetime',
     ];
 
     public function employee(): BelongsTo
@@ -45,6 +51,11 @@ class Solicitud extends Model
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
+    }
+
+    public function jefe(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'jefe_id');
     }
 
     public function revisadoPor(): BelongsTo
@@ -66,6 +77,7 @@ class Solicitud extends Model
     {
         return match ($this->estado) {
             'pendiente' => 'warning',
+            'pendiente_jefe' => 'info',
             'aprobada'  => 'success',
             'rechazada' => 'danger',
             default     => 'gray',
@@ -75,9 +87,22 @@ class Solicitud extends Model
     protected static function booted(): void
     {
         static::created(function (Solicitud $solicitud) {
+            if ($solicitud->estado === 'pendiente_jefe') {
+                app(\App\Services\SolicitudJefeService::class)->notificarJefe($solicitud);
+
+                return;
+            }
+
+            $solicitud->notificarRrhh();
+        });
+    }
+
+    /** Avisa a RRHH (notificación interna y correo) de que hay una solicitud por revisar. */
+    public function notificarRrhh(): void
+    {
             $destinatarios = User::where('role', 'superadmin')
                 ->orWhereNull('company_id')
-                ->orWhere('company_id', $solicitud->company_id)
+                ->orWhere('company_id', $this->company_id)
                 ->get();
 
             if ($destinatarios->isEmpty()) {
@@ -85,8 +110,8 @@ class Solicitud extends Model
             }
 
             Notification::make()
-                ->title('Nueva solicitud: ' . $solicitud->tipo_label)
-                ->body($solicitud->employee->nombre_completo . ($solicitud->motivo ? ' — ' . \Illuminate\Support\Str::limit($solicitud->motivo, 80) : ''))
+                ->title('Nueva solicitud: ' . $this->tipo_label)
+                ->body($this->employee->nombre_completo . ($this->motivo ? ' — ' . \Illuminate\Support\Str::limit($this->motivo, 80) : ''))
                 ->icon('heroicon-o-inbox-arrow-down')
                 ->actions([
                     \Filament\Notifications\Actions\Action::make('ver')
@@ -100,12 +125,11 @@ class Solicitud extends Model
             // avisos de contratos por vencer) — pedido explícito oct. 2026
             // de que las solicitudes lleguen también por correo, no solo
             // como notificación dentro del sistema.
-            $company = $solicitud->company;
+            $company = $this->company;
             if ($company?->email) {
                 Mail::to($company->email)
                     ->cc($company->email_cc ? [$company->email_cc] : [])
-                    ->queue(new NuevaSolicitudMail($solicitud));
+                    ->queue(new NuevaSolicitudMail($this));
             }
-        });
     }
 }

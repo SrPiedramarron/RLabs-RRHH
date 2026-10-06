@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Checkin\AuthController;
 use App\Http\Controllers\Checkin\CheckinController;
+use App\Http\Controllers\Checkin\EquipoController;
 use App\Http\Controllers\Checkin\PushSubscriptionController;
 use App\Http\Controllers\Checkin\SolicitudController;
 use Illuminate\Support\Facades\Route;
@@ -49,6 +50,11 @@ Route::prefix('checkin')->name('checkin.')->group(function () {
 
         Route::get('/solicitudes/nueva/correccion', [SolicitudController::class, 'createCorreccion'])->name('solicitudes.correccion.create');
         Route::post('/solicitudes/correccion',      [SolicitudController::class, 'storeCorreccion'])->name('solicitudes.correccion.store');
+
+        // Aprobación de vacaciones y permisos por el jefe directo
+        Route::get('/equipo', [EquipoController::class, 'index'])->name('equipo');
+        Route::post('/equipo/{solicitud}/aprobar', [EquipoController::class, 'aprobar'])->name('equipo.aprobar');
+        Route::post('/equipo/{solicitud}/rechazar', [EquipoController::class, 'rechazar'])->name('equipo.rechazar');
 
         // Suscripción a notificaciones push
         Route::post('/push/subscribe', [PushSubscriptionController::class, 'store'])->name('push.subscribe');

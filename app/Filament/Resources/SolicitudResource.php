@@ -96,13 +96,18 @@ class SolicitudResource extends Resource
                     ->label('Estado')
                     ->badge()
                     ->color(fn (Solicitud $record) => $record->estado_color)
-                    ->formatStateUsing(fn ($state) => strtoupper($state))
+                    ->formatStateUsing(fn ($state) => $state === 'pendiente_jefe' ? 'ESPERA AL JEFE' : strtoupper($state))
                     ->weight(FontWeight::Bold),
 
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Enviada')
                     ->dateTime('d/m/Y H:i')
                     ->sortable(),
+
+                Tables\Columns\TextColumn::make('jefe.apellidos')
+                    ->label('Jefe directo')
+                    ->placeholder('—')
+                    ->description(fn (Solicitud $record) => $record->escalada_at ? 'Sin respuesta, pasó a RRHH' : ($record->comentario_jefe ?: null)),
 
                 Tables\Columns\TextColumn::make('revisadoPor.name')
                     ->label('Revisada por')
@@ -112,7 +117,8 @@ class SolicitudResource extends Resource
                 Tables\Filters\SelectFilter::make('estado')
                     ->label('Estado')
                     ->options([
-                        'pendiente' => 'Pendiente',
+                        'pendiente' => 'Pendiente (RRHH)',
+                        'pendiente_jefe' => 'Espera al jefe',
                         'aprobada'  => 'Aprobada',
                         'rechazada' => 'Rechazada',
                     ])
@@ -140,7 +146,7 @@ class SolicitudResource extends Resource
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->requiresConfirmation()
-                    ->visible(fn (Solicitud $record) => $record->estado === 'pendiente')
+                    ->visible(fn (Solicitud $record) => in_array($record->estado, ['pendiente', 'pendiente_jefe'], true))
                     ->form(fn (Solicitud $record) => $record->tipo === 'permiso' ? [
                         Forms\Components\Select::make('motivo_suspension_plame')
                             ->label('Código Tabla 21 SUNAT a aplicar')
@@ -157,7 +163,7 @@ class SolicitudResource extends Resource
                     ->label('Rechazar')
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
-                    ->visible(fn (Solicitud $record) => $record->estado === 'pendiente')
+                    ->visible(fn (Solicitud $record) => in_array($record->estado, ['pendiente', 'pendiente_jefe'], true))
                     ->form([
                         Forms\Components\Textarea::make('comentario')
                             ->label('Motivo del rechazo')

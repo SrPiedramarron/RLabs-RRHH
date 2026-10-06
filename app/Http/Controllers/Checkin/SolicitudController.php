@@ -42,18 +42,21 @@ class SolicitudController extends Controller
             'motivo'       => ['nullable', 'string', 'max:500'],
         ]);
 
+        $inicial = app(\App\Services\SolicitudJefeService::class)->estadoInicial($employee, 'vacaciones');
+
         Solicitud::create([
             'employee_id'  => $employee->id,
             'company_id'   => $employee->company_id,
             'tipo'         => 'vacaciones',
-            'estado'       => 'pendiente',
+            'estado'       => $inicial['estado'],
+            'jefe_id'      => $inicial['jefe_id'],
             'fecha_inicio' => $data['fecha_inicio'],
             'fecha_fin'    => $data['fecha_fin'],
             'motivo'       => $data['motivo'] ?? null,
         ]);
 
         return redirect()->route('checkin.solicitudes.index')
-            ->with('success', '✅ Tu solicitud de vacaciones fue enviada. RRHH la revisará pronto.');
+            ->with('success', '✅ Tu solicitud de vacaciones fue enviada. ' . ($inicial['jefe_id'] ? 'Primero la revisa tu jefe y luego RRHH.' : 'RRHH la revisará pronto.'));
     }
 
     // ── Permiso (tardanza/ausencia justificada por un motivo puntual) ───────────
@@ -90,11 +93,14 @@ class SolicitudController extends Controller
             $adjuntoPath = $request->file('adjunto')->store("solicitudes/{$employee->id}", 'public');
         }
 
+        $inicial = app(\App\Services\SolicitudJefeService::class)->estadoInicial($employee, 'permiso');
+
         Solicitud::create([
             'employee_id'  => $employee->id,
             'company_id'   => $employee->company_id,
             'tipo'         => 'permiso',
-            'estado'       => 'pendiente',
+            'estado'       => $inicial['estado'],
+            'jefe_id'      => $inicial['jefe_id'],
             'fecha_inicio' => $data['fecha_inicio'],
             'fecha_fin'    => $data['fecha_fin'],
             'motivo'       => '[' . $categorias[$data['categoria']] . '] ' . $data['motivo'],
@@ -102,7 +108,7 @@ class SolicitudController extends Controller
         ]);
 
         return redirect()->route('checkin.solicitudes.index')
-            ->with('success', '✅ Tu solicitud de permiso fue enviada. RRHH la revisará pronto.');
+            ->with('success', '✅ Tu solicitud de permiso fue enviada. ' . ($inicial['jefe_id'] ? 'Primero la revisa tu jefe y luego RRHH.' : 'RRHH la revisará pronto.'));
     }
 
     // ── Corrección de horas (marcación olvidada o incorrecta) ───────────────────

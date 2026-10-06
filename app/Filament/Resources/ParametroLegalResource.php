@@ -30,6 +30,7 @@ class ParametroLegalResource extends Resource
                     ParametroLegal::RMV      => 'RMV — Remuneración Mínima Vital (S/)',
                     ParametroLegal::UIT      => 'UIT — Unidad Impositiva Tributaria (S/)',
                     ParametroLegal::TASA_ONP => 'Tasa ONP (ej. 0.13 = 13%)',
+                    'horas_espera_jefe'      => 'Horas de espera al jefe directo (solicitudes)',
                 ])
                 ->required()
                 ->native(false),
@@ -63,6 +64,7 @@ class ParametroLegalResource extends Resource
                         ParametroLegal::RMV      => 'RMV',
                         ParametroLegal::UIT      => 'UIT',
                         ParametroLegal::TASA_ONP => 'Tasa ONP',
+                        'horas_espera_jefe'      => 'Horas espera jefe',
                         default                   => $state,
                     })
                     ->badge(),

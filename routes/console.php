@@ -10,3 +10,6 @@ Schedule::job(new SyncAttendanceJob)->everyFifteenMinutes();
 Schedule::command(GenerateAbsenceRecords::class)->dailyAt('23:30');
 
 Schedule::command(AvisarContratosPorVencer::class)->dailyAt('08:00');
+
+// Vacaciones/permisos sin respuesta del jefe directo pasan a RRHH tras el plazo configurado.
+Schedule::command(\App\Console\Commands\EscalarSolicitudesJefe::class)->everyTenMinutes();

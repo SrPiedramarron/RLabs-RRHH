@@ -60,8 +60,8 @@
                 <div style="font-size:12px; color:var(--rojo); margin-top:4px;">Motivo: {{ $s->comentario_revision }}</div>
             @endif
         </div>
-        <span class="badge badge-{{ ['pendiente'=>'amarillo','aprobada'=>'verde','rechazada'=>'rojo'][$s->estado] }}">
-            {{ strtoupper($s->estado) }}
+        <span class="badge badge-{{ ['pendiente'=>'amarillo','pendiente_jefe'=>'amarillo','aprobada'=>'verde','rechazada'=>'rojo'][$s->estado] }}">
+            {{ $s->estado === 'pendiente_jefe' ? 'ESPERA A TU JEFE' : strtoupper($s->estado) }}
         </span>
     </div>
 </div>

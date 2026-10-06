@@ -48,6 +48,7 @@ class Employee extends Model
         'porcentaje_comision',
         'compensa_horas_extras',
         'horas_por_marcacion',
+        'jefe_directo_id',
         'aplica_asignacion_familiar',
         'movilidad_diaria',
         'monto_eps_mensual_con_igv',
@@ -167,6 +168,16 @@ public function devices()
 {
     return $this->hasMany(EmployeeDevice::class);
 }
+
+    public function jefeDirecto(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(self::class, 'jefe_directo_id');
+    }
+
+    public function subordinados(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(self::class, 'jefe_directo_id');
+    }
 
     public function vacaciones(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
