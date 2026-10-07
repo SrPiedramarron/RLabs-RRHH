@@ -35,23 +35,88 @@ class CheckinController extends Controller
             ->where('fecha', today())
             ->first();
 
-        $tieneEntrada = $checkinHoy->where('tipo', 'entrada')->isNotEmpty()
-            || ($recordHoy && $recordHoy->hora_entrada !== null);
+        // Estado del día con TODAS las marcaciones (reloj y app), no solo las de la app.
+        $estado = $this->estadoDelDia($employee);
 
-        $tieneSalida = $checkinHoy->where('tipo', 'salida')->isNotEmpty()
-            || ($recordHoy && $recordHoy->hora_salida !== null);
+        $tieneEntrada = $checkinHoy->where('tipo', 'entrada')->isNotEmpty() || $estado['entrada']
+            || ($recordHoy && $recordHoy->hora_entrada !== null);
+        $tieneSalida  = $estado['salida'];
 
         // Refrigerio: solo si el horario del trabajador lo contempla. Se
         // decide solo con las marcaciones de la app (no con el registro de
         // asistencia, que puede traer el refrigerio inferido del horario).
         $usaRefrigerio = (bool) $employee->schedule?->refrigerio_inicio;
-        $tieneSalidaRefrigerio  = $checkinHoy->where('tipo', 'salida_refrigerio')->isNotEmpty();
-        $tieneRegresoRefrigerio = $checkinHoy->where('tipo', 'regreso_refrigerio')->isNotEmpty();
+        $tieneSalidaRefrigerio  = $estado['salida_refrigerio'];
+        $tieneRegresoRefrigerio = $estado['regreso_refrigerio'];
 
         return view('checkin.home', compact(
             'employee', 'checkinHoy', 'tieneEntrada', 'tieneSalida', 'recordHoy',
             'usaRefrigerio', 'tieneSalidaRefrigerio', 'tieneRegresoRefrigerio'
         ));
+    }
+
+    /**
+     * Estado del día a partir de TODAS las marcaciones (reloj y app).
+     *
+     * El reloj manda todas las marcas con el mismo tipo, así que la salida a
+     * refrigerio y el regreso se reconocen por su hora: las marcas del día,
+     * después de la entrada, que caen dentro de la ventana del refrigerio del
+     * horario (±30 min). Una marca en esa ventana es la salida a refrigerio,
+     * una segunda es el regreso; cualquier marca fuera de la ventana es la
+     * salida de la jornada. Las marcas de la app con tipo declarado
+     * (4 salida refrigerio, 5 regreso, 1 salida) se respetan tal cual.
+     */
+    private function estadoDelDia($employee): array
+    {
+        $relojId = (int) ($employee->reloj_id ?: $employee->dni);
+
+        $logs = AttendanceLog::where('reloj_id', $relojId)
+            ->whereDate('timestamp', today())
+            ->orderBy('timestamp')
+            ->get();
+
+        $schedule = $employee->schedule ?? $employee->loadMissing('schedule')->schedule;
+        $ventanaIni = $ventanaFin = null;
+        if ($schedule?->refrigerio_inicio && $schedule?->refrigerio_fin) {
+            $ventanaIni = Carbon::parse(today()->toDateString() . ' ' . $schedule->refrigerio_inicio)->subMinutes(30);
+            $ventanaFin = Carbon::parse(today()->toDateString() . ' ' . $schedule->refrigerio_fin)->addMinutes(30);
+        }
+
+        $explicitoSalidaRef = $logs->contains(fn ($l) => (int) $l->tipo === 4);
+        $explicitoRegreso   = $logs->contains(fn ($l) => (int) $l->tipo === 5);
+
+        $jornada = $logs->reject(fn ($l) => in_array((int) $l->tipo, [4, 5], true))->values();
+        $entrada = $jornada->first();
+        $resto   = $jornada->slice(1)->values();
+
+        $salida = false;
+        $salidaRef = $explicitoSalidaRef;
+        $regreso   = $explicitoRegreso;
+        $marcaRefId = null;
+
+        foreach ($resto as $l) {
+            $esAppSalida = (($l->raw_data['fuente'] ?? null) === 'app') && (int) $l->tipo === 1;
+            $enVentana = $ventanaIni && $l->timestamp->between($ventanaIni, $ventanaFin);
+
+            if ($esAppSalida || ! $enVentana) {
+                $salida = true;
+            } elseif (! $salidaRef) {
+                $salidaRef  = true;      // primera marca en la ventana: salida a refrigerio
+                $marcaRefId = $l->id;
+            } elseif (! $regreso) {
+                $regreso = true;         // segunda marca en la ventana: regreso
+            } else {
+                $salida = true;
+            }
+        }
+
+        return [
+            'entrada'             => (bool) $entrada,
+            'salida'              => $salida,
+            'salida_refrigerio'   => $salidaRef,
+            'regreso_refrigerio'  => $regreso,
+            'marca_refrigerio_id' => $regreso ? null : $marcaRefId,
+        ];
     }
 
     // ── Procesar marcación ────────────────────────────────────────────────────
@@ -156,13 +221,12 @@ class CheckinController extends Controller
             'longitud' => ['nullable', 'numeric'],
         ]);
 
-        $hoy    = RemoteCheckin::where('employee_id', $employee->id)->whereDate('fecha_hora', today())->get();
-        $record = AttendanceRecord::where('employee_id', $employee->id)->where('fecha', today())->first();
+        $estado = $this->estadoDelDia($employee);
 
-        $tieneEntrada = $hoy->where('tipo', 'entrada')->isNotEmpty() || ($record && $record->hora_entrada !== null);
-        $tieneSalida  = $hoy->where('tipo', 'salida')->isNotEmpty() || ($record && $record->hora_salida !== null);
-        $yaSalioRef   = $hoy->where('tipo', 'salida_refrigerio')->isNotEmpty();
-        $yaRegreso    = $hoy->where('tipo', 'regreso_refrigerio')->isNotEmpty();
+        $tieneEntrada = $estado['entrada'];
+        $tieneSalida  = $estado['salida'];
+        $yaSalioRef   = $estado['salida_refrigerio'];
+        $yaRegreso    = $estado['regreso_refrigerio'];
 
         $error = match (true) {
             ! $tieneEntrada => 'Primero registra tu entrada.',
@@ -175,6 +239,18 @@ class CheckinController extends Controller
 
         if ($error) {
             return redirect()->route('checkin.home')->with('error', $error);
+        }
+
+        // Si la salida a refrigerio se marcó en el reloj (que no distingue el tipo), esa
+        // marca se declara como salida a refrigerio para que el procesador calcule bien.
+        if ($request->tipo === 'regreso_refrigerio' && ! empty($estado['marca_refrigerio_id'])) {
+            $marca = AttendanceLog::find($estado['marca_refrigerio_id']);
+            if ($marca) {
+                $marca->update([
+                    'tipo'     => 4,
+                    'raw_data' => array_merge((array) $marca->raw_data, ['reclasificada_refrigerio' => true, 'tipo_original' => $marca->tipo]),
+                ]);
+            }
         }
 
         $checkin = RemoteCheckin::create([
