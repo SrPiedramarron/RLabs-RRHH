@@ -45,6 +45,13 @@ class ControlVacacionesResource extends Resource
                     ->searchable(['apellidos', 'nombres'])
                     ->sortable(['apellidos']),
 
+                // Empresa: sin empresa seleccionada se ven todas, así que se muestra a cuál pertenece cada fila.
+                Tables\Columns\TextColumn::make('company.razon_social')
+                    ->label('Empresa')
+                    ->badge()
+                    ->color('gray')
+                    ->visible(fn () => ! \App\Helpers\CompanyContext::get()),
+
                 // 2. Fecha de la Última vacación
                 Tables\Columns\TextColumn::make('fecha_ultima_vacacion')
                     ->label('Fecha de la Última vacación')
@@ -108,6 +115,11 @@ class ControlVacacionesResource extends Resource
                     })
                     ->alignCenter()
                     ->weight('bold'),
+            ])
+            ->filters([
+                Tables\Filters\SelectFilter::make('company_id')
+                    ->label('Empresa')
+                    ->relationship('company', 'razon_social'),
             ])
             ->actions([
                 Tables\Actions\Action::make('registrar_vacaciones')
