@@ -59,6 +59,8 @@ class CtsConstanciaController extends Controller
                 'd'           => $d,
                 'empresa'     => $d->company?->razon_social,
                 'ruc'         => $d->company?->ruc,
+                'rep_nombre'  => $d->company?->representante_legal,
+                'rep_cargo'   => $d->company?->representante_legal_cargo ?: 'Representante legal',
                 'empleado'    => trim($d->apellidos . ' ' . $d->nombres),
                 'ingreso'     => $e?->fecha_ingreso?->format('d/m/Y'),
                 'area'        => $e?->department?->nombre,

@@ -18,8 +18,9 @@
     .caja { border: 1px solid #333; padding: 8px 10px; margin-top: 14px; }
     .sub { font-weight: bold; text-decoration: underline; margin-bottom: 4px; }
     .total td { border-top: 1px solid #333; font-weight: bold; }
-    .firma { margin-top: 80px; text-align: center; }
-    .firma .linea { border-top: 1px solid #333; width: 260px; margin: 0 auto 4px; }
+    .firmas { margin-top: 90px; }
+    .firma { text-align: center; width: 50%; }
+    .firma .linea { border-top: 1px solid #333; width: 210px; margin: 0 auto 4px; }
 </style>
 </head>
 <body>
@@ -120,11 +121,20 @@
         {{ $f['desde'] }} al {{ $f['hasta'] }}, por el monto de S/ {{ $m($f['total']) }} soles.
     </p>
 
-    <div class="firma">
-        <div class="linea"></div>
-        {{ $f['empleado'] }}<br>
-        <span style="font-size:10px; color:#555;">Trabajador</span>
-    </div>
+    <table class="firmas">
+        <tr>
+            <td class="firma">
+                <div class="linea"></div>
+                {{ $f['rep_nombre'] ?: $f['empresa'] }}<br>
+                <span style="font-size:10px; color:#555;">{{ $f['rep_cargo'] }} — {{ $f['empresa'] }}</span>
+            </td>
+            <td class="firma">
+                <div class="linea"></div>
+                {{ $f['empleado'] }}<br>
+                <span style="font-size:10px; color:#555;">Trabajador</span>
+            </td>
+        </tr>
+    </table>
 </div>
 @endforeach
 </body>

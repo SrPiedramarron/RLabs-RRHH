@@ -42,6 +42,15 @@ class CompanyResource extends Resource
                         ->label('Teléfono')
                         ->maxLength(20),
 
+                    Forms\Components\TextInput::make('representante_legal')
+                        ->label('Representante legal (firma constancias)')
+                        ->maxLength(150),
+
+                    Forms\Components\TextInput::make('representante_legal_cargo')
+                        ->label('Cargo del representante')
+                        ->placeholder('Gerente General')
+                        ->maxLength(100),
+
                     Forms\Components\TextInput::make('email')
                         ->label('Email')
                         ->email()

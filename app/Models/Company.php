@@ -17,6 +17,8 @@ class Company extends Model
         'telefono',
         'email',
         'email_cc',
+        'representante_legal',
+        'representante_legal_cargo',
         'logo_path',
         'active',
         'pago_quincenal',
