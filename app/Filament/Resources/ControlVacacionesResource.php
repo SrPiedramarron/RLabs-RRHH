@@ -99,9 +99,18 @@ class ControlVacacionesResource extends Resource
                 Tables\Columns\TextColumn::make('saldo_dias')
                     ->label('Saldo de días por tomar')
                     ->getStateUsing(function ($record) {
-                        $saldo = app(VacacionesService::class)->calcularSaldo($record);
+                        // Solo lo ya gozable: saldo de los periodos anuales cumplidos (política:
+                        // recién al cumplir un año de servicios se pueden usar los días). Lo que
+                        // se va ganando del año en curso va en "Vacaciones proporcionales".
+                        if (! $record->fecha_ingreso) {
+                            return '—';
+                        }
 
-                        return $saldo['saldo_actual'] ?? '—';
+                        $periodos = app(\App\Services\VacacionesPorPeriodoService::class)
+                            ->periodosDe($record, now())
+                            ->where('completo', true);
+
+                        return round($periodos->sum('saldo'), 2);
                     })
                     ->badge()
                     ->color(function ($state) {
