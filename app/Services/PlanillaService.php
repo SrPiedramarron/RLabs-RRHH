@@ -1225,6 +1225,18 @@ class PlanillaService
             $indemnizacion = round(min(1.5 * $sueldo / 12 * $mesesServicio, 12 * $sueldo), 2);
         }
 
+        // Menos de un mes de servicio (pedido RRHH oct. 2026): todos los beneficios
+        // (vacaciones, gratificación, CTS e indemnización) son 0; solo se paga la
+        // remuneración de los días trabajados, que sale de la planilla del mes.
+        $menosDeUnMes = $fechaIngreso->copy()->addMonthNoOverflow()->subDay()->gt($fechaCese);
+        if ($menosDeUnMes) {
+            $diasVacacionesTruncas = $montoVacacionesTruncas = $remuneracionVacacionalPendiente = $indemnizacionVacacional = 0.0;
+            $descuentoAfpVacaciones = $aporteEssaludVacaciones = $totalVacacionesPorPagar = 0.0;
+            $mesesGratTrunca = $montoGratTrunca = $bonifTrunca = 0.0;
+            $mesesCtsTrunca = $montoCtsTrunca = 0.0;
+            $indemnizacion = 0.0;
+        }
+
         // El total usa vacaciones NETO (ya con el descuento AFP/ONP de
         // vacaciones aplicado) — el resto de conceptos (gratificación, CTS)
         // ya se calculan/guardan como corresponde a cada uno y no llevan
