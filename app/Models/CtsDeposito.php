@@ -13,7 +13,7 @@ class CtsDeposito extends Model
         'employee_id', 'company_id', 'periodo', 'tipo', 'anio',
         'nombres', 'apellidos', 'dni', 'cargo',
         'sueldo_base', 'asignacion_familiar',
-        'meses_computables',
+        'meses_computables', 'dias_computables',
         'meses_con_comisiones', 'promedio_comisiones',
         'meses_con_horas_extra', 'promedio_horas_extra',
         'meses_con_bonos', 'promedio_bonos',

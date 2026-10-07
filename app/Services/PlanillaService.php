@@ -854,6 +854,36 @@ class PlanillaService
         return $depositos;
     }
 
+    /**
+     * Meses completos y días sueltos trabajados dentro de un semestre CTS,
+     * contando el día de ingreso y el de cese. Semestre completo = 6 meses, 0 días.
+     *
+     * @return array{0: int, 1: int} [meses, días]
+     */
+    private function mesesYDiasSemestre(?Carbon $ingreso, ?Carbon $cese, Carbon $inicioSemestre, Carbon $finSemestre): array
+    {
+        $inicio = $ingreso && $ingreso->gt($inicioSemestre) ? $ingreso->copy()->startOfDay() : $inicioSemestre->copy();
+        $fin    = $cese && $cese->lt($finSemestre) ? $cese->copy()->startOfDay() : $finSemestre->copy();
+
+        if ($inicio->gt($fin)) {
+            return [0, 0];
+        }
+
+        if ($inicio->eq($inicioSemestre) && $fin->eq($finSemestre)) {
+            return [6, 0];
+        }
+
+        $meses = 0;
+        while ($meses < 6 && $inicio->copy()->addMonthsNoOverflow($meses + 1)->subDay()->lte($fin)) {
+            $meses++;
+        }
+        $cursor = $inicio->copy()->addMonthsNoOverflow($meses);
+
+        $dias = $cursor->lte($fin) ? (int) $cursor->diffInDays($fin) + 1 : 0;
+
+        return [$meses, min(29, $dias)];
+    }
+
     public function calcularCtsEmpleado(
         Employee $empleado,
         int $companyId,
@@ -886,7 +916,12 @@ class PlanillaService
         $fechaIngreso = $empleado->fecha_ingreso ? Carbon::parse($empleado->fecha_ingreso) : null;
         $fechaCese    = $empleado->fecha_cese ? Carbon::parse($empleado->fecha_cese) : null;
 
-        $mesesComputables    = 0;
+        [$mesesComputables, $diasComputables] = $this->mesesYDiasSemestre(
+            $fechaIngreso,
+            $fechaCese,
+            Carbon::create($mesesSemestre[0][0], $mesesSemestre[0][1], 1)->startOfDay(),
+            Carbon::create($mesesSemestre[5][0], $mesesSemestre[5][1], 1)->endOfMonth()->startOfDay()
+        );
         $mesesConComisiones  = 0;
         $sumaComisiones      = 0.0;
         $mesesConHorasExtra  = 0;
@@ -897,13 +932,6 @@ class PlanillaService
         foreach ($mesesSemestre as [$y, $m]) {
             $inicioMes = Carbon::create($y, $m, 1)->startOfMonth();
             $finMes    = Carbon::create($y, $m, 1)->endOfMonth();
-
-            $activoEseMes = (!$fechaIngreso || $fechaIngreso->lte($finMes))
-                && (!$fechaCese || $fechaCese->gte($inicioMes));
-
-            if ($activoEseMes) {
-                $mesesComputables++;
-            }
 
             $periodoMes = sprintf('%04d-%02d', $y, $m);
             $liquidacion = PlanillaLiquidacion::where('employee_id', $empleado->id)
@@ -946,7 +974,7 @@ class PlanillaService
             }
         }
 
-        if ($mesesComputables === 0) {
+        if ($mesesComputables === 0 && $diasComputables === 0) {
             return null; // no trabajó ni un día del semestre CTS — no corresponde
         }
 
@@ -967,7 +995,8 @@ class PlanillaService
             2
         );
 
-        $montoCts = round($remuneracionComputable / 12 * $mesesComputables, 2);
+        // Meses completos + días trabajados (mes de 30 días).
+        $montoCts = round($remuneracionComputable / 12 * $mesesComputables + $remuneracionComputable / 12 / 30 * $diasComputables, 2);
 
         return \App\Models\CtsDeposito::updateOrCreate(
             ['employee_id' => $empleado->id, 'periodo' => $periodoPago],
@@ -982,6 +1011,7 @@ class PlanillaService
                 'sueldo_base'             => $empleado->sueldo_base,
                 'asignacion_familiar'     => $asignacionFamiliar,
                 'meses_computables'       => $mesesComputables,
+                'dias_computables'        => $diasComputables,
                 'meses_con_comisiones'    => $mesesConComisiones,
                 'promedio_comisiones'     => $promedioComisiones,
                 'meses_con_horas_extra'   => $mesesConHorasExtra,

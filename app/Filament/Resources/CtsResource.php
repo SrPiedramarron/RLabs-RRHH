@@ -50,8 +50,8 @@ class CtsResource extends Resource
                 Tables\Columns\TextColumn::make('meses_computables')
                     ->label('Meses')
                     ->alignCenter()
-                    ->formatStateUsing(fn ($state) => "{$state}/6")
-                    ->color(fn ($state) => $state < 6 ? 'warning' : 'gray'),
+                    ->formatStateUsing(fn ($state, $record) => $record->dias_computables > 0 ? "{$state} m {$record->dias_computables} d" : "{$state}/6")
+                    ->color(fn ($state, $record) => ($state < 6 || $record->dias_computables > 0) ? 'warning' : 'gray'),
 
                 Tables\Columns\TextColumn::make('sexto_gratificacion')
                     ->label('1/6 gratificación')
