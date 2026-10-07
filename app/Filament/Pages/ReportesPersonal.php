@@ -74,6 +74,11 @@ class ReportesPersonal extends Page implements HasForms
                                 ? Department::where('company_id', $get('company_id'))->pluck('nombre', 'id')
                                 : [])
                             ->placeholder('Todas las áreas'),
+
+                        Forms\Components\Toggle::make('incluir_inactivos')
+                            ->label('Incluir trabajadores inactivos (historial)')
+                            ->helperText('Aplica a cuentas bancarias, información personal y contratos. Apagado, solo salen los trabajadores activos.')
+                            ->default(false),
                     ]),
 
                 Forms\Components\Section::make('Periodo (para vacaciones, boletas, rotación, puntualidad y cumpleaños)')
@@ -131,6 +136,7 @@ class ReportesPersonal extends Page implements HasForms
 
         return Employee::with(['department'])
             ->where('company_id', $data['company_id'])
+            ->unless($data['incluir_inactivos'] ?? false, fn ($q) => $q->where('active', true))
             ->when($data['location_id'] ?? null, fn ($q) => $q->where('location_id', $data['location_id']))
             ->when($data['department_id'] ?? null, fn ($q) => $q->where('department_id', $data['department_id']))
             ->orderBy('apellidos')

@@ -841,6 +841,14 @@ class PlanillaService
                     $depositos->push($d);
                 }
             }
+
+            // Depósitos de un cálculo anterior de trabajadores que ya no corresponden
+            // (inactivos, cesados o sin sueldo): se quitan para que no sigan saliendo.
+            \App\Models\CtsDeposito::where('company_id', $companyId)
+                ->where('tipo', $tipo)
+                ->where('anio', $anio)
+                ->whereNotIn('employee_id', $depositos->pluck('employee_id'))
+                ->delete();
         });
 
         return $depositos;
