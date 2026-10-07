@@ -42,6 +42,11 @@ class SolicitudController extends Controller
             'motivo'       => ['nullable', 'string', 'max:500'],
         ]);
 
+        // Política de la empresa: las vacaciones solo se gozan después de cumplir un año de servicios.
+        if ($employee->fecha_ingreso && $employee->fecha_ingreso->copy()->addYear()->gt(\Carbon\Carbon::parse($data['fecha_inicio']))) {
+            return back()->withErrors(['fecha_inicio' => 'Podrás pedir vacaciones desde el ' . $employee->fecha_ingreso->copy()->addYear()->format('d/m/Y') . ', cuando cumplas un año de servicios. Mientras tanto tus días se van acumulando.'])->withInput();
+        }
+
         $inicial = app(\App\Services\SolicitudJefeService::class)->estadoInicial($employee, 'vacaciones');
 
         Solicitud::create([

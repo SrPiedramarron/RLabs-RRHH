@@ -59,6 +59,35 @@ class ControlVacacionesResource extends Resource
                     ->alignCenter()
                     ->sortable(),
 
+                // 3b. Vacaciones proporcionales: lo que va ganando mes a mes del año
+                // en curso (2.5 días por mes). Durante el primer año se acumulan pero
+                // no se pueden gozar: recién desde el aniversario pasan a ser saldo.
+                Tables\Columns\TextColumn::make('vacaciones_proporcionales')
+                    ->label('Vacaciones proporcionales')
+                    ->getStateUsing(function ($record) {
+                        if (! $record->fecha_ingreso) {
+                            return null;
+                        }
+                        $enCurso = app(\App\Services\VacacionesPorPeriodoService::class)
+                            ->periodosDe($record, now())
+                            ->firstWhere('completo', false);
+
+                        return $enCurso ? number_format($enCurso['ganados_informativo'], 2) : '0.00';
+                    })
+                    ->description(function ($record) {
+                        if (! $record->fecha_ingreso) {
+                            return null;
+                        }
+                        $aniversario = \Carbon\Carbon::parse($record->fecha_ingreso);
+                        while ($aniversario->lte(now())) {
+                            $aniversario->addYear();
+                        }
+
+                        return 'Se completan el ' . $aniversario->format('d/m/Y');
+                    })
+                    ->placeholder('—')
+                    ->alignCenter(),
+
                 // 4. Saldo de días por tomar
                 Tables\Columns\TextColumn::make('saldo_dias')
                     ->label('Saldo de días por tomar')
