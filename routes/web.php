@@ -26,6 +26,11 @@ Route::get('/plame/exportar/{periodo}/{companyId}', [\App\Http\Controllers\Plame
     ->name('plame.exportar');
 Route::get('/afpnet/exportar/{periodo}/{companyId}', [\App\Http\Controllers\AfpnetExportController::class, 'exportar'])
     ->name('afpnet.exportar');
+Route::get('/cts/constancia/{deposito}', [\App\Http\Controllers\CtsConstanciaController::class, 'individual'])
+    ->name('cts.constancia');
+Route::get('/cts/constancias/{companyId}/{tipo}/{anio}', [\App\Http\Controllers\CtsConstanciaController::class, 'lote'])
+    ->whereIn('tipo', ['mayo', 'noviembre'])
+    ->name('cts.constancias');
 Route::get('/boletas/pdf/{liquidacion}', [\App\Http\Controllers\BoletaExportController::class, 'exportarPdf'])
     ->name('boletas.pdf');
 

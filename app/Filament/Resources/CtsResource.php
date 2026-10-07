@@ -90,6 +90,42 @@ class CtsResource extends Resource
                     ->relationship('company', 'razon_social'),
             ])
             ->headerActions([
+                Tables\Actions\Action::make('constancias_cts')
+                    ->label('Constancias (PDF)')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->color('gray')
+                    ->form([
+                        Forms\Components\Select::make('company_id')
+                            ->label('Empresa')
+                            ->relationship('company', 'razon_social')
+                            ->required()
+                            ->searchable(),
+                        Forms\Components\Select::make('tipo')
+                            ->label('Depósito')
+                            ->options(['mayo' => 'Mayo — semestre Noviembre-Abril', 'noviembre' => 'Noviembre — semestre Mayo-Octubre'])
+                            ->required()
+                            ->native(false),
+                        Forms\Components\Select::make('anio')
+                            ->label('Año')
+                            ->options(function () {
+                                $actual = (int) now()->year;
+                                return [$actual - 1 => (string) ($actual - 1), $actual => (string) $actual, $actual + 1 => (string) ($actual + 1)];
+                            })
+                            ->default((int) now()->year)
+                            ->required()
+                            ->native(false),
+                        Forms\Components\DatePicker::make('fecha')
+                            ->label('Fecha de depósito')
+                            ->native(false)
+                            ->default(now()),
+                    ])
+                    ->action(fn (array $data) => redirect()->route('cts.constancias', [
+                        'companyId' => $data['company_id'],
+                        'tipo'      => $data['tipo'],
+                        'anio'      => $data['anio'],
+                        'fecha'     => $data['fecha'] ?? null,
+                    ])),
+
                 Tables\Actions\Action::make('calcular_cts')
                     ->label('Calcular CTS')
                     ->icon('heroicon-o-calculator')
@@ -145,7 +181,19 @@ class CtsResource extends Resource
                         }
                     }),
             ])
-            ->actions([])
+            ->actions([
+                Tables\Actions\Action::make('constancia')
+                    ->label('Constancia')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->color('gray')
+                    ->form([
+                        Forms\Components\DatePicker::make('fecha')
+                            ->label('Fecha de depósito')
+                            ->native(false)
+                            ->default(now()),
+                    ])
+                    ->action(fn ($record, array $data) => redirect()->route('cts.constancia', ['deposito' => $record->id, 'fecha' => $data['fecha'] ?? null])),
+            ])
             ->bulkActions([])
             ->defaultSort('periodo', 'desc');
     }
