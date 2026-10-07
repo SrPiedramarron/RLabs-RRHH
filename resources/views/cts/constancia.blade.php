@@ -37,7 +37,7 @@
     <div class="centro constancia">CONSTANCIA</div>
     <div class="centro">DEPÓSITO POR BANCOS &nbsp; MONEDA: SOLES</div>
     @if($f['banco'])
-        <div class="centro">ENTIDAD: {{ strtoupper($f['banco']) }}</div>
+        <div class="centro">ENTIDAD: {{ strtoupper($f['banco']) }}@if($f['cuenta']) &nbsp; N.º CUENTA: {{ $f['cuenta'] }}@endif</div>
     @endif
 
     <div class="caja">
