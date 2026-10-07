@@ -11,6 +11,18 @@ use Illuminate\Support\Facades\Storage;
 
 class SolicitudController extends Controller
 {
+    /** Saldo para mostrar al trabajador: lo gozable hoy, y aparte lo que va ganando. */
+    private function saldoVacaciones($employee): array
+    {
+        $r = app(\App\Services\VacacionesPorPeriodoService::class)->disponibleYProporcional($employee);
+
+        return [
+            'saldo_actual' => $r['disponible'],
+            'proporcional' => $r['proporcional'],
+            'aniversario'  => $r['aniversario'],
+        ];
+    }
+
     public function index()
     {
         $employee = Auth::guard('employee')->user()->employee;
@@ -19,7 +31,7 @@ class SolicitudController extends Controller
             ->latest()
             ->paginate(15);
 
-        $saldo = app(VacacionesService::class)->calcularSaldo($employee);
+        $saldo = $this->saldoVacaciones($employee);
 
         return view('checkin.solicitudes.index', compact('employee', 'solicitudes', 'saldo'));
     }
@@ -27,7 +39,7 @@ class SolicitudController extends Controller
     public function create()
     {
         $employee = Auth::guard('employee')->user()->employee;
-        $saldo    = app(VacacionesService::class)->calcularSaldo($employee);
+        $saldo    = $this->saldoVacaciones($employee);
 
         return view('checkin.solicitudes.create', compact('employee', 'saldo'));
     }

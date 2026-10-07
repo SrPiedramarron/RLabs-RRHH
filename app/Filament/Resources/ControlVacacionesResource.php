@@ -106,11 +106,8 @@ class ControlVacacionesResource extends Resource
                             return '—';
                         }
 
-                        $periodos = app(\App\Services\VacacionesPorPeriodoService::class)
-                            ->periodosDe($record, now())
-                            ->where('completo', true);
-
-                        return round($periodos->sum('saldo'), 2);
+                        return app(\App\Services\VacacionesPorPeriodoService::class)
+                            ->disponibleYProporcional($record)['disponible'];
                     })
                     ->badge()
                     ->color(function ($state) {

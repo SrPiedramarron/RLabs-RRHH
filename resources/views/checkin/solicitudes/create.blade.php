@@ -7,7 +7,7 @@
 @section('content')
 
 <div class="card" style="padding:14px 16px; margin-bottom:16px; background:var(--azul-light); border:1px solid var(--azul-border);">
-    <div style="font-size:12px; color:var(--azul-dark);">Tu saldo actual de vacaciones</div>
+    <div style="font-size:12px; color:var(--azul-dark);">Vacaciones que puedes tomar</div>
     <div style="font-size:20px; font-weight:800; color:var(--azul);">
         {{ $saldo['saldo_actual'] ?? '—' }} días
     </div>

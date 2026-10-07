@@ -111,6 +111,36 @@ class VacacionesPorPeriodoService
     }
 
     /**
+     * Lo que ve RRHH y el trabajador: días ya gozables (saldo de los periodos
+     * anuales cumplidos) y días que va ganando del año en curso (2.5 por mes),
+     * que solo se pueden gozar desde el aniversario.
+     *
+     * @return array{disponible: float, proporcional: float, aniversario: ?string}
+     */
+    public function disponibleYProporcional(Employee $empleado, ?Carbon $corte = null): array
+    {
+        $corte ??= now();
+
+        if (! $empleado->fecha_ingreso) {
+            return ['disponible' => 0.0, 'proporcional' => 0.0, 'aniversario' => null];
+        }
+
+        $periodos = $this->periodosDe($empleado, $corte);
+        $enCurso  = $periodos->firstWhere('completo', false);
+
+        $aniversario = Carbon::parse($empleado->fecha_ingreso);
+        while ($aniversario->lte($corte)) {
+            $aniversario->addYear();
+        }
+
+        return [
+            'disponible'   => round((float) $periodos->where('completo', true)->sum('saldo'), 2),
+            'proporcional' => round((float) ($enCurso['ganados_informativo'] ?? 0), 2),
+            'aniversario'  => $aniversario->format('d/m/Y'),
+        ];
+    }
+
+    /**
      * Descompone la antigüedad de un trabajador en periodos anuales fijos
      * desde su fecha de ingreso, con goce imputado FIFO desde su historial
      * real de vacaciones.

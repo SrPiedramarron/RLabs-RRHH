@@ -8,10 +8,15 @@
 
 <div class="card" style="padding:16px;">
     <div style="margin-bottom:14px;">
-        <div style="font-size:12px; color:var(--gris);">Saldo de vacaciones</div>
+        <div style="font-size:12px; color:var(--gris);">Vacaciones que puedes tomar</div>
         <div style="font-size:22px; font-weight:800; color:var(--azul);">
             {{ $saldo['saldo_actual'] ?? '—' }} <span style="font-size:13px; font-weight:600; color:var(--gris);">días</span>
         </div>
+        @if(!empty($saldo['proporcional']))
+            <div style="font-size:12px; color:var(--gris); margin-top:6px;">
+                Vas ganando <strong>{{ number_format($saldo['proporcional'], 2) }}</strong> días este año; podrás usarlos desde el {{ $saldo['aniversario'] }}.
+            </div>
+        @endif
     </div>
 
     <div style="font-size:12px; font-weight:600; color:var(--gris); margin-bottom:8px;">Nueva solicitud</div>
