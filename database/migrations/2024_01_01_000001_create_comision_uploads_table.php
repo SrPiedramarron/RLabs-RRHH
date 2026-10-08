@@ -8,6 +8,12 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // En una instalación nueva esta migración corre antes de crear `employees`/`companies`;
+        // la crea 2025_01_01_000007_create_deferred_comision_planilla_tables. En bases existentes no cambia nada.
+        if (! Schema::hasTable('employees')) {
+            return;
+        }
+
         Schema::create('comision_uploads', function (Blueprint $table) {
             $table->id();
             $table->string('periodo');          // e.g. "2026-03"
