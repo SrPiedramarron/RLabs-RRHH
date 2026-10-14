@@ -34,7 +34,7 @@ class ControlVacacionesResource extends Resource
     {
         return $table
             ->query(
-                Employee::where('active', true)
+                Employee::planilla()->where('active', true)
                     ->when(\App\Helpers\CompanyContext::get(), fn ($q) => $q->where('company_id', \App\Helpers\CompanyContext::get()))
             )
             ->columns([

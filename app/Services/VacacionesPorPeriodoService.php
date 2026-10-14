@@ -42,7 +42,7 @@ class VacacionesPorPeriodoService
      */
     public function buildDashboardData(?int $companyId, Carbon $corte): array
     {
-        $empleados = Employee::where('active', true)
+        $empleados = Employee::planilla()->where('active', true)
             ->whereNotNull('fecha_ingreso')
             ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
             ->orderBy('apellidos')

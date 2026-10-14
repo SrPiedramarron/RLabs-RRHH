@@ -19,7 +19,7 @@ class GenerateEmployeeCredentials extends Command
 
     public function handle(): void
     {
-        $query = Employee::where('active', true)->whereNull('fecha_cese');
+        $query = Employee::planilla()->where('active', true)->whereNull('fecha_cese');
 
         if ($locationInput = $this->option('location')) {
             $location = is_numeric($locationInput)

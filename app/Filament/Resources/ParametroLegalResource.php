@@ -31,6 +31,8 @@ class ParametroLegalResource extends Resource
                     ParametroLegal::UIT      => 'UIT — Unidad Impositiva Tributaria (S/)',
                     ParametroLegal::TASA_ONP => 'Tasa ONP (ej. 0.13 = 13%)',
                     'horas_espera_jefe'      => 'Horas de espera al jefe directo (solicitudes)',
+                    'tasa_retencion_4ta'     => 'Tasa de retención 4.ª categoría (0.08 = 8%)',
+                    'umbral_retencion_4ta'   => 'Umbral de retención 4.ª categoría (S/)',
                 ])
                 ->required()
                 ->native(false),
@@ -65,6 +67,8 @@ class ParametroLegalResource extends Resource
                         ParametroLegal::UIT      => 'UIT',
                         ParametroLegal::TASA_ONP => 'Tasa ONP',
                         'horas_espera_jefe'      => 'Horas espera jefe',
+                        'tasa_retencion_4ta'     => 'Tasa retención 4ta',
+                        'umbral_retencion_4ta'   => 'Umbral retención 4ta',
                         default                   => $state,
                     })
                     ->badge(),

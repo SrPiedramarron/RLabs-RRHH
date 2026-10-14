@@ -51,6 +51,10 @@ class Employee extends Model
         'compensa_horas_extras',
         'horas_por_marcacion',
         'jefe_directo_id',
+        'tipo_vinculo',
+        'honorario_mensual',
+        'suspension_4ta',
+        'ruc_locador',
         'aplica_asignacion_familiar',
         'movilidad_diaria',
         'monto_eps_mensual_con_igv',
@@ -78,6 +82,7 @@ class Employee extends Model
         'saldo_pendiente'       => 'decimal:2',
         'exonerado_registro'    => 'boolean',
         'active'                => 'boolean',
+        'suspension_4ta'        => 'boolean',
         'compensa_horas_extras' => 'boolean',
         'horas_por_marcacion'   => 'boolean',
         'porcentaje_comision'   => 'decimal:4',
@@ -170,6 +175,17 @@ public function devices()
 {
     return $this->hasMany(EmployeeDevice::class);
 }
+
+    /** Solo trabajadores en planilla (excluye a los locadores de servicios). */
+    public function scopePlanilla($query)
+    {
+        return $query->where($this->getTable() . '.tipo_vinculo', 'planilla');
+    }
+
+    public function esLocador(): bool
+    {
+        return $this->tipo_vinculo === 'locador';
+    }
 
     public function jefeDirecto(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {

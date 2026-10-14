@@ -45,7 +45,7 @@ class PlanillaMesWidget extends Widget
         $fecha     = $this->periodo();
         $periodo   = $fecha->format('Y-m');
 
-        $empleados = Employee::where('active', true)
+        $empleados = Employee::planilla()->where('active', true)
             ->whereNotNull('sueldo_base')->where('sueldo_base', '>', 0)
             ->when($companyId, fn ($q) => $q->where('company_id', $companyId));
         $totalEmpleados = (clone $empleados)->count();

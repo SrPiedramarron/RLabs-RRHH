@@ -174,6 +174,30 @@ class EmployeeResource extends Resource
                                 ->label('Código')
                                 ->maxLength(20),
 
+                            Forms\Components\Select::make('tipo_vinculo')
+                                ->label('Tipo de vínculo')
+                                ->options(['planilla' => 'Planilla', 'locador' => 'Locador de servicios (recibo por honorarios)'])
+                                ->default('planilla')
+                                ->required()
+                                ->live()
+                                ->helperText('Los locadores no entran a planilla, asistencia, vacaciones ni beneficios; se les paga un honorario fijo por quincena.'),
+
+                            Forms\Components\TextInput::make('honorario_mensual')
+                                ->label('Honorario mensual (S/)')
+                                ->numeric()
+                                ->prefix('S/')
+                                ->visible(fn (Forms\Get $get) => $get('tipo_vinculo') === 'locador')
+                                ->helperText('Se paga la mitad cada quincena.'),
+
+                            Forms\Components\TextInput::make('ruc_locador')
+                                ->label('RUC del locador')
+                                ->maxLength(11)
+                                ->visible(fn (Forms\Get $get) => $get('tipo_vinculo') === 'locador'),
+
+                            Forms\Components\Toggle::make('suspension_4ta')
+                                ->label('Tiene suspensión de retenciones de 4.ª categoría')
+                                ->visible(fn (Forms\Get $get) => $get('tipo_vinculo') === 'locador')
+                                ->helperText('Con suspensión vigente no se retiene el 8%.'),
                             Forms\Components\Select::make('jefe_directo_id')
                                 ->label('Jefe directo')
                                 ->helperText('Aprueba primero sus vacaciones y permisos desde la app. Sin jefe, van directo a RRHH.')

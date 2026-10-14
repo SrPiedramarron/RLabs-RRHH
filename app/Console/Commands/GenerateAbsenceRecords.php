@@ -23,6 +23,7 @@ class GenerateAbsenceRecords extends Command
         $this->info("Generando ausencias del {$desde} al {$hasta}...");
 
         $employees = Employee::with('schedule')
+            ->planilla()
             ->where('active', true)
             ->where('exonerado_registro', false)
             ->get();

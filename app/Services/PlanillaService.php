@@ -50,7 +50,7 @@ class PlanillaService
     {
         [$year, $month] = explode('-', $periodo);
 
-        $empleados = Employee::where('company_id', $companyId)
+        $empleados = Employee::planilla()->where('company_id', $companyId)
             ->where('active', true)
             ->whereNotNull('sueldo_base')
             ->where('sueldo_base', '>', 0)
@@ -542,7 +542,7 @@ class PlanillaService
             );
         }
 
-        $empleados = Employee::where('company_id', $companyId)
+        $empleados = Employee::planilla()->where('company_id', $companyId)
             ->where('active', true)
             ->whereNotNull('sueldo_base')
             ->where('sueldo_base', '>', 0)
@@ -676,7 +676,7 @@ class PlanillaService
             throw new \InvalidArgumentException("Tipo de gratificación inválido: {$tipo}");
         }
 
-        $empleados = Employee::where('company_id', $companyId)
+        $empleados = Employee::planilla()->where('company_id', $companyId)
             ->where('active', true)
             ->whereNotNull('sueldo_base')
             ->where('sueldo_base', '>', 0)
@@ -826,7 +826,7 @@ class PlanillaService
             throw new \InvalidArgumentException("Tipo de CTS inválido: {$tipo}");
         }
 
-        $empleados = Employee::where('company_id', $companyId)
+        $empleados = Employee::planilla()->where('company_id', $companyId)
             ->where('active', true)
             ->whereNotNull('sueldo_base')
             ->where('sueldo_base', '>', 0)
@@ -1428,7 +1428,7 @@ class PlanillaService
      */
     public function calcularPeriodoUtilidades(int $companyId, int $anioEjercicio, float $montoTotalARepartir, string $periodoPago): Collection
     {
-        $empleados = Employee::where('company_id', $companyId)
+        $empleados = Employee::planilla()->where('company_id', $companyId)
             ->whereNotNull('sueldo_base')
             ->where('sueldo_base', '>', 0)
             ->get();
