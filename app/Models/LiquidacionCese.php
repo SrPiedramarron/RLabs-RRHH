@@ -22,6 +22,8 @@ class LiquidacionCese extends Model
         'meses_cts_trunca', 'monto_cts_trunca',
         'promedio_comisiones_cts_manual',
         'indemnizacion', 'monto_total',
+        'base_vacacional', 'meses_vacaciones_truncas', 'remuneracion_computable_cts',
+        'sexto_gratificacion_cts', 'remuneracion_computable_gratificacion',
         'calculado_por', 'calculado_at',
     ];
 

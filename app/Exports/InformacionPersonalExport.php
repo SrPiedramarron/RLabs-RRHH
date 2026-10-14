@@ -28,6 +28,9 @@ class InformacionPersonalExport implements FromCollection, WithHeadings, WithSty
             $e->correo_corporativo ?? '—',
             $e->correo_personal ?? '—',
             $e->centro_costos ?? '—',
+            $e->sexo === 'F' ? 'Femenino' : ($e->sexo === 'M' ? 'Masculino' : '—'),
+            $e->direccion ?: '—',
+            (float) $e->monto_eps_mensual_con_igv > 0 ? 'SÍ' : 'NO',
         ]);
     }
 
@@ -36,6 +39,7 @@ class InformacionPersonalExport implements FromCollection, WithHeadings, WithSty
         return [
             'NOMBRES', 'APELLIDOS', 'DNI', 'FECHA DE INGRESO', 'FECHA DE NACIMIENTO',
             'PUESTO', 'ÁREA', 'CELULAR', 'CORREO CORPORATIVO', 'CORREO PERSONAL', 'CENTRO DE COSTOS',
+            'SEXO', 'DIRECCIÓN', 'EPS',
         ];
     }
 

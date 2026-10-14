@@ -13,6 +13,7 @@ class Company extends Model
         'razon_social',
         'ruc',
         'direccion',
+        'ciudad',
         'ubigeo',
         'telefono',
         'email',

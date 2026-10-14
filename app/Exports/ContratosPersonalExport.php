@@ -25,6 +25,9 @@ class ContratosPersonalExport implements FromCollection, WithHeadings, WithStyle
             $e->fecha_ingreso?->format('d/m/Y') ?? '—',
             $e->fecha_fin_contrato?->format('d/m/Y') ?? '—',
             $e->tipo_contrato_label,
+            $e->sexo === 'F' ? 'Femenino' : ($e->sexo === 'M' ? 'Masculino' : '—'),
+            $e->direccion ?: '—',
+            (float) $e->monto_eps_mensual_con_igv > 0 ? 'SÍ' : 'NO',
         ]);
     }
 
@@ -33,6 +36,7 @@ class ContratosPersonalExport implements FromCollection, WithHeadings, WithStyle
         return [
             'TRABAJADOR', 'DNI', 'ÁREA', 'PUESTO', 'REMUNERACIÓN',
             'FECHA DE INICIO', 'FECHA DE FIN DE CONTRATO', 'TIPO DE CONTRATO',
+            'SEXO', 'DIRECCIÓN', 'EPS',
         ];
     }
 

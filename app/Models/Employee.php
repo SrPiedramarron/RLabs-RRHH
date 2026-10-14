@@ -26,6 +26,8 @@ class Employee extends Model
         'cargo',
         'fecha_ingreso',
         'fecha_nacimiento',
+        'sexo',
+        'direccion',
         'fecha_fin_contrato',
         'tipo_contrato',
         'fecha_cese',

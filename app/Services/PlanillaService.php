@@ -1275,6 +1275,11 @@ class PlanillaService
                 'promedio_comisiones_cts_manual' => $promedioComisionesCtsManual,
                 'indemnizacion' => $indemnizacion,
                 'monto_total'   => $montoTotal,
+                'base_vacacional'           => $baseVacacional,
+                'meses_vacaciones_truncas'  => $mesesTruncasVacaciones,
+                'remuneracion_computable_cts' => $remuneracionComputableCts,
+                'sexto_gratificacion_cts'   => $sextoGratificacion,
+                'remuneracion_computable_gratificacion' => $remuneracionComputableGrat,
                 'calculado_por' => Auth::id(),
                 'calculado_at'  => now(),
             ]

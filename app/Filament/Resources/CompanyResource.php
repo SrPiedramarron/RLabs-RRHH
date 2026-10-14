@@ -42,6 +42,11 @@ class CompanyResource extends Resource
                         ->label('Teléfono')
                         ->maxLength(20),
 
+                    Forms\Components\TextInput::make('ciudad')
+                        ->label('Ciudad (para fechar certificados)')
+                        ->placeholder('Lima')
+                        ->maxLength(60),
+
                     Forms\Components\TextInput::make('representante_legal')
                         ->label('Representante legal (firma constancias)')
                         ->maxLength(150),

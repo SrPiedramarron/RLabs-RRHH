@@ -238,7 +238,18 @@ class LiquidacionCeseResource extends Resource
                         }
                     }),
             ])
-            ->actions([])
+            ->actions([
+                Tables\Actions\Action::make('documento_liquidacion')
+                    ->label('Documento (PDF)')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->form([
+                        Forms\Components\DatePicker::make('fecha')->label('Fecha del documento')->native(false)
+                            ->default(fn ($record) => $record->fecha_cese)->required(),
+                        Forms\Components\TextInput::make('renta5ta')->label('Retención de renta de 5.ª categoría (S/) — opcional')->numeric()->prefix('S/')->default(0),
+                        Forms\Components\TextInput::make('devolucion5ta')->label('Devolución de renta de 5.ª categoría (S/) — opcional')->numeric()->prefix('S/')->default(0),
+                    ])
+                    ->action(fn ($record, array $data) => redirect()->route('documentos.liquidacion', array_merge(['liquidacion' => $record->id], $data))),
+            ])
             ->bulkActions([])
             ->defaultSort('fecha_cese', 'desc');
     }

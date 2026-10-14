@@ -31,6 +31,10 @@ Route::get('/cts/constancia/{deposito}', [\App\Http\Controllers\CtsConstanciaCon
 Route::get('/cts/constancias/{companyId}/{tipo}/{anio}', [\App\Http\Controllers\CtsConstanciaController::class, 'lote'])
     ->whereIn('tipo', ['mayo', 'noviembre'])
     ->name('cts.constancias');
+Route::get('/documentos/certificado-trabajo/{employee}', [\App\Http\Controllers\DocumentoLaboralController::class, 'certificadoTrabajo'])->name('documentos.certificado-trabajo');
+Route::get('/documentos/carta-retiro-cts/{employee}', [\App\Http\Controllers\DocumentoLaboralController::class, 'cartaRetiroCts'])->name('documentos.carta-retiro-cts');
+Route::get('/documentos/certificado-quinta/{employee}', [\App\Http\Controllers\DocumentoLaboralController::class, 'certificadoQuinta'])->name('documentos.certificado-quinta');
+Route::get('/documentos/liquidacion/{liquidacion}', [\App\Http\Controllers\DocumentoLaboralController::class, 'liquidacion'])->name('documentos.liquidacion');
 Route::get('/boletas/pdf/{liquidacion}', [\App\Http\Controllers\BoletaExportController::class, 'exportarPdf'])
     ->name('boletas.pdf');
 
