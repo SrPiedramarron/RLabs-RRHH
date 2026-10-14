@@ -82,7 +82,10 @@ class SolicitudResource extends Resource
 
                 Tables\Columns\TextColumn::make('motivo')
                     ->label('Motivo')
-                    ->limit(40)
+                    ->wrap()
+                    ->lineClamp(3)
+                    ->tooltip(fn (Solicitud $record) => $record->motivo)
+                    ->extraAttributes(['style' => 'min-width: 22rem;'])
                     ->placeholder('—'),
 
                 Tables\Columns\IconColumn::make('adjunto_path')
@@ -133,6 +136,15 @@ class SolicitudResource extends Resource
                     ]),
             ])
             ->actions([
+                Tables\Actions\Action::make('detalle')
+                    ->label('Ver detalle')
+                    ->icon('heroicon-o-eye')
+                    ->color('gray')
+                    ->modalHeading(fn (Solicitud $record) => $record->tipo_label . ' — ' . $record->employee->nombre_completo)
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Cerrar')
+                    ->modalWidth('2xl')
+                    ->modalContent(fn (Solicitud $record) => view('filament.solicitud-detalle', ['s' => $record])),
                 Tables\Actions\Action::make('ver_adjunto')
                     ->label('Ver adjunto')
                     ->icon('heroicon-o-paper-clip')
@@ -146,6 +158,7 @@ class SolicitudResource extends Resource
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->requiresConfirmation()
+                    ->modalDescription(fn (Solicitud $record) => $record->motivo ? 'Motivo: ' . $record->motivo : null)
                     ->visible(fn (Solicitud $record) => in_array($record->estado, ['pendiente', 'pendiente_jefe'], true))
                     ->form(fn (Solicitud $record) => $record->tipo === 'permiso' ? [
                         Forms\Components\Select::make('motivo_suspension_plame')
