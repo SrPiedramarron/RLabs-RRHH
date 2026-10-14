@@ -25,6 +25,59 @@ class EditEmployee extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            Actions\ActionGroup::make([
+                Actions\Action::make('certificado_trabajo')
+                    ->label('Certificado de trabajo')
+                    ->icon('heroicon-o-document-text')
+                    ->form([
+                        \Filament\Forms\Components\DatePicker::make('fecha')->label('Fecha de emisión')->native(false)->default(now())->required(),
+                    ])
+                    ->action(fn (array $data) => redirect()->route('documentos.certificado-trabajo', ['employee' => $this->record->id, 'fecha' => $data['fecha']])),
+
+                Actions\Action::make('carta_retiro_cts')
+                    ->label('Carta de retiro de CTS')
+                    ->icon('heroicon-o-envelope')
+                    ->visible(fn () => (bool) $this->record->fecha_cese)
+                    ->form([
+                        \Filament\Forms\Components\DatePicker::make('fecha')->label('Fecha de emisión')->native(false)
+                            ->default(fn () => $this->record->fecha_cese)->required()
+                            ->helperText('Por defecto es la fecha de cese.'),
+                    ])
+                    ->action(fn (array $data) => redirect()->route('documentos.carta-retiro-cts', ['employee' => $this->record->id, 'fecha' => $data['fecha']])),
+
+                Actions\Action::make('certificado_quinta')
+                    ->label('Certificado de 5.ª categoría')
+                    ->icon('heroicon-o-receipt-percent')
+                    ->modalDescription('Los montos salen de lo que el sistema tiene del ejercicio (planillas, histórico, gratificaciones y liquidación). Revísalos y ajusta lo que haga falta antes de emitir.')
+                    ->form(function () {
+                        $anio = $this->record->fecha_cese?->year ?? now()->year;
+                        $p    = app(\App\Services\DocumentosLaboralesService::class)->quintaPrefill($this->record, $anio);
+
+                        $monto = fn (string $k, string $label) => \Filament\Forms\Components\TextInput::make($k)->label($label)->numeric()->prefix('S/')->default($p[$k])->required();
+
+                        return [
+                            \Filament\Forms\Components\TextInput::make('anio')->label('Ejercicio')->numeric()->default($anio)->required(),
+                            \Filament\Forms\Components\Section::make('Rentas brutas')->columns(2)->schema([
+                                $monto('sueldos', 'Sueldos y salarios'),
+                                $monto('comisiones', 'Comisiones'),
+                                $monto('utilidades', 'Participación en las utilidades'),
+                                $monto('gratificacion', 'Gratificación'),
+                                $monto('bonificaciones', 'Bonificaciones extraordinarias'),
+                                $monto('remu_vacacional', 'Remuneración vacacional'),
+                                $monto('vac_truncas', 'Vacaciones truncas'),
+                                $monto('grat_trunca', 'Gratificación trunca'),
+                            ]),
+                            \Filament\Forms\Components\Section::make('Deducción y retenciones')->columns(3)->schema([
+                                $monto('deduccion', '7 UIT (deducción)'),
+                                $monto('retenciones', 'Retenciones informadas'),
+                                $monto('devolucion', 'Devolución informada'),
+                            ]),
+                            \Filament\Forms\Components\DatePicker::make('fecha')->label('Fecha de emisión')->native(false)->default(now())->required(),
+                        ];
+                    })
+                    ->action(fn (array $data) => redirect()->route('documentos.certificado-quinta', array_merge(['employee' => $this->record->id], $data))),
+            ])->label('Documentos')->icon('heroicon-o-document-duplicate')->button(),
+
             Actions\DeleteAction::make(),
         ];
     }
