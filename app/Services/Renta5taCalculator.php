@@ -190,8 +190,12 @@ class Renta5taCalculator
             ->whereNotIn('concepto', $conceptosExcluidos)
             ->sum('monto');
 
-        $totalRemuneraciones = ($sueldoMesActual * 12)
-            + ($gratificacionUnitaria * $gratificacionesPendientes)
+        // Quien ingresó durante el año no cobra 12 meses ni las dos gratificaciones
+        // completas: se proyectan solo los meses (y semestres) efectivamente trabajados.
+        [$mesesDelAnio, $gratificacionesDelAnio] = $this->proporcionAnioTrabajado($empleado, $year);
+
+        $totalRemuneraciones = ($sueldoMesActual * $mesesDelAnio)
+            + ($gratificacionUnitaria * ($gratificacionesPendientes > 0 ? $gratificacionesDelAnio : 0))
             + $sumaVariablesYTD;
 
         $exonerado = $this->estaExonerado($sueldoMesActual, $totalRemuneraciones, $uit);
@@ -224,6 +228,33 @@ class Renta5taCalculator
         ];
     }
 
+    /**
+     * Meses del año en que el trabajador efectivamente trabaja y gratificaciones
+     * (julio y diciembre) que le corresponden, prorrateadas por meses del
+     * semestre. Quien ingresó antes del año: 12 meses y 2 gratificaciones.
+     *
+     * @return array{0: float, 1: float} [meses del año, gratificaciones del año]
+     */
+    private function proporcionAnioTrabajado(Employee $empleado, int $year): array
+    {
+        $ingreso = $empleado->fecha_ingreso;
+
+        if (! $ingreso || $ingreso->year < $year) {
+            return [12.0, 2.0];
+        }
+        if ($ingreso->year > $year) {
+            return [0.0, 0.0];
+        }
+
+        $mes     = $ingreso->month;
+        $primer  = ($ingreso->daysInMonth - $ingreso->day + 1) / $ingreso->daysInMonth; // fracción del primer mes
+
+        $meses     = (12 - $mes) + $primer;
+        $semestre1 = $mes <= 6 ? (6 - $mes) + $primer : 0.0;       // enero-junio
+        $semestre2 = $mes <= 6 ? 6.0 : (12 - $mes) + $primer;      // julio-diciembre
+
+        return [$meses, min(6, $semestre1) / 6 + min(6, $semestre2) / 6];
+    }
     /**
      * Cada tramo tributa SOLO su excedente dentro de su propio rango
      * (método oficial). Corregido: antes los tramos 3° y 4° no tenían

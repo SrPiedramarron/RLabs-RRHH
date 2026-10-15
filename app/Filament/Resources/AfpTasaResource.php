@@ -35,16 +35,20 @@ class AfpTasaResource extends Resource
                 ->required()->native(false),
             Forms\Components\TextInput::make('tope_remuneracion_asegurable')
                 ->label('Remuneración máxima asegurable (S/)')
-                ->numeric()->required()
+                ->numeric()->required()->minValue(5000)->maxValue(50000)
                 ->helperText('Tope sobre el que se calcula la prima de seguro. La SBS lo actualiza cada 3 meses.'),
             Forms\Components\TextInput::make('comision_flujo')->label('Comisión sobre flujo (decimal, ej. 0.0147)')
-                ->numeric()->required(),
+                ->numeric()->required()->minValue(0)->maxValue(0.05)
+                ->helperText('En decimal: 1.47% se escribe 0.0147.'),
             Forms\Components\TextInput::make('prima_seguro')->label('Prima de seguro (decimal, ej. 0.0137)')
-                ->numeric()->required(),
+                ->numeric()->required()->minValue(0)->maxValue(0.05)
+                ->helperText('La prima la fija la SBS y es la misma para todas las AFP.'),
             Forms\Components\TextInput::make('aporte_obligatorio')->label('Aporte obligatorio (decimal, ej. 0.10)')
-                ->numeric()->required(),
+                ->numeric()->required()->minValue(0)->maxValue(0.2),
             Forms\Components\DatePicker::make('vigente_desde')->label('Vigente desde')
                 ->required()->native(false)
+                ->unique(ignoreRecord: true, modifyRuleUsing: fn (\Illuminate\Validation\Rules\Unique $rule, Forms\Get $get) => $rule->where('afp', $get('afp')))
+                ->validationMessages(['unique' => 'Ya existe una tasa de esa AFP con esa fecha de inicio. Edítala en lugar de crear otra.'])
                 ->helperText('No borres los valores anteriores: se usan para recalcular periodos pasados. Al agregar uno nuevo, cierra el anterior poniéndole "Vigente hasta" el día previo.'),
             Forms\Components\DatePicker::make('vigente_hasta')->label('Vigente hasta (opcional)')
                 ->native(false),
