@@ -108,7 +108,7 @@ class Renta5taCalculator
         $totalPercibido = (float) IngresoHistorico5ta::where('employee_id', $empleado->id)
             ->where('periodo', '<', $periodoActual)
             ->where('periodo', 'like', $year . '-%')
-            ->whereNotIn('concepto', [self::CONCEPTO_RETENCION, self::CONCEPTO_UTILIDADES])
+            ->whereNotIn('concepto', [self::CONCEPTO_RETENCION, self::CONCEPTO_UTILIDADES, 'BASE_PLAME_5TA'])
             ->sum('monto');
 
         $proyeccionAlMes = ($ssPromCom * $mesesRestantes)
@@ -181,6 +181,7 @@ class Renta5taCalculator
             self::CONCEPTO_RETENCION,
             'GRATIFICACION', 'GRATIFICACION JULIO', 'GRATIFICACION DICIEMBRE',
             'COMPRA DE VACACIONES', 'VALE CONSUMO',
+            'BASE_PLAME_5TA',
         ];
 
         $sumaVariablesYTD = (float) IngresoHistorico5ta::where('employee_id', $empleado->id)
