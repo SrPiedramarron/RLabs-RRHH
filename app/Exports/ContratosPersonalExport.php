@@ -27,6 +27,9 @@ class ContratosPersonalExport implements FromCollection, WithHeadings, WithStyle
             $e->tipo_contrato_label,
             $e->sexo === 'F' ? 'Femenino' : ($e->sexo === 'M' ? 'Masculino' : '—'),
             $e->direccion ?: '—',
+            \App\Support\Ubigeo::nombreDistrito($e->ubigeo_distrito) ?: '—',
+            \App\Support\Ubigeo::nombreProvincia($e->ubigeo_provincia) ?: '—',
+            \App\Support\Ubigeo::nombreDepartamento($e->ubigeo_departamento) ?: '—',
             (float) $e->monto_eps_mensual_con_igv > 0 ? 'SÍ' : 'NO',
         ]);
     }
@@ -36,7 +39,7 @@ class ContratosPersonalExport implements FromCollection, WithHeadings, WithStyle
         return [
             'TRABAJADOR', 'DNI', 'ÁREA', 'PUESTO', 'REMUNERACIÓN',
             'FECHA DE INICIO', 'FECHA DE FIN DE CONTRATO', 'TIPO DE CONTRATO',
-            'SEXO', 'DIRECCIÓN', 'EPS',
+            'SEXO', 'DIRECCIÓN', 'DISTRITO', 'PROVINCIA', 'DEPARTAMENTO', 'EPS',
         ];
     }
 

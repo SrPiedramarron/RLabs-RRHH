@@ -86,6 +86,29 @@ class EmployeeResource extends Resource
                                 ->label('Dirección (domicilio)')
                                 ->maxLength(255)
                                 ->columnSpan(2),
+                            Forms\Components\Select::make('ubigeo_departamento')
+                                ->label('Departamento')
+                                ->options(fn () => \App\Support\Ubigeo::departamentos())
+                                ->searchable()
+                                ->live()
+                                ->afterStateUpdated(function (Forms\Set $set) {
+                                    $set('ubigeo_provincia', null);
+                                    $set('ubigeo_distrito', null);
+                                }),
+
+                            Forms\Components\Select::make('ubigeo_provincia')
+                                ->label('Provincia')
+                                ->options(fn (Forms\Get $get) => \App\Support\Ubigeo::provincias($get('ubigeo_departamento')))
+                                ->searchable()
+                                ->live()
+                                ->disabled(fn (Forms\Get $get) => ! $get('ubigeo_departamento'))
+                                ->afterStateUpdated(fn (Forms\Set $set) => $set('ubigeo_distrito', null)),
+
+                            Forms\Components\Select::make('ubigeo_distrito')
+                                ->label('Distrito')
+                                ->options(fn (Forms\Get $get) => \App\Support\Ubigeo::distritos($get('ubigeo_provincia')))
+                                ->searchable()
+                                ->disabled(fn (Forms\Get $get) => ! $get('ubigeo_provincia')),
 
                             Forms\Components\TextInput::make('celular')
                                 ->label('Celular')
