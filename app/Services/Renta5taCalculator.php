@@ -190,13 +190,43 @@ class Renta5taCalculator
             ->whereNotIn('concepto', $conceptosExcluidos)
             ->sum('monto');
 
+        // Meses anteriores al actual: sueldo realmente pagado (histórico importado; si ese mes
+        // no está en el histórico, la planilla del sistema) y, para esos mismos meses sin
+        // histórico, los demás ingresos variables (movilidad, bonos, horas extra).
+        [$sueldosPasados, $variablesPlanilla] = $this->ingresosMesesAnteriores($empleado, $year, $month, $sueldoMesActual);
+        $sumaVariablesYTD += $variablesPlanilla;
+
+        // Utilidades: si ya se les retuvo aparte (RENTA UTILIDAD), no entran a la base anual;
+        // si no hubo retención aparte, forman parte de la renta del año.
+        $utilidades = (float) IngresoHistorico5ta::where('employee_id', $empleado->id)
+            ->where('periodo', 'like', $year . '-%')
+            ->where('concepto', self::CONCEPTO_UTILIDADES)
+            ->sum('monto');
+        $retencionUtilidades = (float) IngresoHistorico5ta::where('employee_id', $empleado->id)
+            ->where('periodo', 'like', $year . '-%')
+            ->where('concepto', 'RENTA UTILIDAD')
+            ->sum('monto');
+        $utilidadesEnBase = $retencionUtilidades > 0 ? 0.0 : $utilidades;
+
         // Quien ingresó durante el año no cobra 12 meses ni las dos gratificaciones
         // completas: se proyectan solo los meses (y semestres) efectivamente trabajados.
         [$mesesDelAnio, $gratificacionesDelAnio] = $this->proporcionAnioTrabajado($empleado, $year);
 
-        $totalRemuneraciones = ($sueldoMesActual * $mesesDelAnio)
+        // Meses restantes (el actual incluido) al sueldo actual. Si ingresó este año, los
+        // meses de antes del ingreso no cuentan y el primer mes va proporcional.
+        $mesesFuturos = $mesesRestantes;
+        $ingreso = $empleado->fecha_ingreso;
+        if ($ingreso && $ingreso->year === $year && $ingreso->month === $month) {
+            $mesesFuturos = $mesesRestantes - 1 + ($ingreso->daysInMonth - $ingreso->day + 1) / $ingreso->daysInMonth;
+        } elseif ($ingreso && $ingreso->year === $year && $ingreso->month > $month) {
+            $mesesFuturos = (12 - $ingreso->month) + ($ingreso->daysInMonth - $ingreso->day + 1) / $ingreso->daysInMonth;
+        }
+
+        $totalRemuneraciones = $sueldosPasados
+            + ($sueldoMesActual * $mesesFuturos)
             + ($gratificacionUnitaria * ($gratificacionesPendientes > 0 ? $gratificacionesDelAnio : 0))
-            + $sumaVariablesYTD;
+            + $sumaVariablesYTD
+            + $utilidadesEnBase;
 
         $exonerado = $this->estaExonerado($sueldoMesActual, $totalRemuneraciones, $uit);
 
@@ -219,6 +249,8 @@ class Renta5taCalculator
             'gratificacion_unitaria'     => round($gratificacionUnitaria, 2),
             'gratificaciones_pendientes' => $gratificacionesPendientes,
             'suma_variables_ytd'         => round($sumaVariablesYTD, 2),
+            'sueldos_pasados'            => round($sueldosPasados, 2),
+            'utilidades_en_base'         => round($utilidadesEnBase, 2),
             'total_remuneraciones'       => round($totalRemuneraciones, 2),
             'base_imponible'             => round($baseImponible, 2),
             'impuesto_anual'             => round($impuestoAnual, 2),
@@ -228,6 +260,50 @@ class Renta5taCalculator
         ];
     }
 
+    /**
+     * Sueldos de los meses anteriores al actual (del año) y variables de los meses que
+     * no están en el histórico importado.
+     *
+     * @return array{0: float, 1: float} [sueldos pasados, variables tomadas de planilla]
+     */
+    private function ingresosMesesAnteriores(Employee $empleado, int $year, int $month, float $sueldoActual): array
+    {
+        $ingreso = $empleado->fecha_ingreso;
+        $sueldos = 0.0;
+        $variables = 0.0;
+
+        for ($m = 1; $m < $month; $m++) {
+            if ($ingreso && $ingreso->year === $year && $m < $ingreso->month) {
+                continue; // aún no trabajaba
+            }
+
+            $periodo = sprintf('%04d-%02d', $year, $m);
+
+            $histSueldo = (float) IngresoHistorico5ta::where('employee_id', $empleado->id)
+                ->where('periodo', $periodo)->where('concepto', self::CONCEPTO_SUELDO)->sum('monto');
+
+            if ($histSueldo > 0) {
+                $sueldos += $histSueldo;
+                continue;
+            }
+
+            $liq = \App\Models\PlanillaLiquidacion::where('employee_id', $empleado->id)->where('periodo', $periodo)->first();
+
+            if ($liq && ((float) $liq->sueldo_proporcional + (float) $liq->asignacion_familiar) > 0) {
+                $sueldos += (float) $liq->sueldo_proporcional + (float) $liq->asignacion_familiar;
+                // Variables de ese mes solo si el histórico no trae nada de ese mes.
+                $hayHistorico = IngresoHistorico5ta::where('employee_id', $empleado->id)->where('periodo', $periodo)->exists();
+                if (! $hayHistorico) {
+                    $variables += (float) $liq->bono_movilidad + (float) $liq->bono_encargatura + (float) $liq->bonos_especiales
+                        + (float) $liq->importe_horas_extra_diurnas + (float) $liq->importe_horas_extra_nocturnas;
+                }
+            } else {
+                $sueldos += $sueldoActual; // sin datos de ese mes: se asume el sueldo actual
+            }
+        }
+
+        return [$sueldos, $variables];
+    }
     /**
      * Meses del año en que el trabajador efectivamente trabaja y gratificaciones
      * (julio y diciembre) que le corresponden, prorrateadas por meses del

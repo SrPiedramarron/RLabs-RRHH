@@ -577,7 +577,23 @@ class PlanillaService
             : 0.0;
 
         $baseQuincenal = round($sueldo + $asignacionFamiliar, 2);
-        $mitadBase     = round($baseQuincenal / 2, 2);
+
+        // Quien ingresa o cesa dentro de la quincena (días 1 al 15) cobra solo los días trabajados.
+        $factorDias = 1.0;
+        $diaIni = 1;
+        $diaFin = 15;
+        if ($empleado->fecha_ingreso && $empleado->fecha_ingreso->year === $year && $empleado->fecha_ingreso->month === $month) {
+            $diaIni = max($diaIni, $empleado->fecha_ingreso->day);
+        }
+        if ($empleado->fecha_cese && $empleado->fecha_cese->year === $year && $empleado->fecha_cese->month === $month) {
+            $diaFin = min($diaFin, $empleado->fecha_cese->day);
+        }
+        if ($diaIni > 1 || $diaFin < 15) {
+            $factorDias = max(0, $diaFin - $diaIni + 1) / 15;
+        }
+
+        $baseEfectiva = round($baseQuincenal * $factorDias, 2); // base mensual × proporción de días
+        $mitadBase    = round($baseQuincenal / 2 * $factorDias, 2);
 
         // ── AFP/ONP sobre la base quincenal completa, luego dividido ────────
         // (mismo resultado que calcularlo directo sobre mitadBase, ya que
@@ -601,9 +617,9 @@ class PlanillaService
                 );
             }
 
-            $baseAsegurable = min($baseQuincenal, floatval($tasaAfp->tope_remuneracion_asegurable));
+            $baseAsegurable = min($baseEfectiva, floatval($tasaAfp->tope_remuneracion_asegurable));
 
-            $afpAporteObligatorio = round($baseQuincenal * floatval($tasaAfp->aporte_obligatorio) / 2, 2);
+            $afpAporteObligatorio = round($baseEfectiva * floatval($tasaAfp->aporte_obligatorio) / 2, 2);
             $afpComisionFlujo = $empleado->aplica_comision_flujo_afp
                 ? round($baseAsegurable * floatval($tasaAfp->comision_flujo) / 2, 2)
                 : 0.0;
@@ -612,7 +628,7 @@ class PlanillaService
             $descuentoPension = $afpAporteObligatorio + $afpComisionFlujo + $afpPrimaSeguro;
             $tasaPension      = floatval($tasaAfp->aporte_obligatorio) + floatval($tasaAfp->comision_flujo) + floatval($tasaAfp->prima_seguro);
         } else {
-            $descuentoPension = round($baseQuincenal * $tasaPension / 2, 2);
+            $descuentoPension = round($baseEfectiva * $tasaPension / 2, 2);
         }
 
         // ── Renta 5ta sobre la base quincenal (sin comisiones), dividida ────
@@ -621,7 +637,7 @@ class PlanillaService
             $detalle5ta = app(\App\Services\Renta5taCalculator::class)
                 ->calcularNoComisionado($empleado, $baseQuincenal, $year, $month);
 
-            $descuento5ta = round($detalle5ta['cuota_mensual'] / 2, 2);
+            $descuento5ta = round($detalle5ta['cuota_mensual'] / 2 * $factorDias, 2);
         }
 
         $netoPagar = round($mitadBase - $descuentoPension - $descuento5ta, 2);
