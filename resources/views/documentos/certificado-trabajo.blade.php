@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8">@include('documentos._estilos')</head>
 <body>
-<h1>CERTIFICADO DE TRABAJO</h1>
+<h1>{{ $cese ? 'CERTIFICADO DE TRABAJO' : 'CONSTANCIA DE TRABAJO' }}</h1>
 
 <p class="cuerpo">
     Mediante el presente, dejamos constancia que {{ $trat['articulo'] }} {{ $trat['titulo'] }} <strong>{{ $nombre }}</strong>,
@@ -15,7 +15,7 @@
     @endif
 </p>
 
-<p class="cuerpo">Se extiende el presente certificado para los fines que estime conveniente.</p>
+<p class="cuerpo">Se extiende {{ $cese ? 'el presente certificado' : 'la presente constancia' }} para los fines que estime conveniente.</p>
 
 <p class="der" style="margin-top:30px;">{{ $ciudad }}, {{ $emision }}</p>
 

@@ -27,7 +27,7 @@ class EditEmployee extends EditRecord
         return [
             Actions\ActionGroup::make([
                 Actions\Action::make('certificado_trabajo')
-                    ->label('Certificado de trabajo')
+                    ->label(fn () => $this->record->fecha_cese ? 'Certificado de trabajo' : 'Constancia de trabajo')
                     ->icon('heroicon-o-document-text')
                     ->form([
                         \Filament\Forms\Components\DatePicker::make('fecha')->label('Fecha de emisión')->native(false)->default(now())->required(),

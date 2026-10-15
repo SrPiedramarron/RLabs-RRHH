@@ -56,7 +56,7 @@ class DocumentoLaboralController extends Controller
             'firma'     => $this->firma($employee->company),
         ])->setPaper('a4', 'portrait');
 
-        return $pdf->download($this->archivo('Certificado_de_trabajo', $employee));
+        return $pdf->download($this->archivo($employee->fecha_cese ? 'Certificado_de_trabajo' : 'Constancia_de_trabajo', $employee));
     }
 
     // ── Carta/certificado de cese para el retiro de CTS ──────────────────────

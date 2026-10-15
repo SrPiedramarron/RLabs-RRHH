@@ -747,7 +747,7 @@ Tables\Columns\TextColumn::make('sistema_pensiones')
                 Tables\Actions\DeleteAction::make(),
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\Action::make('certificado_trabajo')
-                        ->label('Certificado de trabajo')
+                        ->label(fn ($record) => $record->fecha_cese ? 'Certificado de trabajo' : 'Constancia de trabajo')
                         ->icon('heroicon-o-document-text')
                         ->form([
                             Forms\Components\DatePicker::make('fecha')->label('Fecha de emisión')->native(false)->default(now())->required(),
