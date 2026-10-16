@@ -1,0 +1,201 @@
+<?php
+
+namespace App\Support;
+
+use App\Models\Employee;
+use App\Models\Recordatorio;
+use App\Models\Solicitud;
+use Carbon\Carbon;
+
+/**
+ * Tipos de recordatorio por correo y la consulta de lo que cada uno avisa.
+ * Para agregar un tipo nuevo: sumarlo a TIPOS y escribir su método recolectar*.
+ */
+class Recordatorios
+{
+    public const TIPOS = [
+        'contratos_por_vencer' => [
+            'label' => 'Renovación de contratos',
+            'ayuda' => 'Contratos que vencen: los del periodo que cubra el aviso.',
+            'ventana_defecto' => 30,
+        ],
+        'cumpleanos' => [
+            'label' => 'Cumpleaños',
+            'ayuda' => 'Trabajadores que cumplen años en la fecha que cubra el aviso.',
+            'ventana_defecto' => 0,
+        ],
+        'aniversarios' => [
+            'label' => 'Aniversario laboral',
+            'ayuda' => 'Trabajadores que cumplen un año más de servicio.',
+            'ventana_defecto' => 0,
+        ],
+        'ceses_sin_liquidar' => [
+            'label' => 'Ceses sin liquidar',
+            'ayuda' => 'Ceses de los últimos 60 días que aún no tienen liquidación calculada.',
+            'ventana_defecto' => 0,
+        ],
+        'solicitudes_pendientes' => [
+            'label' => 'Solicitudes pendientes de RRHH',
+            'ayuda' => 'Solicitudes que llevan más de 24 horas esperando a RRHH.',
+            'ventana_defecto' => 0,
+        ],
+    ];
+
+    public const MODOS = [
+        'dia_mes'    => 'Un día fijo de cada mes',
+        'dias_antes' => 'Varios días antes del evento',
+        'diario'     => 'Todos los días',
+    ];
+
+    public static function opciones(): array
+    {
+        return collect(self::TIPOS)->map(fn ($t) => $t['label'])->all();
+    }
+
+    /**
+     * Rango de fechas [desde, hasta] que cubre el aviso de hoy.
+     *
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    public static function rango(Recordatorio $r, Carbon $hoy): array
+    {
+        $hoy = $hoy->copy()->startOfDay();
+
+        if ($r->modo === 'dias_antes') {
+            $dia = $hoy->copy()->addDays((int) $r->dias_antes);
+
+            return [$dia, $dia->copy()];
+        }
+
+        $ventana = $r->ventana_dias;
+        if ($ventana === null) {
+            // Aviso mensual sin ventana: lo que queda del mes en curso; el resto, la ventana por defecto del tipo.
+            return $r->modo === 'dia_mes'
+                ? [$hoy, $hoy->copy()->endOfMonth()->startOfDay()]
+                : [$hoy, $hoy->copy()->addDays(self::TIPOS[$r->tipo]['ventana_defecto'] ?? 0)];
+        }
+
+        return [$hoy, $hoy->copy()->addDays((int) $ventana)];
+    }
+
+    /**
+     * Lo que se avisa hoy para este recordatorio.
+     *
+     * @return array{titulo: string, intro: string, columnas: array, filas: array}
+     */
+    public static function recolectar(Recordatorio $r, ?Carbon $hoy = null): array
+    {
+        $hoy = ($hoy ?? now())->copy()->startOfDay();
+        [$desde, $hasta] = self::rango($r, $hoy);
+
+        $base = Employee::where('company_id', $r->company_id)->where('active', true)->whereNull('fecha_cese')->with('department');
+
+        return match ($r->tipo) {
+            'contratos_por_vencer'   => self::contratos($base, $desde, $hasta, $hoy),
+            'cumpleanos'             => self::cumpleanos($base, $desde, $hasta),
+            'aniversarios'           => self::aniversarios($base, $desde, $hasta),
+            'ceses_sin_liquidar'     => self::cesesSinLiquidar($r->company_id, $hoy),
+            'solicitudes_pendientes' => self::solicitudesPendientes($r->company_id),
+            default                  => ['titulo' => $r->tipo_label, 'intro' => '', 'columnas' => [], 'filas' => []],
+        };
+    }
+
+    private static function rangoTexto(Carbon $desde, Carbon $hasta): string
+    {
+        return $desde->equalTo($hasta) ? 'el ' . $desde->format('d/m/Y') : 'del ' . $desde->format('d/m/Y') . ' al ' . $hasta->format('d/m/Y');
+    }
+
+    private static function contratos($base, Carbon $desde, Carbon $hasta, Carbon $hoy): array
+    {
+        $filas = (clone $base)->whereBetween('fecha_fin_contrato', [$desde->toDateString(), $hasta->toDateString()])
+            ->orderBy('fecha_fin_contrato')->get()
+            ->map(fn ($e) => [
+                $e->apellidos . ', ' . $e->nombres, $e->dni, $e->cargo ?? '—',
+                $e->fecha_fin_contrato->format('d/m/Y'), $hoy->diffInDays($e->fecha_fin_contrato, false) . ' día(s)',
+            ])->all();
+
+        return [
+            'titulo'   => count($filas) . ' contrato(s) por vencer',
+            'intro'    => 'Contratos que vencen ' . self::rangoTexto($desde, $hasta) . '. Revisa si corresponde renovar o gestionar el cese a tiempo.',
+            'columnas' => ['Trabajador', 'DNI', 'Cargo', 'Fin de contrato', 'Faltan'],
+            'filas'    => $filas,
+        ];
+    }
+
+    /** Trabajadores cuyo mes/día cae dentro del rango, con la fecha que les toca. */
+    private static function porFechaAnual($base, string $campo, Carbon $desde, Carbon $hasta): array
+    {
+        $resultado = [];
+        $empleados = (clone $base)->whereNotNull($campo)->get();
+
+        for ($d = $desde->copy(); $d->lte($hasta); $d->addDay()) {
+            foreach ($empleados as $e) {
+                $f = $e->{$campo};
+                if ($f->month === $d->month && $f->day === $d->day) {
+                    $resultado[] = [$e, $d->copy(), $d->year - $f->year];
+                }
+            }
+        }
+
+        return $resultado;
+    }
+
+    private static function cumpleanos($base, Carbon $desde, Carbon $hasta): array
+    {
+        $filas = array_map(fn ($x) => [
+            $x[0]->apellidos . ', ' . $x[0]->nombres, $x[0]->department?->nombre ?? '—', $x[1]->format('d/m/Y'), $x[2] . ' años',
+        ], self::porFechaAnual($base, 'fecha_nacimiento', $desde, $hasta));
+
+        return [
+            'titulo'   => count($filas) . ' cumpleaños',
+            'intro'    => 'Cumpleaños ' . self::rangoTexto($desde, $hasta) . '.',
+            'columnas' => ['Trabajador', 'Área', 'Fecha', 'Cumple'],
+            'filas'    => $filas,
+        ];
+    }
+
+    private static function aniversarios($base, Carbon $desde, Carbon $hasta): array
+    {
+        $filas = array_values(array_map(fn ($x) => [
+            $x[0]->apellidos . ', ' . $x[0]->nombres, $x[0]->fecha_ingreso->format('d/m/Y'), $x[1]->format('d/m/Y'), $x[2] . ' año(s) de servicio',
+        ], array_filter(self::porFechaAnual($base, 'fecha_ingreso', $desde, $hasta), fn ($x) => $x[2] >= 1)));
+
+        return [
+            'titulo'   => count($filas) . ' aniversario(s) laboral(es)',
+            'intro'    => 'Aniversarios de ingreso ' . self::rangoTexto($desde, $hasta) . '.',
+            'columnas' => ['Trabajador', 'Ingreso', 'Aniversario', 'Cumple'],
+            'filas'    => $filas,
+        ];
+    }
+
+    private static function cesesSinLiquidar(int $companyId, Carbon $hoy): array
+    {
+        $filas = Employee::where('company_id', $companyId)
+            ->whereNotNull('fecha_cese')
+            ->where('fecha_cese', '>=', $hoy->copy()->subDays(60)->toDateString())
+            ->whereNotExists(fn ($q) => $q->selectRaw(1)->from('liquidaciones_cese')->whereColumn('liquidaciones_cese.employee_id', 'employees.id'))
+            ->orderBy('fecha_cese')->get()
+            ->map(fn ($e) => [$e->apellidos . ', ' . $e->nombres, $e->dni, $e->fecha_cese->format('d/m/Y'), $e->fecha_cese->diffInDays($hoy) . ' día(s)'])->all();
+
+        return [
+            'titulo'   => count($filas) . ' cese(s) sin liquidar',
+            'intro'    => 'Trabajadores cesados en los últimos 60 días que aún no tienen liquidación por cese calculada.',
+            'columnas' => ['Trabajador', 'DNI', 'Fecha de cese', 'Desde el cese'],
+            'filas'    => $filas,
+        ];
+    }
+
+    private static function solicitudesPendientes(int $companyId): array
+    {
+        $filas = Solicitud::with('employee')->where('company_id', $companyId)->where('estado', 'pendiente')
+            ->where('created_at', '<=', now()->subDay())->orderBy('created_at')->get()
+            ->map(fn ($s) => [$s->employee->nombre_completo, $s->tipo_label, $s->created_at->format('d/m/Y H:i'), $s->created_at->diffForHumans(null, true)])->all();
+
+        return [
+            'titulo'   => count($filas) . ' solicitud(es) pendiente(s)',
+            'intro'    => 'Solicitudes que llevan más de 24 horas esperando la revisión de RRHH.',
+            'columnas' => ['Trabajador', 'Tipo', 'Enviada', 'Esperando'],
+            'filas'    => $filas,
+        ];
+    }
+}

@@ -9,7 +9,8 @@ Schedule::job(new SyncAttendanceJob)->everyFifteenMinutes();
 
 Schedule::command(GenerateAbsenceRecords::class)->dailyAt('23:30');
 
-Schedule::command(AvisarContratosPorVencer::class)->dailyAt('08:00');
+// Recordatorios por correo configurables (Administración > Recordatorios): contratos, cumpleaños, etc.
+Schedule::command(\App\Console\Commands\EnviarRecordatorios::class)->everyTenMinutes();
 
 // Vacaciones/permisos sin respuesta del jefe directo pasan a RRHH tras el plazo configurado.
 Schedule::command(\App\Console\Commands\EscalarSolicitudesJefe::class)->everyTenMinutes();
