@@ -9,6 +9,7 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (! Schema::hasTable('recordatorios')) {
         Schema::create('recordatorios', function (Blueprint $table) {
             $table->id();
             $table->foreignId('company_id')->constrained()->cascadeOnDelete();
@@ -23,6 +24,12 @@ return new class extends Migration
             $table->timestamp('ultimo_envio_at')->nullable();
             $table->timestamps();
         });
+        }
+
+        // Si ya hay recordatorios (reintento de una migración fallida), no se vuelve a sembrar.
+        if (DB::table('recordatorios')->exists()) {
+            return;
+        }
 
         $ahora = now();
 
@@ -32,18 +39,16 @@ return new class extends Migration
             if ($esInProcess) {
                 // Pedido de RRHH (oct. 2026): contratos el 1.º de cada mes y cumpleaños 24 h antes.
                 DB::table('recordatorios')->insert([
-                    [
-                        'company_id' => $c->id, 'tipo' => 'contratos_por_vencer', 'activo' => true,
-                        'destinatarios' => 'rrhh@inprocess.com.pe; gmartinez@inprocess.com.pe',
-                        'modo' => 'dia_mes', 'dia_mes' => 1, 'ventana_dias' => 30, 'hora' => '08:00',
-                        'created_at' => $ahora, 'updated_at' => $ahora,
-                    ],
-                    [
-                        'company_id' => $c->id, 'tipo' => 'cumpleanos', 'activo' => true,
-                        'destinatarios' => 'rrhh@inprocess.com.pe; marketing@inprocess.com.pe',
-                        'modo' => 'dias_antes', 'dias_antes' => 1, 'hora' => '08:00',
-                        'created_at' => $ahora, 'updated_at' => $ahora,
-                    ],
+                    'company_id' => $c->id, 'tipo' => 'contratos_por_vencer', 'activo' => true,
+                    'destinatarios' => 'rrhh@inprocess.com.pe; gmartinez@inprocess.com.pe',
+                    'modo' => 'dia_mes', 'dia_mes' => 1, 'ventana_dias' => 30, 'hora' => '08:00',
+                    'created_at' => $ahora, 'updated_at' => $ahora,
+                ]);
+                DB::table('recordatorios')->insert([
+                    'company_id' => $c->id, 'tipo' => 'cumpleanos', 'activo' => true,
+                    'destinatarios' => 'rrhh@inprocess.com.pe; marketing@inprocess.com.pe',
+                    'modo' => 'dias_antes', 'dias_antes' => 1, 'hora' => '08:00',
+                    'created_at' => $ahora, 'updated_at' => $ahora,
                 ]);
             } elseif ($c->email) {
                 // Lo que ya hacía el sistema: aviso diario de contratos que vencen en 15 días.
