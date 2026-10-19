@@ -163,7 +163,8 @@ class EmployeeResource extends Resource
                             Forms\Components\Select::make('schedule_id')
                                 ->label('Horario Principal')
                                 ->relationship('schedule', 'nombre')
-                                ->required()
+                                ->required(fn (Forms\Get $get) => $get('tipo_vinculo') !== 'locador')
+                                ->visible(fn (Forms\Get $get) => $get('tipo_vinculo') !== 'locador')
                                 ->searchable()
                                 ->helperText('Horario de lunes a viernes'),
 
