@@ -536,7 +536,8 @@ class PlanillaService
 
         $company = \App\Models\Company::find($companyId);
 
-        if (! $company || ! $company->pago_quincenal) {
+        $hayIndividuales = $company && Employee::planilla()->where('company_id', $companyId)->where('active', true)->where('frecuencia_pago', 'quincenal')->exists();
+        if (! $company || (! $company->pago_quincenal && ! $hayIndividuales)) {
             throw new \RuntimeException(
                 "La empresa seleccionada no tiene activado 'Paga quincenal'. Actívalo en su ficha (Configuración → Empresas) antes de calcular."
             );
@@ -546,7 +547,8 @@ class PlanillaService
             ->where('active', true)
             ->whereNotNull('sueldo_base')
             ->where('sueldo_base', '>', 0)
-            ->get();
+            ->get()
+            ->filter(fn ($e) => $e->pagaQuincenal((bool) $company->pago_quincenal));
 
         $quincenas = collect();
 

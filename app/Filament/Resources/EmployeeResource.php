@@ -206,6 +206,13 @@ class EmployeeResource extends Resource
                                 ->live()
                                 ->helperText('Los locadores no entran a planilla, asistencia, vacaciones ni beneficios; se les paga un honorario fijo por quincena.'),
 
+                            Forms\Components\Select::make('frecuencia_pago')
+                                ->label('Frecuencia de pago')
+                                ->options(['quincenal' => 'Quincenal (adelanto el 15 y saldo a fin de mes)', 'mensual' => 'Mensual (todo a fin de mes)'])
+                                ->placeholder('Según la empresa')
+                                ->native(false)
+                                ->helperText('Vacío: planilla sigue la configuración de la empresa; locadores, quincenal.'),
+
                             Forms\Components\TextInput::make('honorario_mensual')
                                 ->label('Honorario mensual (S/)')
                                 ->numeric()

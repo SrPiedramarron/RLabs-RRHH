@@ -55,8 +55,16 @@ class HonorarioService
             }
 
             $mensual = (float) $e->honorario_mensual;
-            $primera = round($mensual / 2, 2);
-            $bruto   = $quincena === 1 ? $primera : round($mensual - $primera, 2);
+            if ($e->pagaQuincenal()) {
+                $primera = round($mensual / 2, 2);
+                $bruto   = $quincena === 1 ? $primera : round($mensual - $primera, 2);
+            } else {
+                // Pago mensual: todo a fin de mes (2.ª quincena), nada en la 1.ª.
+                if ($quincena === 1) {
+                    continue;
+                }
+                $bruto = round($mensual, 2);
+            }
 
             $retencion = (! $e->suspension_4ta && $bruto > $umbral) ? round($bruto * $tasa, 2) : 0.0;
 

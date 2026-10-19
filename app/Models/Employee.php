@@ -55,6 +55,7 @@ class Employee extends Model
         'horas_por_marcacion',
         'jefe_directo_id',
         'tipo_vinculo',
+        'frecuencia_pago',
         'honorario_mensual',
         'suspension_4ta',
         'ruc_locador',
@@ -183,6 +184,16 @@ public function devices()
     public function scopePlanilla($query)
     {
         return $query->where($this->getTable() . '.tipo_vinculo', 'planilla');
+    }
+
+    /** Cobra adelanto de quincena: su frecuencia manda; si no tiene, la de la empresa (locadores: quincenal). */
+    public function pagaQuincenal(?bool $empresaQuincenal = null): bool
+    {
+        if ($this->frecuencia_pago) {
+            return $this->frecuencia_pago === 'quincenal';
+        }
+
+        return $this->esLocador() ? true : (bool) ($empresaQuincenal ?? $this->company?->pago_quincenal);
     }
 
     public function esLocador(): bool
