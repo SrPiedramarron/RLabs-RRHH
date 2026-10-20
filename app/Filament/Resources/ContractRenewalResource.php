@@ -123,6 +123,7 @@ class ContractRenewalResource extends Resource
                         'inicio_incremento_actividad' => 'Inicio o incremento de actividad',
                         'necesidad_mercado' => 'Necesidad de mercado',
                         'obra_servicio_especifico' => 'Obra determinada o servicio específico',
+                        'locacion_servicios' => 'De locación de servicios',
                     ])
                     ->query(fn (Builder $query, array $data) => $query->when(
                         $data['value'] ?? null,
