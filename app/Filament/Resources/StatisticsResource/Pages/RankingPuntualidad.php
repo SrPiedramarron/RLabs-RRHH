@@ -54,7 +54,7 @@ class RankingPuntualidad extends ListRecords
 
     protected function consulta(string $vista): Builder
     {
-        [$desde, $hasta] = EstadisticasAsistencia::rango($this->tableFilters['periodo'] ?? ['mes' => now()->format('Y-m')]);
+        [$desde, $hasta] = EstadisticasAsistencia::rango($this->periodoDe($vista));
 
         $sub = DB::table('attendance_records as a')
             ->join('employees as e', 'e.id', '=', 'a.employee_id')
@@ -96,6 +96,18 @@ class RankingPuntualidad extends ListRecords
             : $query->orderBy('r.pct', 'desc');
     }
 
+    /** Cada ranking (pestaña) tiene su propio periodo: campos mes_<vista>, desde_<vista>, hasta_<vista>. */
+    private function periodoDe(string $vista): array
+    {
+        $f = $this->tableFilters['periodo'] ?? [];
+
+        return [
+            'mes'   => array_key_exists("mes_$vista", $f) ? $f["mes_$vista"] : now()->format('Y-m'),
+            'desde' => $f["desde_$vista"] ?? null,
+            'hasta' => $f["hasta_$vista"] ?? null,
+        ];
+    }
+
     public function getTableRecordKey(Model $record): string
     {
         return (string) $record->clave;
@@ -129,12 +141,15 @@ class RankingPuntualidad extends ListRecords
             ])
             ->filters([
                 Tables\Filters\Filter::make('periodo')
-                    ->form([
-                        Forms\Components\Select::make('mes')->label('Mes')->options(EstadisticasAsistencia::meses())
-                            ->default(now()->format('Y-m'))->placeholder('Todos los meses')->native(false),
-                        Forms\Components\DatePicker::make('desde')->label('Desde (opcional, reemplaza al mes)'),
-                        Forms\Components\DatePicker::make('hasta')->label('Hasta (opcional, reemplaza al mes)'),
-                    ])
+                    ->form(collect(['general', 'sedes', 'areas', 'sede_area'])->flatMap(fn ($v) => [
+                        Forms\Components\Select::make("mes_$v")->label('Mes')->options(EstadisticasAsistencia::meses())
+                            ->default(now()->format('Y-m'))->placeholder('Todos los meses')->native(false)
+                            ->visible(fn () => $this->vista() === $v),
+                        Forms\Components\DatePicker::make("desde_$v")->label('Desde (opcional, reemplaza al mes)')
+                            ->visible(fn () => $this->vista() === $v),
+                        Forms\Components\DatePicker::make("hasta_$v")->label('Hasta (opcional, reemplaza al mes)')
+                            ->visible(fn () => $this->vista() === $v),
+                    ])->all())
                     ->query(fn ($query) => $query), // se aplica en getTableQuery()
             ])
             ->paginated([25, 50, 100])
@@ -144,6 +159,19 @@ class RankingPuntualidad extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('exportar_este')
+                ->label('Exportar este ranking')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('success')
+                ->action(function () {
+                    $v = $this->vista();
+
+                    return \Maatwebsite\Excel\Facades\Excel::download(
+                        new \App\Exports\RankingPuntualidadExport([$v => $this->consulta($v)->get()]),
+                        'ranking_puntualidad_' . $v . '_' . now()->format('Y-m-d') . '.xlsx'
+                    );
+                }),
+
             Actions\Action::make('exportar')
                 ->label('Exportar Excel (todos los rankings)')
                 ->icon('heroicon-o-arrow-down-tray')
