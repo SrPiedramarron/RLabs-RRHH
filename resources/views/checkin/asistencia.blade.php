@@ -45,6 +45,22 @@
 </div>
 @endif
 
+{{-- Ranking de áreas: lo ve todo el personal, sin datos individuales --}}
+@if(count($rankingAreas))
+<div class="card" style="padding:14px 16px;">
+    <div style="font-size:14px; font-weight:700; margin-bottom:2px;">Ranking de áreas</div>
+    <div style="font-size:11px; color:var(--gris); margin-bottom:10px;">% de puntualidad · del {{ $corteDesde->format('d/m') }} al {{ $corteHasta->format('d/m') }}</div>
+    @foreach($rankingAreas as $a)
+    @php $mia = $a['id'] == $employee->department_id; @endphp
+    <div style="display:flex; align-items:center; gap:10px; padding:8px 0; border-top:1px solid rgba(128,128,128,.2); {{ $mia ? 'font-weight:800;' : '' }}">
+        <div style="width:24px; text-align:center; font-size:13px;">{{ $a['posicion'] }}</div>
+        <div style="flex:1; font-size:13px;">{{ $a['area'] }}@if($mia) <span style="font-size:10px; color:var(--verde);">· tu área</span>@endif</div>
+        <div style="font-size:13px; font-weight:700; color:{{ $a['pct'] >= 90 ? 'var(--verde)' : ($a['pct'] >= 70 ? 'var(--amarillo)' : 'var(--rojo)') }};">{{ number_format($a['pct'], 1) }}%</div>
+    </div>
+    @endforeach
+</div>
+@endif
+
 {{-- Resumen --}}
 <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:10px; margin-bottom:16px;">
     <div class="card" style="text-align:center; padding:16px 12px; margin-bottom:0;">

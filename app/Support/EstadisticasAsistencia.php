@@ -70,6 +70,28 @@ class EstadisticasAsistencia
         ];
     }
 
+    /** Ranking de áreas de una empresa en el corte: [[posicion, department_id, area, pct], ...]. Solo trabajadores activos. */
+    public static function rankingAreas(int $companyId, Carbon $desde, Carbon $hasta): array
+    {
+        $filas = \Illuminate\Support\Facades\DB::table('attendance_records as a')
+            ->join('employees as e', 'e.id', '=', 'a.employee_id')
+            ->leftJoin('departments as d', 'd.id', '=', 'e.department_id')
+            ->where('a.company_id', $companyId)
+            ->where('e.active', true)
+            ->whereBetween('a.fecha', [$desde->toDateString(), $hasta->toDateString()])
+            ->groupBy('e.department_id')
+            ->selectRaw('e.department_id as id, MAX(COALESCE(d.nombre, "Sin área")) as area, ROUND(100 * SUM(CASE WHEN a.minutos_tarde <= 0 AND a.estado NOT IN ("ausente","feriado") THEN 1 ELSE 0 END) / COUNT(*), 1) as pct')
+            ->orderByDesc('pct')
+            ->get();
+
+        return $filas->map(fn ($f) => [
+            'posicion' => 1 + $filas->filter(fn ($o) => (float) $o->pct > (float) $f->pct)->count(),
+            'id'       => $f->id,
+            'area'     => $f->area,
+            'pct'      => (float) $f->pct,
+        ])->all();
+    }
+
     /** Rango [desde, hasta] a partir del filtro: fechas explícitas mandan sobre el mes. */
     public static function rango(?array $data): array
     {

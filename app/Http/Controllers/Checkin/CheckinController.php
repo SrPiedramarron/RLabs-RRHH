@@ -321,8 +321,10 @@ class CheckinController extends Controller
         [$corteDesde, $corteHasta] = \App\Support\EstadisticasAsistencia::corteMensual();
         $ranking = \App\Support\EstadisticasAsistencia::puestoPuntualidad($employee->id, $employee->company_id, $corteDesde, $corteHasta);
 
+        $rankingAreas = \App\Support\EstadisticasAsistencia::rankingAreas($employee->company_id, $corteDesde, $corteHasta);
+
         return view('checkin.asistencia', compact(
-            'employee', 'records', 'totales', 'mes', 'anio', 'meses', 'ranking', 'corteDesde', 'corteHasta'
+            'employee', 'records', 'totales', 'mes', 'anio', 'meses', 'ranking', 'corteDesde', 'corteHasta', 'rankingAreas'
         ));
     }
 
