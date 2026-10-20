@@ -23,6 +23,19 @@
     </form>
 </div>
 
+{{-- Ranking de puntualidad (corte del 26 al 25) --}}
+@if($ranking)
+<div class="card" style="text-align:center; padding:18px 14px;">
+    <div style="font-size:26px; color:#D4A017;">🏆</div>
+    <div style="font-size:15px; font-weight:700; margin-top:4px;">Tu ranking de puntualidad</div>
+    <div style="font-size:24px; font-weight:800; color:#D4A017; margin:8px 0;">Puesto {{ $ranking['puesto'] }} de {{ $ranking['total'] }}</div>
+    <div style="font-size:13px;">{{ $ranking['puesto'] <= 3 ? '¡Felicitaciones, sigue así!' : '¡Sigue mejorando tu puntualidad!' }}</div>
+    <div style="font-size:11px; color:var(--gris); margin-top:6px;">
+        Del {{ $corteDesde->format('d/m') }} al {{ $corteHasta->format('d/m') }} · {{ number_format($ranking['pct'], 1) }}% puntual
+    </div>
+</div>
+@endif
+
 {{-- Resumen --}}
 <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:10px; margin-bottom:16px;">
     <div class="card" style="text-align:center; padding:16px 12px; margin-bottom:0;">

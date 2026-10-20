@@ -318,8 +318,11 @@ class CheckinController extends Controller
         // Meses disponibles para el selector (últimos 6 meses)
         $meses = collect(range(0, 5))->map(fn($i) => now()->subMonths($i));
 
+        [$corteDesde, $corteHasta] = \App\Support\EstadisticasAsistencia::corteMensual();
+        $ranking = \App\Support\EstadisticasAsistencia::puestoPuntualidad($employee->id, $employee->company_id, $corteDesde, $corteHasta);
+
         return view('checkin.asistencia', compact(
-            'employee', 'records', 'totales', 'mes', 'anio', 'meses'
+            'employee', 'records', 'totales', 'mes', 'anio', 'meses', 'ranking', 'corteDesde', 'corteHasta'
         ));
     }
 
