@@ -25,14 +25,14 @@ class DetallePorEmpleadoExport implements FromCollection, WithHeadings, WithStyl
             $r->dias_puntual,
             $r->dias_ausente,
             $r->total_dias,
-            $r->total_minutos > 0 ? $r->total_minutos . ' min' : '—',
+            \App\Support\EstadisticasAsistencia::ddhhmm($r->total_minutos),
             $r->total_dias ? round(($r->dias_puntual / $r->total_dias) * 100) . '%' : '—',
         ]);
     }
 
     public function headings(): array
     {
-        return ['EMPLEADO', 'DNI', 'SEDE', 'ÁREA', 'DÍAS TARDE', 'DÍAS PUNTUAL', 'AUSENCIAS', 'TOTAL DÍAS', 'MIN. ACUM. TARDE', '% PUNTUALIDAD'];
+        return ['EMPLEADO', 'DNI', 'SEDE', 'ÁREA', 'DÍAS TARDE', 'DÍAS PUNTUAL', 'AUSENCIAS', 'TOTAL DÍAS', 'TIEMPO ACUM. TARDE (dd:hh:mm)', '% PUNTUALIDAD'];
     }
 
     public function styles(Worksheet $sheet): array

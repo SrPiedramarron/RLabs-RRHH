@@ -28,6 +28,12 @@ class TardanzaRanking extends ListRecords
                 ->url(StatisticsResource::getUrl('by-employee'))
                 ->color('gray'),
 
+            Actions\Action::make('ver_ranking_puntualidad')
+                ->label('Ranking de puntualidad')
+                ->icon('heroicon-o-trophy')
+                ->url(StatisticsResource::getUrl('ranking-puntualidad'))
+                ->color('gray'),
+
             Actions\Action::make('ver_sin_salida')
                 ->label('Sin Marcación de Salida')
                 ->icon('heroicon-o-arrow-right-on-rectangle')

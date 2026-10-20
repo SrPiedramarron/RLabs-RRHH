@@ -15,6 +15,7 @@ use App\Helpers\CompanyContext;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Collection;
+use App\Support\EstadisticasAsistencia;
 
 class DetallePorEmpleado extends ListRecords
 {
@@ -22,8 +23,10 @@ class DetallePorEmpleado extends ListRecords
 
     public function getTitle(): string { return 'Detalle por Empleado'; }
 
-    protected function getTableQuery(): Builder
+    protected function consultaDetalle(?array $filtroPeriodo): Builder
     {
+        [$desde, $hasta] = EstadisticasAsistencia::rango($filtroPeriodo);
+
         return AttendanceRecord::query()
             ->select([
                 'employee_id',
@@ -36,7 +39,15 @@ class DetallePorEmpleado extends ListRecords
             ])
             ->with(['employee', 'employee.department', 'employee.location'])
             ->when(CompanyContext::get(), fn($q) => $q->where('company_id', CompanyContext::get()))
+            ->when($desde, fn($q) => $q->whereDate('fecha', '>=', $desde))
+            ->when($hasta, fn($q) => $q->whereDate('fecha', '<=', $hasta))
             ->groupBy('employee_id', 'company_id');
+    }
+
+    protected function getTableQuery(): Builder
+    {
+        // El periodo se aplica aquí (no en el filtro de tabla) para que la exportación use el mismo.
+        return $this->consultaDetalle($this->tableFilters['periodo'] ?? ['mes' => now()->format('Y-m')]);
     }
 
     public function table(Table $table): Table
@@ -50,7 +61,7 @@ class DetallePorEmpleado extends ListRecords
                 Tables\Columns\TextColumn::make('dias_puntual')->label('Días puntual')->badge()->color('success'),
                 Tables\Columns\TextColumn::make('dias_ausente')->label('Ausencias')->badge()->color('danger'),
                 Tables\Columns\TextColumn::make('total_dias')->label('Total días'),
-                Tables\Columns\TextColumn::make('total_minutos')->label('Min. tarde')->formatStateUsing(fn($state) => $state > 0 ? $state . ' min' : '—'),
+                Tables\Columns\TextColumn::make('total_minutos')->label('Tiempo tarde (dd:hh:mm)')->formatStateUsing(fn($state) => EstadisticasAsistencia::ddhhmm($state)),
                 Tables\Columns\TextColumn::make('pct_puntualidad')->label('% Puntualidad')
                     ->getStateUsing(fn($record) => $record->total_dias ? round(($record->dias_puntual / $record->total_dias) * 100) . '%' : '—')
                     ->badge()
@@ -64,12 +75,12 @@ class DetallePorEmpleado extends ListRecords
             ->filters([
                 Tables\Filters\Filter::make('periodo')
                     ->form([
-                        Forms\Components\DatePicker::make('desde')->label('Desde')->default(now()->startOfMonth()),
-                        Forms\Components\DatePicker::make('hasta')->label('Hasta')->default(now()->endOfMonth()),
+                        Forms\Components\Select::make('mes')->label('Mes')->options(EstadisticasAsistencia::meses())
+                            ->default(now()->format('Y-m'))->placeholder('Todos los meses')->native(false),
+                        Forms\Components\DatePicker::make('desde')->label('Desde (opcional, reemplaza al mes)'),
+                        Forms\Components\DatePicker::make('hasta')->label('Hasta (opcional, reemplaza al mes)'),
                     ])
-                    ->query(fn($query, array $data) => $query
-                        ->when($data['desde'], fn($q) => $q->whereDate('fecha', '>=', $data['desde']))
-                        ->when($data['hasta'], fn($q) => $q->whereDate('fecha', '<=', $data['hasta']))),
+                    ->query(fn($query) => $query), // se aplica en getTableQuery()
             ])
             ->defaultSort('total_minutos', 'desc');
     }
@@ -87,25 +98,18 @@ class DetallePorEmpleado extends ListRecords
                 ->url(StatisticsResource::getUrl('index'))
                 ->color('gray'),
 
+            Actions\Action::make('ranking_puntualidad')
+                ->label('Ranking de puntualidad')
+                ->icon('heroicon-o-trophy')
+                ->url(StatisticsResource::getUrl('ranking-puntualidad'))
+                ->color('gray'),
+
             Actions\Action::make('exportar')
                 ->label('Exportar Excel')
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('success')
                 ->action(function () {
-                    $records = AttendanceRecord::query()
-                        ->select([
-                            'employee_id',
-                            'company_id',
-                            DB::raw('SUM(CASE WHEN minutos_tarde > 0 THEN 1 ELSE 0 END) as dias_tarde'),
-                            DB::raw('SUM(CASE WHEN minutos_tarde <= 0 AND estado NOT IN ("ausente","feriado") THEN 1 ELSE 0 END) as dias_puntual'),
-                            DB::raw('SUM(CASE WHEN estado = "ausente" THEN 1 ELSE 0 END) as dias_ausente'),
-                            DB::raw('COUNT(*) as total_dias'),
-                            DB::raw('SUM(minutos_tarde) as total_minutos'),
-                        ])
-                        ->with(['employee', 'employee.department', 'employee.location'])
-                        ->when(CompanyContext::get(), fn($q) => $q->where('company_id', CompanyContext::get()))
-                        ->groupBy('employee_id', 'company_id')
-                        ->get();
+                    $records = $this->consultaDetalle($this->tableFilters['periodo'] ?? null)->get();
 
                     return Excel::download(
                         new \App\Exports\DetallePorEmpleadoExport($records),
