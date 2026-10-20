@@ -150,6 +150,7 @@ class StatisticsResource extends Resource
         return [
             'index'       => Pages\TardanzaRanking::route('/'),
             'by-employee' => Pages\DetallePorEmpleado::route('/by-employee'),
+            'ranking-puntualidad' => Pages\RankingPuntualidad::route('/ranking-puntualidad'),
             'no-checkout' => Pages\SinMarcacionSalida::route('/no-checkout'),
         ];
     }
