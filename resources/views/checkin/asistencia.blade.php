@@ -25,11 +25,20 @@
 
 {{-- Ranking de puntualidad (corte del 26 al 25) --}}
 @if($ranking)
+@php
+    $dec = max(1, (int) ceil($ranking['total'] * 0.10));
+    [$icono, $color, $mensaje] = match (true) {
+        $ranking['puesto'] <= $dec                          => ['🏆', '#D4A017', '¡Eres un ejemplo de puntualidad!'],
+        $ranking['puesto'] > $ranking['total'] - $dec     => ['😟', '#DC2626', '¡Es momento de mejorar! Cada día cuenta.'],
+        $ranking['puesto'] <= $ranking['total'] / 2       => ['😎', '#16A34A', '¡Vas por buen camino!'],
+        default                                              => ['😐', '#D97706', '¡Todavía puedes subir posiciones!'],
+    };
+@endphp
 <div class="card" style="text-align:center; padding:18px 14px;">
-    <div style="font-size:26px; color:#D4A017;">🏆</div>
+    <div style="font-size:30px;">{{ $icono }}</div>
     <div style="font-size:15px; font-weight:700; margin-top:4px;">Tu ranking de puntualidad</div>
-    <div style="font-size:24px; font-weight:800; color:#D4A017; margin:8px 0;">Puesto {{ $ranking['puesto'] }} de {{ $ranking['total'] }}</div>
-    <div style="font-size:13px;">{{ $ranking['puesto'] <= 3 ? '¡Felicitaciones, sigue así!' : '¡Sigue mejorando tu puntualidad!' }}</div>
+    <div style="font-size:24px; font-weight:800; color:{{ $color }}; margin:8px 0;">Puesto {{ $ranking['puesto'] }} de {{ $ranking['total'] }}</div>
+    <div style="font-size:13px;">{{ $mensaje }}</div>
     <div style="font-size:11px; color:var(--gris); margin-top:6px;">
         Del {{ $corteDesde->format('d/m') }} al {{ $corteHasta->format('d/m') }} · {{ number_format($ranking['pct'], 1) }}% puntual
     </div>
