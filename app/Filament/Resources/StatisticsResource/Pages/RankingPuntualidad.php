@@ -49,8 +49,12 @@ class RankingPuntualidad extends ListRecords
 
     protected function getTableQuery(): Builder
     {
+        return $this->consulta($this->vista());
+    }
+
+    protected function consulta(string $vista): Builder
+    {
         [$desde, $hasta] = EstadisticasAsistencia::rango($this->tableFilters['periodo'] ?? ['mes' => now()->format('Y-m')]);
-        $vista = $this->vista();
 
         $sub = DB::table('attendance_records as a')
             ->join('employees as e', 'e.id', '=', 'a.employee_id')
@@ -140,6 +144,22 @@ class RankingPuntualidad extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('exportar')
+                ->label('Exportar Excel (todos los rankings)')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('success')
+                ->action(function () {
+                    $porVista = [];
+                    foreach (['general', 'sedes', 'areas', 'sede_area'] as $v) {
+                        $porVista[$v] = $this->consulta($v)->get();
+                    }
+
+                    return \Maatwebsite\Excel\Facades\Excel::download(
+                        new \App\Exports\RankingPuntualidadExport($porVista),
+                        'ranking_puntualidad_' . now()->format('Y-m-d') . '.xlsx'
+                    );
+                }),
+
             Actions\Action::make('volver')
                 ->label('← Detalle por empleado')
                 ->url(StatisticsResource::getUrl('by-employee'))
