@@ -52,10 +52,12 @@ class Renta5taCalculator
 
     public function calcular(
         Employee $empleado,
-        float $comisionesMesActual,
+        ?float $comisionesMesActual,
         int $year,
         int $month,
     ): array {
+        // Sin comisiones del mes (p. ej. la quincena del día 15) se estima con las últimas 3
+        // comisiones registradas, igual que la hoja de RRHH.
         $periodoActual   = sprintf('%04d-%02d', $year, $month);
         $mesesRestantes  = 13 - $month; // incluye el mes actual
         $fechaRef        = \Carbon\Carbon::create($year, $month, 1);
@@ -67,6 +69,14 @@ class Renta5taCalculator
             ->where('periodo', $periodoAnterior)
             ->where('concepto', self::CONCEPTO_SUELDO)
             ->value('monto');
+
+        // Si el mes anterior aún no está cargado, el último sueldo conocido del año.
+        if ($ultimoSueldo <= 0) {
+            $ultimoSueldo = (float) IngresoHistorico5ta::where('employee_id', $empleado->id)
+                ->where('periodo', '<', $periodoActual)->where('periodo', 'like', $year . '-%')
+                ->where('concepto', self::CONCEPTO_SUELDO)
+                ->orderByDesc('periodo')->value('monto');
+        }
 
         if ($ultimoSueldo <= 0) {
             // No hay histórico del mes anterior (ej. el propio sistema ya
@@ -80,19 +90,28 @@ class Renta5taCalculator
         }
 
         // ── Promedio de comisiones de los últimos 3 meses (incluye el actual) ──
-        $comisionesPrevias = [];
-        for ($i = 1; $i <= 2; $i++) {
-            $m = $month - $i;
-            $y = $year;
-            if ($m <= 0) { $m += 12; $y -= 1; }
-            $periodo = sprintf('%04d-%02d', $y, $m);
+        if ($comisionesMesActual === null) {
+            // Últimas 3 comisiones ya registradas (del año), sin contar meses aún vacíos.
+            $ultimas = IngresoHistorico5ta::where('employee_id', $empleado->id)
+                ->where('periodo', '<', $periodoActual)->where('periodo', 'like', $year . '-%')
+                ->where('concepto', self::CONCEPTO_COMISIONES)->where('monto', '>', 0)
+                ->orderByDesc('periodo')->limit(3)->pluck('monto');
+            $promComisiones3Ult = $ultimas->sum() / 3;
+        } else {
+            $comisionesPrevias = [];
+            for ($i = 1; $i <= 2; $i++) {
+                $m = $month - $i;
+                $y = $year;
+                if ($m <= 0) { $m += 12; $y -= 1; }
+                $periodo = sprintf('%04d-%02d', $y, $m);
 
-            $comisionesPrevias[] = (float) IngresoHistorico5ta::where('employee_id', $empleado->id)
-                ->where('periodo', $periodo)
-                ->where('concepto', self::CONCEPTO_COMISIONES)
-                ->value('monto');
+                $comisionesPrevias[] = (float) IngresoHistorico5ta::where('employee_id', $empleado->id)
+                    ->where('periodo', $periodo)
+                    ->where('concepto', self::CONCEPTO_COMISIONES)
+                    ->value('monto');
+            }
+            $promComisiones3Ult = ($comisionesMesActual + array_sum($comisionesPrevias)) / 3;
         }
-        $promComisiones3Ult = ($comisionesMesActual + array_sum($comisionesPrevias)) / 3;
 
         $ssPromCom = $ultimoSueldo + $promComisiones3Ult;
 
@@ -102,13 +121,26 @@ class Renta5taCalculator
         // se reduce a 1 después de julio como se asumió originalmente.
         // Diciembre sin confirmar todavía — se deja en 0 por precaución
         // hasta tener evidencia real de ese mes.
-        $gratificacionesPendientes = ($month === 12) ? 0 : 2;
+        // Hoja de RRHH para vendedores (oct. 2026): pasada la gratificación de julio, que ya está
+        // dentro de lo percibido, solo falta la de diciembre.
+        $gratificacionesPendientes = match (true) {
+            $month <= 7  => 2,
+            $month === 12 => 0,
+            default       => 1,
+        };
 
-        // ── Total ya percibido este año, ANTES del mes actual (SIN utilidades) ──
+        // ── Total ya percibido este año, ANTES del mes actual ──
+        // Las utilidades solo cuentan si no se les retuvo aparte (RENTA UTILIDAD).
+        $retuvoUtilidadesAparte = IngresoHistorico5ta::where('employee_id', $empleado->id)
+            ->where('periodo', 'like', $year . '-%')->where('concepto', 'RENTA UTILIDAD')->where('monto', '>', 0)->exists();
+        $excluidos = [self::CONCEPTO_RETENCION, 'RENTA UTILIDAD', 'BASE_PLAME_5TA'];
+        if ($retuvoUtilidadesAparte) {
+            $excluidos[] = self::CONCEPTO_UTILIDADES;
+        }
         $totalPercibido = (float) IngresoHistorico5ta::where('employee_id', $empleado->id)
             ->where('periodo', '<', $periodoActual)
             ->where('periodo', 'like', $year . '-%')
-            ->whereNotIn('concepto', [self::CONCEPTO_RETENCION, self::CONCEPTO_UTILIDADES, 'BASE_PLAME_5TA'])
+            ->whereNotIn('concepto', $excluidos)
             ->sum('monto');
 
         $proyeccionAlMes = ($ssPromCom * $mesesRestantes)
@@ -117,7 +149,7 @@ class Renta5taCalculator
 
         $totalRemuneraciones = $proyeccionAlMes;
 
-        $brutoMesActual = $ultimoSueldo + $comisionesMesActual;
+        $brutoMesActual = $ultimoSueldo + ($comisionesMesActual ?? $promComisiones3Ult);
         $exonerado = $this->estaExonerado($brutoMesActual, $totalRemuneraciones, $uit);
 
         $baseImponible = $exonerado ? 0.0 : max(0, $totalRemuneraciones - (self::UIT_EXONERADAS * $uit));

@@ -640,8 +640,11 @@ class PlanillaService
         // ── Renta 5ta sobre la base quincenal (sin comisiones), dividida ────
         $descuento5ta = 0.0;
         if ($empleado->aplica_5ta_categoria) {
-            $detalle5ta = app(\App\Services\Renta5taCalculator::class)
-                ->calcularNoComisionado($empleado, $baseQuincenal, $year, $month);
+            $calc5ta = app(\App\Services\Renta5taCalculator::class);
+            // Vendedores: método de la hoja "RTA 5TA VTAS" (promedio de comisiones, sin las del mes).
+            $detalle5ta = $empleado->aplica_comision
+                ? $calc5ta->calcular($empleado, null, $year, $month)
+                : $calc5ta->calcularNoComisionado($empleado, $baseQuincenal, $year, $month);
 
             $descuento5ta = round($detalle5ta['cuota_mensual'] / 2 * $factorDias, 2);
         }

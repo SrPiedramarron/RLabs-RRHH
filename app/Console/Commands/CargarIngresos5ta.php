@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\DB;
  */
 class CargarIngresos5ta extends Command
 {
-    protected $signature = 'rrhh:cargar-ingresos-5ta {--aplicar : Guardar (sin esto solo simula)} {--company=2} {--periodo=2026-10} {--archivo=storage/app/import/ingresos_5ta_rta_2026.json}';
+    protected $signature = 'rrhh:cargar-ingresos-5ta {--aplicar : Guardar (sin esto solo simula)} {--company=2} {--periodo=2026-10} {--vendedores : Compara con el método de vendedores (hoja RTA 5TA VTAS)} {--archivo=storage/app/import/ingresos_5ta_rta_2026.json}';
     protected $description = 'Carga ingresos mensuales de la hoja RTA 5TA al histórico de 5ta y compara con su total (carga única)';
 
     public function handle(Renta5taCalculator $calc): int
@@ -68,6 +68,18 @@ class CargarIngresos5ta extends Command
                 $cambios++;
             }
 
+            if ($this->option('vendedores')) {
+                $det = $calc->calcular($e, null, $y, $m);
+                $tabla[] = [
+                    mb_substr("{$e->apellidos} {$e->nombres}", 0, 26), $cambios,
+                    number_format($det['total_percibido'], 2, '.', ''), number_format((float) ($f['percibido_cielo'] ?? 0), 2, '.', ''),
+                    number_format($det['ss_prom_com'], 2, '.', ''), number_format($det['proyeccion_al_mes'], 2, '.', ''),
+                    number_format($det['impuesto_anual'], 2, '.', ''), number_format($det['retenciones_previas'], 2, '.', ''),
+                    number_format($det['cuota_mensual'], 2, '.', ''),
+                ];
+                continue;
+            }
+
             $sueldo = floatval($e->sueldo_base) + ($e->aplica_asignacion_familiar ? round(ParametroLegal::valor(ParametroLegal::RMV, "$y-$m-01") * 0.10, 2) : 0);
             $det    = $calc->calcularNoComisionado($e, $sueldo, $y, $m);
 
@@ -84,7 +96,12 @@ class CargarIngresos5ta extends Command
 
         $aplicar ? DB::commit() : DB::rollBack();
 
-        $this->table(['Trabajador', 'Registros cambiados', 'Total sistema', 'Total Excel', 'Dif.', 'Cuota sistema', 'Cuota Excel'], $tabla);
+        $this->table(
+            $this->option('vendedores')
+                ? ['Vendedor', 'Registros cambiados', 'Percibido sistema', 'Percibido hoja', 'SS + prom. comis.', 'Proyección', 'Impuesto anual', 'Ret. previas', 'Cuota sistema (mes ' . $m . ')']
+                : ['Trabajador', 'Registros cambiados', 'Total sistema', 'Total Excel', 'Dif.', 'Cuota sistema', 'Cuota Excel'],
+            $tabla
+        );
 
         return self::SUCCESS;
     }
