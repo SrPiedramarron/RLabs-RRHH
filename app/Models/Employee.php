@@ -48,6 +48,8 @@ class Employee extends Model
         'aplica_comision_flujo_afp',
         'movilidad_mensual_maxima',
         'aplica_5ta_categoria',
+        'otras_rentas_afectas',
+        'otras_rentas_anio',
         'aplica_comision',
         'tipo_base_comision',
         'porcentaje_comision',

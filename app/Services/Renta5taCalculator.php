@@ -40,6 +40,15 @@ class Renta5taCalculator
         ['desde' => 35, 'hasta' => null, 'tasa' => 0.20],
     ];
 
+    /** Otras rentas afectas del trabajador (otro empleador) para el ejercicio; 0 si son de otro año. */
+    private function otrasRentas(Employee $empleado, int $year): float
+    {
+        $monto = (float) ($empleado->otras_rentas_afectas ?? 0);
+        $anio  = $empleado->otras_rentas_anio;
+
+        return ($monto > 0 && ($anio === null || (int) $anio === $year)) ? $monto : 0.0;
+    }
+
     private function uit($fecha = null): float
     {
         return ParametroLegal::valor(ParametroLegal::UIT, $fecha);
@@ -143,9 +152,12 @@ class Renta5taCalculator
             ->whereNotIn('concepto', $excluidos)
             ->sum('monto');
 
+        $otrasRentas = $this->otrasRentas($empleado, $year);
+
         $proyeccionAlMes = ($ssPromCom * $mesesRestantes)
             + ($ssPromCom * 1.09 * $gratificacionesPendientes)
-            + $totalPercibido;
+            + $totalPercibido
+            + $otrasRentas;
 
         $totalRemuneraciones = $proyeccionAlMes;
 
@@ -173,6 +185,7 @@ class Renta5taCalculator
             'gratificaciones_pendientes' => $gratificacionesPendientes,
             'total_percibido'           => round($totalPercibido, 2),
             'proyeccion_al_mes'         => round($proyeccionAlMes, 2),
+            'otras_rentas'              => round($otrasRentas, 2),
             'base_imponible'            => round($baseImponible, 2),
             'impuesto_anual'            => round($impuestoAnual, 2),
             'retenciones_previas'       => round($retencionesPrevias, 2),
@@ -258,7 +271,8 @@ class Renta5taCalculator
             + ($sueldoMesActual * $mesesFuturos)
             + ($gratificacionUnitaria * ($gratificacionesPendientes > 0 ? $gratificacionesDelAnio : 0))
             + $sumaVariablesYTD
-            + $utilidadesEnBase;
+            + $utilidadesEnBase
+            + $this->otrasRentas($empleado, $year);
 
         $exonerado = $this->estaExonerado($sueldoMesActual, $totalRemuneraciones, $uit);
 
@@ -283,6 +297,7 @@ class Renta5taCalculator
             'suma_variables_ytd'         => round($sumaVariablesYTD, 2),
             'sueldos_pasados'            => round($sueldosPasados, 2),
             'utilidades_en_base'         => round($utilidadesEnBase, 2),
+            'otras_rentas'               => round($this->otrasRentas($empleado, $year), 2),
             'total_remuneraciones'       => round($totalRemuneraciones, 2),
             'base_imponible'             => round($baseImponible, 2),
             'impuesto_anual'             => round($impuestoAnual, 2),

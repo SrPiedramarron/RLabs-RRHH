@@ -441,6 +441,19 @@ class EmployeeResource extends Resource
                                 ->helperText('Impuesto a la renta para sueldos altos')
                                 ->default(false),
 
+                            Forms\Components\TextInput::make('otras_rentas_afectas')
+                                ->label('Otras rentas afectas (S/ en el año)')
+                                ->numeric()->minValue(0)->prefix('S/')->default(0)
+                                ->live(onBlur: true)
+                                ->helperText('Total anual de rentas de 5.ª categoría de OTRO empleador u otra fuente que se suman a las de esta empresa para el cálculo de la retención. Se suman a la proyección anual de la 5ta.'),
+
+                            Forms\Components\TextInput::make('otras_rentas_anio')
+                                ->label('Año al que corresponden')
+                                ->numeric()->minValue(2020)->maxValue(2100)
+                                ->default(fn () => now()->year)
+                                ->required(fn (Forms\Get $get) => (float) ($get('otras_rentas_afectas') ?? 0) > 0)
+                                ->helperText('Solo se usan en el cálculo de ese año; el siguiente año hay que volver a ingresarlas.'),
+
                             Forms\Components\Toggle::make('aplica_comision')
                                 ->label('Aplica comisiones')
                                 ->helperText('Incluir comisiones de ventas en la liquidación mensual')
