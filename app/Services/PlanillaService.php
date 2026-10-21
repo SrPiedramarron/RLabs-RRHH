@@ -601,18 +601,22 @@ class PlanillaService
         $baseEfectiva = round($baseQuincenal * $factorDias, 2); // base mensual × proporción de días
         $mitadBase    = round($baseQuincenal / 2 * $factorDias, 2);
 
-        // Faltas injustificadas y tardanzas desde el 26 del mes anterior hasta el 15, igual que la
-        // planilla de RRHH (hoja TARDANZA): se descuentan del mes completo — sueldo ÷ 30 por día,
-        // sueldo ÷ 30 ÷ 8 ÷ 60 por minuto — y reducen la remuneración afecta (AFP/ONP). La quincena
-        // es la mitad del neto, así que se reparte entre las dos quincenas. Los exonerados de
-        // registro no tienen descuentos.
+        // Faltas y tardanzas: en la quincena NO se descuentan (se descuentan a fin de mes), salvo
+        // quien cesa dentro de la quincena (hasta el día 15): su quincena es el último pago, así
+        // que se le descuentan como a la planilla de RRHH (hoja TARDANZA) — sueldo ÷ 30 por día
+        // de falta injustificada y sueldo ÷ 30 ÷ 8 ÷ 60 por minuto, contando desde el 26 del mes
+        // anterior hasta la fecha de cese. Reducen también la remuneración afecta (AFP/ONP).
         $diasFalta = 0;
         $minutosTarde = 0;
-        if (! $empleado->exonerado_registro) {
-            $inicioAsistencia = Carbon::create($year, $month, 15)->subMonthNoOverflow()->day(26)->toDateString();
-            $finAsistencia    = Carbon::create($year, $month, 15)->toDateString();
+        $cesaEnQuincena = $empleado->fecha_cese
+            && $empleado->fecha_cese->year === $year && $empleado->fecha_cese->month === $month
+            && $empleado->fecha_cese->day <= 15;
+        if ($cesaEnQuincena && ! $empleado->exonerado_registro) {
             $registros = \App\Models\AttendanceRecord::where('employee_id', $empleado->id)
-                ->whereBetween('fecha', [$inicioAsistencia, $finAsistencia])->get();
+                ->whereBetween('fecha', [
+                    Carbon::create($year, $month, 15)->subMonthNoOverflow()->day(26)->toDateString(),
+                    $empleado->fecha_cese->toDateString(),
+                ])->get();
             $diasFalta    = $registros->where('estado', 'ausente')->where('justificado', false)->count();
             $minutosTarde = (int) $registros->sum('minutos_tarde');
         }
@@ -620,8 +624,9 @@ class PlanillaService
         $descuentoTardanzas = round($sueldo / 30 / 8 / 60 * $minutosTarde, 2);
         $descuentosAsistencia = $descuentoFaltas + $descuentoTardanzas;
 
-        // Base afecta a AFP/ONP: la remuneración menos faltas y tardanzas.
-        $baseAfecta = max(0, round($baseEfectiva - $descuentosAsistencia, 2));
+        // El pago de quien cesa es completo (no la mitad): el descuento se aplica entero al neto,
+        // y a la base de AFP/ONP (que más abajo se divide entre 2) se le resta el doble.
+        $baseAfecta = max(0, round($baseEfectiva - 2 * $descuentosAsistencia, 2));
 
         // ── AFP/ONP sobre la base quincenal completa, luego dividido ────────
         // (mismo resultado que calcularlo directo sobre mitadBase, ya que
@@ -671,7 +676,7 @@ class PlanillaService
             $descuento5ta = round($detalle5ta['cuota_mensual'] / 2 * $factorDias, 2);
         }
 
-        $netoPagar = round($mitadBase - $descuentosAsistencia / 2 - $descuentoPension - $descuento5ta, 2);
+        $netoPagar = round($mitadBase - $descuentosAsistencia - $descuentoPension - $descuento5ta, 2);
 
         return \App\Models\PlanillaQuincena::updateOrCreate(
             ['employee_id' => $empleado->id, 'periodo' => $periodo],

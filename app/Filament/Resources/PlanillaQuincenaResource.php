@@ -61,14 +61,14 @@ class PlanillaQuincenaResource extends Resource
                     ->alignEnd(),
 
                 Tables\Columns\TextColumn::make('descuento_faltas')
-                    ->label('Faltas (mes)')
+                    ->label('Faltas (cese)')
                     ->money('PEN')
                     ->alignEnd()
                     ->color('danger')
                     ->toggleable(),
 
                 Tables\Columns\TextColumn::make('descuento_tardanzas')
-                    ->label('Tardanzas (mes)')
+                    ->label('Tardanzas (cese)')
                     ->money('PEN')
                     ->alignEnd()
                     ->color('danger')
