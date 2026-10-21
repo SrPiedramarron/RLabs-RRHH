@@ -16,6 +16,7 @@ class PlanillaQuincena extends Model
         'sistema_pensiones', 'porcentaje_pension', 'descuento_pension',
         'afp_comision_flujo', 'afp_prima_seguro', 'afp_aporte_obligatorio',
         'aplica_5ta_categoria', 'descuento_5ta_categoria',
+        'dias_falta', 'minutos_tarde', 'descuento_faltas', 'descuento_tardanzas',
         'neto_pagar',
         'calculado_por', 'calculado_at',
     ];

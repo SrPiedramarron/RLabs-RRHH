@@ -601,6 +601,28 @@ class PlanillaService
         $baseEfectiva = round($baseQuincenal * $factorDias, 2); // base mensual × proporción de días
         $mitadBase    = round($baseQuincenal / 2 * $factorDias, 2);
 
+        // Faltas injustificadas y tardanzas desde el 26 del mes anterior hasta el 15, igual que la
+        // planilla de RRHH (hoja TARDANZA): se descuentan del mes completo — sueldo ÷ 30 por día,
+        // sueldo ÷ 30 ÷ 8 ÷ 60 por minuto — y reducen la remuneración afecta (AFP/ONP). La quincena
+        // es la mitad del neto, así que se reparte entre las dos quincenas. Los exonerados de
+        // registro no tienen descuentos.
+        $diasFalta = 0;
+        $minutosTarde = 0;
+        if (! $empleado->exonerado_registro) {
+            $inicioAsistencia = Carbon::create($year, $month, 15)->subMonthNoOverflow()->day(26)->toDateString();
+            $finAsistencia    = Carbon::create($year, $month, 15)->toDateString();
+            $registros = \App\Models\AttendanceRecord::where('employee_id', $empleado->id)
+                ->whereBetween('fecha', [$inicioAsistencia, $finAsistencia])->get();
+            $diasFalta    = $registros->where('estado', 'ausente')->where('justificado', false)->count();
+            $minutosTarde = (int) $registros->sum('minutos_tarde');
+        }
+        $descuentoFaltas    = round($sueldo / 30 * $diasFalta, 2);
+        $descuentoTardanzas = round($sueldo / 30 / 8 / 60 * $minutosTarde, 2);
+        $descuentosAsistencia = $descuentoFaltas + $descuentoTardanzas;
+
+        // Base afecta a AFP/ONP: la remuneración menos faltas y tardanzas.
+        $baseAfecta = max(0, round($baseEfectiva - $descuentosAsistencia, 2));
+
         // ── AFP/ONP sobre la base quincenal completa, luego dividido ────────
         // (mismo resultado que calcularlo directo sobre mitadBase, ya que
         // los % son lineales — se calcula así para reusar la estructura de
@@ -623,9 +645,9 @@ class PlanillaService
                 );
             }
 
-            $baseAsegurable = min($baseEfectiva, floatval($tasaAfp->tope_remuneracion_asegurable));
+            $baseAsegurable = min($baseAfecta, floatval($tasaAfp->tope_remuneracion_asegurable));
 
-            $afpAporteObligatorio = round($baseEfectiva * floatval($tasaAfp->aporte_obligatorio) / 2, 2);
+            $afpAporteObligatorio = round($baseAfecta * floatval($tasaAfp->aporte_obligatorio) / 2, 2);
             $afpComisionFlujo = $empleado->aplica_comision_flujo_afp
                 ? round($baseAsegurable * floatval($tasaAfp->comision_flujo) / 2, 2)
                 : 0.0;
@@ -634,7 +656,7 @@ class PlanillaService
             $descuentoPension = $afpAporteObligatorio + $afpComisionFlujo + $afpPrimaSeguro;
             $tasaPension      = floatval($tasaAfp->aporte_obligatorio) + floatval($tasaAfp->comision_flujo) + floatval($tasaAfp->prima_seguro);
         } else {
-            $descuentoPension = round($baseEfectiva * $tasaPension / 2, 2);
+            $descuentoPension = round($baseAfecta * $tasaPension / 2, 2);
         }
 
         // ── Renta 5ta sobre la base quincenal (sin comisiones), dividida ────
@@ -649,7 +671,7 @@ class PlanillaService
             $descuento5ta = round($detalle5ta['cuota_mensual'] / 2 * $factorDias, 2);
         }
 
-        $netoPagar = round($mitadBase - $descuentoPension - $descuento5ta, 2);
+        $netoPagar = round($mitadBase - $descuentosAsistencia / 2 - $descuentoPension - $descuento5ta, 2);
 
         return \App\Models\PlanillaQuincena::updateOrCreate(
             ['employee_id' => $empleado->id, 'periodo' => $periodo],
@@ -671,6 +693,10 @@ class PlanillaService
                 'afp_aporte_obligatorio'  => $afpAporteObligatorio,
                 'aplica_5ta_categoria'    => $empleado->aplica_5ta_categoria,
                 'descuento_5ta_categoria' => round($descuento5ta, 2),
+                'dias_falta'              => $diasFalta,
+                'minutos_tarde'           => $minutosTarde,
+                'descuento_faltas'        => $descuentoFaltas,
+                'descuento_tardanzas'     => $descuentoTardanzas,
                 'neto_pagar'              => $netoPagar,
                 'calculado_por'           => Auth::id(),
                 'calculado_at'            => now(),

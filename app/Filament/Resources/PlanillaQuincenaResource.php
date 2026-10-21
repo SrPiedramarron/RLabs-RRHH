@@ -60,6 +60,20 @@ class PlanillaQuincenaResource extends Resource
                     ->money('PEN')
                     ->alignEnd(),
 
+                Tables\Columns\TextColumn::make('descuento_faltas')
+                    ->label('Faltas (mes)')
+                    ->money('PEN')
+                    ->alignEnd()
+                    ->color('danger')
+                    ->toggleable(),
+
+                Tables\Columns\TextColumn::make('descuento_tardanzas')
+                    ->label('Tardanzas (mes)')
+                    ->money('PEN')
+                    ->alignEnd()
+                    ->color('danger')
+                    ->toggleable(),
+
                 Tables\Columns\TextColumn::make('descuento_pension')
                     ->label('AFP/ONP (÷2)')
                     ->money('PEN')
