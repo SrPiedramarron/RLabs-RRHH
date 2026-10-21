@@ -48,6 +48,8 @@ class PlanillaService
 
     public function calcularPeriodo(int $companyId, string $periodo, array $bonosEspeciales = [], array $otrosDescuentos = [], array $adelantos = [], array $subsidiosEnfermedad = [], array $subsidiosMaternidad = [], array $retencionesManuales5ta = []): Collection
     {
+        \App\Models\CierrePeriodo::asegurarAbierto($companyId, $periodo, 'la planilla');
+
         [$year, $month] = explode('-', $periodo);
 
         $empleados = Employee::planilla()->where('company_id', $companyId)
@@ -532,6 +534,8 @@ class PlanillaService
 
     public function calcularPeriodoQuincena(int $companyId, string $periodo): Collection
     {
+        \App\Models\CierrePeriodo::asegurarAbierto($companyId, $periodo, 'la quincena');
+
         [$year, $month] = explode('-', $periodo);
 
         $company = \App\Models\Company::find($companyId);
@@ -693,6 +697,7 @@ class PlanillaService
         if (!in_array($tipo, ['julio', 'diciembre'], true)) {
             throw new \InvalidArgumentException("Tipo de gratificación inválido: {$tipo}");
         }
+        \App\Models\CierrePeriodo::asegurarAbierto($companyId, \App\Models\CierrePeriodo::mesDe($tipo, $anio), 'la gratificación');
 
         $empleados = Employee::planilla()->where('company_id', $companyId)
             ->where('active', true)
@@ -843,6 +848,7 @@ class PlanillaService
         if (!in_array($tipo, ['mayo', 'noviembre'], true)) {
             throw new \InvalidArgumentException("Tipo de CTS inválido: {$tipo}");
         }
+        \App\Models\CierrePeriodo::asegurarAbierto($companyId, \App\Models\CierrePeriodo::mesDe($tipo, $anio), 'la CTS');
 
         $empleados = Employee::planilla()->where('company_id', $companyId)
             ->where('active', true)
@@ -1446,6 +1452,9 @@ class PlanillaService
      */
     public function calcularPeriodoUtilidades(int $companyId, int $anioEjercicio, float $montoTotalARepartir, string $periodoPago): Collection
     {
+        if (preg_match('/^\d{4}-\d{2}$/', $periodoPago)) {
+            \App\Models\CierrePeriodo::asegurarAbierto($companyId, $periodoPago, 'las utilidades');
+        }
         $empleados = Employee::planilla()->where('company_id', $companyId)
             ->whereNotNull('sueldo_base')
             ->where('sueldo_base', '>', 0)

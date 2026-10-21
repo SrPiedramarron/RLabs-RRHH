@@ -41,6 +41,8 @@ class HonorarioService
             ->where('honorario_mensual', '>', 0)
             ->get();
 
+        \App\Models\CierrePeriodo::asegurarAbierto($companyId, $periodo, 'los honorarios');
+
         $inicio = $periodo . '-01';
         $fin    = \Carbon\Carbon::parse($inicio)->endOfMonth()->toDateString();
         $tasa   = $this->tasaRetencion($fin);   // valores vigentes en el periodo, no los de hoy

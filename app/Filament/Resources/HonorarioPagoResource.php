@@ -86,9 +86,13 @@ class HonorarioPagoResource extends Resource
                             ->content('Cada locador activo con honorario mensual recibe la mitad del honorario por quincena. Se retiene el 8% si el recibo supera el umbral y no tiene suspensión de 4.ª categoría. Los datos de recibo y de pago ya registrados no se pierden al recalcular.'),
                     ]))
                     ->action(function (array $data) {
-                        $pagos = app(HonorarioService::class)->calcularQuincena((int) $data['company_id'], $data['periodo'], (int) $data['quincena']);
+                        try {
+                            $pagos = app(HonorarioService::class)->calcularQuincena((int) $data['company_id'], $data['periodo'], (int) $data['quincena']);
 
-                        Notification::make()->title("Quincena calculada: {$pagos->count()} locador(es)")->success()->send();
+                            Notification::make()->title("Quincena calculada: {$pagos->count()} locador(es)")->success()->send();
+                        } catch (\Throwable $e) {
+                            Notification::make()->title('No se pudo calcular')->body($e->getMessage())->danger()->send();
+                        }
                     }),
 
                 Tables\Actions\Action::make('exportar')
