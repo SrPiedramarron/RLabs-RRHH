@@ -1,20 +1,21 @@
 <!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8">
 <style>
-    @page { margin: 4.2cm 44px 36px 44px; } /* papel membretado: 3.5 cm de encabezado */
-    body { font-family: DejaVu Sans, sans-serif; font-size: 10px; color: #111; line-height: 1.35; }
-    h1 { font-size: 13px; text-align: center; margin: 0; }
-    .sub { text-align: center; font-size: 9px; margin: 2px 0 12px; }
+    /* Papel membretado: 3.5 cm de encabezado; el resto se compacta para que todo entre en una hoja. */
+    @page { margin: 4.2cm 44px 22px 44px; }
+    body { font-family: DejaVu Sans, sans-serif; font-size: 9.5px; color: #111; line-height: 1.22; }
+    h1 { font-size: 12.5px; text-align: center; margin: 0; }
+    .sub { text-align: center; font-size: 8.5px; margin: 1px 0 6px; }
     table { width: 100%; border-collapse: collapse; }
-    td { padding: 2px 4px; vertical-align: top; }
+    td { padding: 1px 4px; vertical-align: top; }
     .der { text-align: right; white-space: nowrap; }
-    .sec { font-weight: bold; margin: 10px 0 3px; }
-    .cab td { padding: 1px 4px; }
+    .sec { font-weight: bold; margin: 6px 0 2px; }
+    .cab td { padding: 0 4px; }
     .total td { border-top: 1px solid #333; font-weight: bold; }
-    .gran td { border-top: 2px solid #111; font-weight: bold; font-size: 11px; padding-top: 4px; }
-    .firmas { margin-top: 46px; }
-    .linea { border-top: 1px solid #333; width: 85%; margin: 0 auto 3px; }
-    .caja-huella { border: 1px solid #333; width: 70px; height: 80px; margin: 0 auto 3px; }
+    .gran td { border-top: 2px solid #111; font-weight: bold; font-size: 10.5px; padding-top: 3px; }
+    .firmas { margin-top: 26px; page-break-inside: avoid; }
+    .linea { border-top: 1px solid #333; width: 85%; margin: 0 auto 2px; }
+    .caja-huella { border: 1px solid #333; width: 60px; height: 56px; margin: 0 auto 2px; }
 </style>
 </head>
 <body>
@@ -58,7 +59,7 @@
 
 <h1>LIQUIDACIÓN DE BENEFICIOS SOCIALES</h1>
 <div class="sub">D. Leg. N.º 650, D. Leg. 857 y D.S. N.º 001-97-TR</div>
-<div style="text-align:center; font-weight:bold; margin-bottom:8px;">{{ $empresa->razon_social }}</div>
+<div style="text-align:center; font-weight:bold; margin-bottom:4px;">{{ $empresa->razon_social }}</div>
 
 <table class="cab">
     <tr><td style="width:36%;">NOMBRE DEL TRABAJADOR</td><td>: {{ $nombre }}</td></tr>
@@ -124,17 +125,17 @@
 </table>
 @endif
 
-<table style="margin-top:10px;">
+<table style="margin-top:6px;">
     <tr class="gran"><td>TOTAL A RECIBIR POR CONCEPTO DE LIQUIDACIÓN</td><td class="der">S/ {{ $m($total) }}</td></tr>
 </table>
 
-<p style="text-align:justify; margin-top:14px;">
+<p style="text-align:justify; margin: 8px 0 4px;">
     RECIBÍ DE {{ mb_strtoupper($empresa->razon_social) }} LA SUMA DE S/ {{ $m($total) }} ({{ $letras }}) POR MI TIEMPO DE SERVICIO EN LA
     EMPRESA, POR LO QUE HABIÉNDOSE CALCULADO LA PRESENTE LIQUIDACIÓN DE BENEFICIOS SOCIALES DE ACUERDO A LAS DISPOSICIONES LEGALES
     VIGENTES, FIRMO EN SEÑAL DE CONFORMIDAD Y DECLARO NO TENER NADA QUE RECLAMAR EN EL FUTURO POR ESTE NI POR OTRO CONCEPTO.
 </p>
 
-<p>{{ $ciudad }}, {{ $emision }}</p>
+<p style="margin: 4px 0;">{{ $ciudad }}, {{ $emision }}</p>
 
 <table class="firmas">
     <tr>
