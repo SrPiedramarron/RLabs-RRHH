@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8">
 <style>
-    @page { margin: 36px 44px; }
+    @page { margin: 4.2cm 44px 36px 44px; } /* papel membretado: 3.5 cm de encabezado */
     body { font-family: DejaVu Sans, sans-serif; font-size: 10px; color: #111; line-height: 1.35; }
     h1 { font-size: 13px; text-align: center; margin: 0; }
     .sub { text-align: center; font-size: 9px; margin: 2px 0 12px; }

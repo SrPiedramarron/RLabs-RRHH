@@ -1,5 +1,6 @@
 <style>
-    @page { margin: 60px 70px; }
+    /* Papel membretado: el encabezado ocupa 3.5 cm de alto, así que el texto empieza a los 4.2 cm. */
+    @page { margin: 4.2cm 70px 60px 70px; }
     body { font-family: DejaVu Sans, sans-serif; font-size: 12px; color: #111; line-height: 1.6; }
     h1 { font-size: 16px; text-align: center; letter-spacing: 1px; margin: 40px 0 28px; }
     .cuerpo { text-align: justify; }
