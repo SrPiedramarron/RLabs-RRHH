@@ -15,19 +15,19 @@ use Illuminate\Support\Collection;
  */
 class HonorarioService
 {
-    public function tasaRetencion(): float
+    public function tasaRetencion($fecha = null): float
     {
         try {
-            return ParametroLegal::valor('tasa_retencion_4ta');
+            return ParametroLegal::valor('tasa_retencion_4ta', $fecha);
         } catch (\Throwable) {
             return 0.08;
         }
     }
 
-    public function umbralRetencion(): float
+    public function umbralRetencion($fecha = null): float
     {
         try {
-            return ParametroLegal::valor('umbral_retencion_4ta');
+            return ParametroLegal::valor('umbral_retencion_4ta', $fecha);
         } catch (\Throwable) {
             return 1500.0;
         }
@@ -43,8 +43,8 @@ class HonorarioService
 
         $inicio = $periodo . '-01';
         $fin    = \Carbon\Carbon::parse($inicio)->endOfMonth()->toDateString();
-        $tasa   = $this->tasaRetencion();
-        $umbral = $this->umbralRetencion();
+        $tasa   = $this->tasaRetencion($fin);   // valores vigentes en el periodo, no los de hoy
+        $umbral = $this->umbralRetencion($fin);
 
         $pagos = collect();
         foreach ($locadores as $e) {
