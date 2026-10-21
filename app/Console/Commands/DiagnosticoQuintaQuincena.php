@@ -31,7 +31,8 @@ class DiagnosticoQuintaQuincena extends Command
             $sueldo = floatval($e->sueldo_base) + ($e->aplica_asignacion_familiar ? round(\App\Models\ParametroLegal::valor('rmv', "$y-$m-01") * 0.10, 2) : 0);
             $histRet = (float) IngresoHistorico5ta::where('employee_id', $e->id)->where('periodo', $anterior)->where('concepto', Renta5taCalculator::CONCEPTO_RETENCION)->sum('monto');
             $histCom = (float) IngresoHistorico5ta::where('employee_id', $e->id)->where('periodo', 'like', $y . '-%')->where('concepto', Renta5taCalculator::CONCEPTO_COMISIONES)->sum('monto');
-            $cuota   = $calc->calcularNoComisionado($e, $sueldo, $y, $m)['cuota_mensual'];
+            $det     = $calc->calcularNoComisionado($e, $sueldo, $y, $m);
+            $cuota   = $det['cuota_mensual'];
             $q       = PlanillaQuincena::where('employee_id', $e->id)->where('periodo', $this->argument('periodo'))->first();
 
             $filas[] = [
@@ -40,11 +41,14 @@ class DiagnosticoQuintaQuincena extends Command
                 number_format($histRet, 2, '.', ''),
                 number_format($histCom, 2, '.', ''),
                 number_format($cuota, 2, '.', ''),
+                number_format($det['total_remuneraciones'], 2, '.', ''),
+                number_format($det['utilidades_en_base'], 2, '.', ''),
+                number_format($det['retenciones_previas'], 2, '.', ''),
                 $q ? number_format(((float) $q->descuento_5ta_categoria) * 2, 2, '.', '') : '—',
             ];
         }
 
-        $this->table(['Trabajador', 'Ficha 5ta', "Ret. $anterior (hist.)", 'Comisiones año', 'Calc. método quincena (mes)', 'Quincena guardada ×2'], $filas);
+        $this->table(['Trabajador', 'Ficha 5ta', "Ret. $anterior (hist.)", 'Comisiones año', 'Calc. método quincena (mes)', 'Total proyectado', 'Utilidades en base', 'Ret. previas', 'Quincena guardada ×2'], $filas);
 
         return self::SUCCESS;
     }
