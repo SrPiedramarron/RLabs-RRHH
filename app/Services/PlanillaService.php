@@ -1138,7 +1138,14 @@ class PlanillaService
         $saldoVacaciones = app(VacacionesService::class)->calcularSaldo($empleado, $fechaCese);
         $diasSaldoTotal = max(0, floatval($saldoVacaciones['saldo_actual'] ?? 0));
 
-        $fechaCorteVacaciones = $empleado->fecha_ultima_vacacion
+        // La "última vacación" solo reinicia el periodo si hay vacaciones realmente registradas o días
+        // tomados. Una fecha suelta en la ficha (p. ej. la fecha de corte de un control) sin ninguna
+        // vacación detrás no debe recortar los meses trabajados: el periodo cuenta desde el ingreso.
+        $tieneVacacionesRegistradas = $empleado->fecha_ultima_vacacion
+            && (floatval($empleado->dias_tomados) > 0
+                || \App\Models\VacacionHistorial::where('employee_id', $empleado->id)->exists());
+
+        $fechaCorteVacaciones = $tieneVacacionesRegistradas
             ? Carbon::parse($empleado->fecha_ultima_vacacion)
             : $fechaIngreso;
         $mesesSinGozar = $fechaCorteVacaciones->diffInMonths($fechaCese);
