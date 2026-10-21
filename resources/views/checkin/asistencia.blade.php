@@ -23,6 +23,15 @@
     </form>
 </div>
 
+{{-- Acceso a Beneficios --}}
+<a href="{{ route('checkin.beneficios') }}" class="card" style="display:flex; align-items:center; justify-content:space-between; text-decoration:none; color:inherit; padding:14px 16px;">
+    <span>
+        <span style="font-size:15px; font-weight:700;">🎁 Beneficios</span><br>
+        <span style="font-size:12px; color:var(--gris);">Más puntualidad, más sábados libres</span>
+    </span>
+    <span style="font-size:20px; color:var(--gris);">›</span>
+</a>
+
 {{-- Ranking de puntualidad (corte del 26 al 25) --}}
 @if($ranking)
 @php

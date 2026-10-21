@@ -33,6 +33,7 @@ class ParametroLegalResource extends Resource
                     'horas_espera_jefe'      => 'Horas de espera al jefe directo (solicitudes)',
                     'tasa_retencion_4ta'     => 'Tasa de retención 4.ª categoría (0.08 = 8%)',
                     'umbral_retencion_4ta'   => 'Umbral de retención 4.ª categoría (S/)',
+                    'umbral_puntualidad_beneficio' => '% mínimo de puntualidad para el beneficio de sábados libres (ej. 96)',
                 ])
                 ->required()
                 ->native(false),
@@ -69,6 +70,7 @@ class ParametroLegalResource extends Resource
                         'horas_espera_jefe'      => 'Horas espera jefe',
                         'tasa_retencion_4ta'     => 'Tasa retención 4ta',
                         'umbral_retencion_4ta'   => 'Umbral retención 4ta',
+                        'umbral_puntualidad_beneficio' => 'Umbral puntualidad (beneficio)',
                         default                   => $state,
                     })
                     ->badge(),

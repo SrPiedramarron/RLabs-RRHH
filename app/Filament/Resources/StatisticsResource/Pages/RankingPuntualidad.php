@@ -77,12 +77,9 @@ class RankingPuntualidad extends ListRecords
             ->selectRaw("MAX(COALESCE(l.nombre, 'Sin sede')) as sede")
             ->selectRaw("MAX(COALESCE(d.nombre, 'Sin área')) as area")
             ->selectRaw('COUNT(DISTINCT e.id) as n_empleados')
-            ->selectRaw('SUM(CASE WHEN a.minutos_tarde > 0 THEN 1 ELSE 0 END) as dias_tarde')
-            ->selectRaw('SUM(CASE WHEN a.minutos_tarde <= 0 AND a.estado NOT IN ("ausente","feriado") THEN 1 ELSE 0 END) as dias_puntual')
-            ->selectRaw('SUM(CASE WHEN a.estado = "ausente" THEN 1 ELSE 0 END) as dias_ausente')
-            ->selectRaw('COUNT(*) as total_dias')
-            ->selectRaw('SUM(a.minutos_tarde) as total_minutos')
-            ->selectRaw('ROUND(100 * SUM(CASE WHEN a.minutos_tarde <= 0 AND a.estado NOT IN ("ausente","feriado") THEN 1 ELSE 0 END) / COUNT(*), 1) as pct');
+            ->selectRaw(EstadisticasAsistencia::sqlTarde() . ' as dias_tarde')
+            ->selectRaw(EstadisticasAsistencia::sqlPuntual() . ' as dias_puntual')
+            ->selectRaw(EstadisticasAsistencia::sqlPct() . ' as pct');
 
         // Posición: general/sede/área en un solo ranking; áreas por sede reinicia en cada sede.
         $particion = $vista === 'sede_area' ? 'PARTITION BY r.sede ' : '';
@@ -126,12 +123,8 @@ class RankingPuntualidad extends ListRecords
                 Tables\Columns\TextColumn::make('n_empleados')->label('Trabajadores')->alignCenter()->visible($en(['sedes', 'areas', 'sede_area'])),
                 Tables\Columns\TextColumn::make('dias_tarde')->label('Días tarde')->badge()->color('warning'),
                 Tables\Columns\TextColumn::make('dias_puntual')->label('Días puntual')->badge()->color('success'),
-                Tables\Columns\TextColumn::make('dias_ausente')->label('Ausencias')->badge()->color('danger'),
-                Tables\Columns\TextColumn::make('total_dias')->label('Total días'),
-                Tables\Columns\TextColumn::make('total_minutos')->label('Tiempo tarde (dd:hh:mm)')
-                    ->formatStateUsing(fn ($state) => EstadisticasAsistencia::ddhhmm($state)),
                 Tables\Columns\TextColumn::make('pct')->label('% Puntualidad')
-                    ->formatStateUsing(fn ($state) => number_format((float) $state, 1) . '%')
+                    ->formatStateUsing(fn ($state) => $state === null ? '—' : number_format((float) $state, 1) . '%')
                     ->badge()
                     ->color(fn ($state) => match (true) {
                         (float) $state >= 90 => 'success',

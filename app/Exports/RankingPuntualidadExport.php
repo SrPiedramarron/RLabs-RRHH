@@ -45,7 +45,7 @@ class RankingPuntualidadHoja implements FromCollection, WithHeadings, WithStyles
             'areas'     => ['ÁREA'],
             default     => ['SEDE', 'ÁREA'],
         }, $this->vista === 'general' ? [] : ['TRABAJADORES'],
-            ['DÍAS TARDE', 'DÍAS PUNTUAL', 'AUSENCIAS', 'TOTAL DÍAS', 'TIEMPO TARDE (dd:hh:mm)', '% PUNTUALIDAD']);
+            ['DÍAS TARDE', 'DÍAS PUNTUAL', '% PUNTUALIDAD']);
     }
 
     public function collection(): Collection
@@ -58,10 +58,7 @@ class RankingPuntualidadHoja implements FromCollection, WithHeadings, WithStyles
         }, $this->vista === 'general' ? [] : [$r->n_empleados], [
             (int) $r->dias_tarde,
             (int) $r->dias_puntual,
-            (int) $r->dias_ausente,
-            (int) $r->total_dias,
-            EstadisticasAsistencia::ddhhmm($r->total_minutos),
-            number_format((float) $r->pct, 1) . '%',
+            $r->pct === null ? '—' : number_format((float) $r->pct, 1) . '%',
         ]));
     }
 

@@ -43,6 +43,9 @@ Route::prefix('checkin')->name('checkin.')->group(function () {
         // Historial de checkins remotos
         Route::get('/historial', [CheckinController::class, 'historial'])->name('historial');
 
+        // Beneficios por puntualidad
+        Route::get('/beneficios', [CheckinController::class, 'beneficios'])->name('beneficios');
+
         // Mis marcaciones del mes
         Route::get('/asistencia', [CheckinController::class, 'asistencia'])->name('asistencia');
 

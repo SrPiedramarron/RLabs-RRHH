@@ -328,6 +328,24 @@ class CheckinController extends Controller
         ));
     }
 
+    // ── Beneficios por puntualidad ────────────────────────────────────────────
+
+    public function beneficios()
+    {
+        $employee = Auth::guard('employee')->user()->employee;
+        $umbral   = \App\Support\EstadisticasAsistencia::umbralBeneficio();
+
+        // Corte en curso (parcial) y último corte cerrado (el que vale para el beneficio).
+        [$desde, $hasta] = \App\Support\EstadisticasAsistencia::corteMensual();
+        $cerradoDesde = $desde->copy()->subMonthNoOverflow()->day(26)->startOfDay();
+        $cerradoHasta = $desde->copy()->subDay()->startOfDay();
+
+        $enCurso = \App\Support\EstadisticasAsistencia::cumplimiento($employee->id, $desde, $hasta);
+        $cerrado = \App\Support\EstadisticasAsistencia::cumplimiento($employee->id, $cerradoDesde, $cerradoHasta);
+
+        return view('checkin.beneficios', compact('umbral', 'desde', 'hasta', 'cerradoDesde', 'cerradoHasta', 'enCurso', 'cerrado'));
+    }
+
     // ── PWA: manifest y service worker ───────────────────────────────────────
 
     public function manifest()

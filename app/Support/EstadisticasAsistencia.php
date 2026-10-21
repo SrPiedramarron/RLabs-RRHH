@@ -6,6 +6,55 @@ use Carbon\Carbon;
 
 class EstadisticasAsistencia
 {
+    /**
+     * Puntual: llegó a tiempo (estado presente, sin minutos de tardanza). Tarde: llegó con tardanza.
+     * Las ausencias, feriados, descansos, permisos y vacaciones no cuentan ni a favor ni en contra.
+     * % de puntualidad = puntuales ÷ (puntuales + tardes). Alias de tabla: a.
+     */
+    public static function sqlPuntual(): string
+    {
+        return "SUM(CASE WHEN a.estado = 'presente' AND a.minutos_tarde <= 0 THEN 1 ELSE 0 END)";
+    }
+
+    public static function sqlTarde(): string
+    {
+        return "SUM(CASE WHEN a.estado <> 'ausente' AND (a.estado = 'tarde' OR a.minutos_tarde > 0) THEN 1 ELSE 0 END)";
+    }
+
+    public static function sqlPct(): string
+    {
+        return 'ROUND(100 * ' . self::sqlPuntual() . ' / NULLIF(' . self::sqlPuntual() . ' + ' . self::sqlTarde() . ', 0), 1)';
+    }
+
+    /** % mínimo de puntualidad para el beneficio (Administración → Parámetros Legales; 96 por defecto). */
+    public static function umbralBeneficio(): float
+    {
+        try {
+            return (float) \App\Models\ParametroLegal::valor('umbral_puntualidad_beneficio');
+        } catch (\Throwable) {
+            return 96.0;
+        }
+    }
+
+    /** Días tarde, días puntual y % de un trabajador en un rango. pct es null si no hubo días contables. */
+    public static function cumplimiento(int $employeeId, Carbon $desde, Carbon $hasta): array
+    {
+        $fila = \Illuminate\Support\Facades\DB::table('attendance_records as a')
+            ->where('a.employee_id', $employeeId)
+            ->whereBetween('a.fecha', [$desde->toDateString(), $hasta->toDateString()])
+            ->selectRaw(self::sqlPuntual() . ' as puntual, ' . self::sqlTarde() . ' as tarde')
+            ->first();
+
+        $puntual = (int) ($fila->puntual ?? 0);
+        $tarde   = (int) ($fila->tarde ?? 0);
+
+        return [
+            'puntual' => $puntual,
+            'tarde'   => $tarde,
+            'pct'     => ($puntual + $tarde) > 0 ? round(100 * $puntual / ($puntual + $tarde), 1) : null,
+        ];
+    }
+
     /** Minutos → "dd:hh:mm" (día = 24 h). Sin minutos: guion. */
     public static function ddhhmm($minutos): string
     {
@@ -54,8 +103,9 @@ class EstadisticasAsistencia
             ->where('e.active', true)
             ->whereBetween('a.fecha', [$desde->toDateString(), $hasta->toDateString()])
             ->groupBy('a.employee_id')
-            ->selectRaw('a.employee_id, ROUND(100 * SUM(CASE WHEN a.minutos_tarde <= 0 AND a.estado NOT IN ("ausente","feriado") THEN 1 ELSE 0 END) / COUNT(*), 1) as pct')
-            ->pluck('pct', 'employee_id');
+            ->selectRaw('a.employee_id, ' . self::sqlPct() . ' as pct')
+            ->pluck('pct', 'employee_id')
+            ->filter(fn ($p) => $p !== null);
 
         if (! $filas->has($employeeId)) {
             return null;
@@ -80,9 +130,11 @@ class EstadisticasAsistencia
             ->where('e.active', true)
             ->whereBetween('a.fecha', [$desde->toDateString(), $hasta->toDateString()])
             ->groupBy('e.department_id')
-            ->selectRaw('e.department_id as id, MAX(COALESCE(d.nombre, "Sin área")) as area, ROUND(100 * SUM(CASE WHEN a.minutos_tarde <= 0 AND a.estado NOT IN ("ausente","feriado") THEN 1 ELSE 0 END) / COUNT(*), 1) as pct')
+            ->selectRaw('e.department_id as id, MAX(COALESCE(d.nombre, "Sin área")) as area, ' . self::sqlPct() . ' as pct')
             ->orderByDesc('pct')
-            ->get();
+            ->get()
+            ->filter(fn ($f) => $f->pct !== null)
+            ->values();
 
         return $filas->map(fn ($f) => [
             'posicion' => 1 + $filas->filter(fn ($o) => (float) $o->pct > (float) $f->pct)->count(),
