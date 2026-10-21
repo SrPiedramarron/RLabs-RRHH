@@ -26,6 +26,16 @@ class EstadisticasAsistencia
         return 'ROUND(100 * ' . self::sqlPuntual() . ' / NULLIF(' . self::sqlPuntual() . ' + ' . self::sqlTarde() . ', 0), 1)';
     }
 
+    /** ¿Se muestra la sección Beneficios en la app? Oculta por defecto hasta que RRHH la apruebe. */
+    public static function beneficiosVisibles(): bool
+    {
+        try {
+            return \App\Models\ParametroLegal::valor('beneficios_visibles') > 0;
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
     /** % mínimo de puntualidad para el beneficio (Administración → Parámetros Legales; 90 por defecto). */
     public static function umbralBeneficio(): float
     {

@@ -323,8 +323,10 @@ class CheckinController extends Controller
 
         $rankingAreas = \App\Support\EstadisticasAsistencia::rankingAreas($employee->company_id, $corteDesde, $corteHasta);
 
+        $beneficiosVisibles = \App\Support\EstadisticasAsistencia::beneficiosVisibles();
+
         return view('checkin.asistencia', compact(
-            'employee', 'records', 'totales', 'mes', 'anio', 'meses', 'ranking', 'corteDesde', 'corteHasta', 'rankingAreas'
+            'employee', 'records', 'totales', 'mes', 'anio', 'meses', 'ranking', 'corteDesde', 'corteHasta', 'rankingAreas', 'beneficiosVisibles'
         ));
     }
 
@@ -332,6 +334,8 @@ class CheckinController extends Controller
 
     public function beneficios()
     {
+        abort_unless(\App\Support\EstadisticasAsistencia::beneficiosVisibles(), 404);
+
         $employee = Auth::guard('employee')->user()->employee;
         $umbral   = \App\Support\EstadisticasAsistencia::umbralBeneficio();
 

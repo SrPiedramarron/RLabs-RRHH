@@ -23,7 +23,8 @@
     </form>
 </div>
 
-{{-- Acceso a Beneficios --}}
+{{-- Acceso a Beneficios (oculto hasta que RRHH lo apruebe: Parámetros Legales → beneficios_visibles) --}}
+@if($beneficiosVisibles ?? false)
 <a href="{{ route('checkin.beneficios') }}" class="card" style="display:flex; align-items:center; justify-content:space-between; text-decoration:none; color:inherit; padding:14px 16px;">
     <span>
         <span style="font-size:15px; font-weight:700;">🎁 Beneficios</span><br>
@@ -31,6 +32,7 @@
     </span>
     <span style="font-size:20px; color:var(--gris);">›</span>
 </a>
+@endif
 
 {{-- Ranking de puntualidad (corte del 26 al 25) --}}
 @if($ranking)

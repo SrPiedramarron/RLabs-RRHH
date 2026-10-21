@@ -34,6 +34,7 @@ class ParametroLegalResource extends Resource
                     'tasa_retencion_4ta'     => 'Tasa de retención 4.ª categoría (0.08 = 8%)',
                     'umbral_retencion_4ta'   => 'Umbral de retención 4.ª categoría (S/)',
                     'umbral_puntualidad_beneficio' => '% mínimo de puntualidad para el beneficio de sábados libres (ej. 90)',
+                    'beneficios_visibles'    => 'Mostrar la sección Beneficios en la app (1 = sí, 0 = no)',
                 ])
                 ->required()
                 ->native(false),
@@ -71,6 +72,7 @@ class ParametroLegalResource extends Resource
                         'tasa_retencion_4ta'     => 'Tasa retención 4ta',
                         'umbral_retencion_4ta'   => 'Umbral retención 4ta',
                         'umbral_puntualidad_beneficio' => 'Umbral puntualidad (beneficio)',
+                        'beneficios_visibles'    => 'Mostrar beneficios en la app',
                         default                   => $state,
                     })
                     ->badge(),
