@@ -58,6 +58,16 @@ class CargarIngresos5ta extends Command
                 $cambios++;
             }
 
+            // Retenciones ya aplicadas mes a mes, como las lleva la hoja de RRHH (difieren del PLAME en céntimos).
+            foreach (($f['retenciones'] ?? []) as $periodo => $monto) {
+                $ret = IngresoHistorico5ta::firstOrNew(['employee_id' => $e->id, 'periodo' => $periodo, 'concepto' => Renta5taCalculator::CONCEPTO_RETENCION]);
+                if ($ret->exists && abs((float) $ret->monto - (float) $monto) < 0.005) {
+                    continue;
+                }
+                $ret->fill(['company_id' => $companyId, 'monto' => $monto, 'fuente' => 'import_excel_RTA 5TA'])->save();
+                $cambios++;
+            }
+
             $sueldo = floatval($e->sueldo_base) + ($e->aplica_asignacion_familiar ? round(ParametroLegal::valor(ParametroLegal::RMV, "$y-$m-01") * 0.10, 2) : 0);
             $det    = $calc->calcularNoComisionado($e, $sueldo, $y, $m);
 
