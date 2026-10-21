@@ -11,6 +11,8 @@
     $excelente = fn ($pct) => $pct !== null && $pct >= $umbral;
 @endphp
 
+<div style="font-size:12px; color:var(--gris); margin:0 4px 10px;">Aplica solo al personal sujeto a fiscalización.</div>
+
 {{-- Niveles --}}
 <div class="card" style="padding:0; overflow:hidden; border-left:6px solid #10B981;">
     <div style="padding:14px 16px;">
