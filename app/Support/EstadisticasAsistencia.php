@@ -26,13 +26,13 @@ class EstadisticasAsistencia
         return 'ROUND(100 * ' . self::sqlPuntual() . ' / NULLIF(' . self::sqlPuntual() . ' + ' . self::sqlTarde() . ', 0), 1)';
     }
 
-    /** % mínimo de puntualidad para el beneficio (Administración → Parámetros Legales; 96 por defecto). */
+    /** % mínimo de puntualidad para el beneficio (Administración → Parámetros Legales; 90 por defecto). */
     public static function umbralBeneficio(): float
     {
         try {
             return (float) \App\Models\ParametroLegal::valor('umbral_puntualidad_beneficio');
         } catch (\Throwable) {
-            return 96.0;
+            return 90.0;
         }
     }
 

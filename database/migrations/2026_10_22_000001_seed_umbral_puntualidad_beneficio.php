@@ -11,7 +11,7 @@ return new class extends Migration
             DB::table('parametros_legales')->insert([
                 'clave'         => 'umbral_puntualidad_beneficio',
                 'descripcion'   => '% mínimo de puntualidad para el beneficio de sábados libres',
-                'valor'         => 96,
+                'valor'         => 90,
                 'vigente_desde' => '2026-01-01',
                 'vigente_hasta' => null,
                 'created_at'    => now(),
