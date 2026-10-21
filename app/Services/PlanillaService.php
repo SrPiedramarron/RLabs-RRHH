@@ -1187,7 +1187,7 @@ class PlanillaService
         $mesesCompletosVac    = max(0, (int) floor($inicioPeriodoEnCurso->diffInMonths($finInclusiveVac)));
         $fechaTrasCompletosVac = $inicioPeriodoEnCurso->copy()->addMonths($mesesCompletosVac);
         $diasRestantesVac      = max(0, $fechaTrasCompletosVac->diffInDays($finInclusiveVac));
-        $mesesTruncasVacaciones = min(12.0, round($mesesCompletosVac + $diasRestantesVac / 30, 2));
+        $mesesTruncasVacaciones = min(12.0, round($mesesCompletosVac + $diasRestantesVac / 30, 4));
 
         $montoVacacionesTruncas = round($baseVacacional / 12 * $mesesTruncasVacaciones, 2);
         // Se guarda en días (meses×30) solo para que la columna siga siendo
@@ -1438,7 +1438,7 @@ class PlanillaService
         $mesesCompletos     = max(0, (int) floor($desde->diffInMonths($finInclusive)));
         $fechaTrasCompletos = $desde->copy()->addMonths($mesesCompletos);
         $diasRestantes      = max(0, $fechaTrasCompletos->diffInDays($finInclusive));
-        $mesesComputables   = min(6.0, round($mesesCompletos + $diasRestantes / 30, 2));
+        $mesesComputables   = min(6.0, round($mesesCompletos + $diasRestantes / 30, 4));
 
         $mesesConComisiones = 0;
         $sumaComisiones     = 0.0;

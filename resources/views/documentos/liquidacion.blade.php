@@ -83,21 +83,21 @@
 <div class="sec">2.- CÁLCULO DE LA CTS</div>
 <table>
     <tr><td>PERIODO: {{ $fd($iniCts) }} AL {{ $fd($cese) }}</td><td></td></tr>
-    <tr><td>{{ $m($remCts) }} ÷ 12 × {{ rtrim(rtrim(number_format((float) $l->meses_cts_trunca, 2), '0'), '.') }} MESES</td><td class="der">{{ $m($l->monto_cts_trunca) }}</td></tr>
+    <tr><td>{{ $m($remCts) }} ÷ 12 × {{ rtrim(rtrim(number_format((float) $l->meses_cts_trunca, 4), '0'), '.') }} MESES</td><td class="der">{{ $m($l->monto_cts_trunca) }}</td></tr>
     <tr class="total"><td class="der">TOTAL CTS POR PAGAR S/</td><td class="der">{{ $m($l->monto_cts_trunca) }}</td></tr>
 </table>
 
 <div class="sec">3.- CÁLCULO DE LA GRATIFICACIÓN</div>
 <table>
     <tr><td>PERIODO: {{ $fd($iniGrat) }} AL {{ $fd($cese) }}</td><td></td></tr>
-    <tr><td>{{ $m($remGrat) }} ÷ 6 × {{ rtrim(rtrim(number_format((float) $l->meses_gratificacion_trunca, 2), '0'), '.') }} MESES</td><td class="der">{{ $m($l->monto_gratificacion_trunca) }}</td></tr>
+    <tr><td>{{ $m($remGrat) }} ÷ 6 × {{ rtrim(rtrim(number_format((float) $l->meses_gratificacion_trunca, 4), '0'), '.') }} MESES</td><td class="der">{{ $m($l->monto_gratificacion_trunca) }}</td></tr>
     <tr><td>BONIFICACIÓN EXTRAORDINARIA 9%</td><td class="der">{{ $m($l->bonificacion_extraordinaria_trunca) }}</td></tr>
     <tr class="total"><td class="der">TOTAL GRATIFICACIÓN POR PAGAR S/</td><td class="der">{{ $m($totalGrat) }}</td></tr>
 </table>
 
 <div class="sec">4.- VACACIONES</div>
 <table>
-    <tr><td>Vacaciones truncas: {{ $m($baseVac) }} ÷ 12 × {{ rtrim(rtrim(number_format($mesesVac, 2), '0'), '.') }} MESES</td><td class="der">{{ $m($l->monto_vacaciones_truncas) }}</td></tr>
+    <tr><td>Vacaciones truncas: {{ $m($baseVac) }} ÷ 12 × {{ rtrim(rtrim(number_format($mesesVac, 4), '0'), '.') }} MESES</td><td class="der">{{ $m($l->monto_vacaciones_truncas) }}</td></tr>
     @if((float) $l->remuneracion_vacacional_pendiente > 0)
     <tr><td>Vacaciones no gozadas (remuneración vacacional): 30 DÍAS</td><td class="der">{{ $m($l->remuneracion_vacacional_pendiente) }}</td></tr>
     @endif
