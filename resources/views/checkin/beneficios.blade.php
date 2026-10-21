@@ -70,27 +70,31 @@
 {{-- Escala --}}
 <div class="card" style="padding:16px;">
     <div class="card-title">Escala de beneficios</div>
-    <table style="width:100%; border-collapse:collapse; font-size:13px; text-align:center;">
+    <table style="width:100%; table-layout:fixed; border-collapse:collapse; font-size:12px; text-align:center;">
+        <colgroup>
+            <col style="width:28%"><col style="width:18%"><col style="width:18%"><col style="width:18%"><col style="width:18%">
+        </colgroup>
         <tr style="background:#DBEAFE;">
-            <th rowspan="2" style="padding:8px;">Cumplimiento</th>
-            <th colspan="2" style="padding:8px;">Mes de 4 sábados</th>
-            <th colspan="2" style="padding:8px;">Mes de 5 sábados</th>
+            <th rowspan="2" style="padding:6px 4px; font-size:11px;">Cumpli-<br>miento</th>
+            <th colspan="2" style="padding:6px 2px; font-size:11px;">Mes de<br>4 sábados</th>
+            <th colspan="2" style="padding:6px 2px; font-size:11px;">Mes de<br>5 sábados</th>
         </tr>
         <tr style="background:#DBEAFE;">
-            <th style="padding:6px;">Libres</th><th style="padding:6px;">Trabajados</th>
-            <th style="padding:6px;">Libres</th><th style="padding:6px;">Trabajados</th>
+            <th style="padding:4px 2px; font-size:10px; font-weight:600;">Libres</th><th style="padding:4px 2px; font-size:10px; font-weight:600;">Trab.</th>
+            <th style="padding:4px 2px; font-size:10px; font-weight:600;">Libres</th><th style="padding:4px 2px; font-size:10px; font-weight:600;">Trab.</th>
+        </tr>
+        <tr style="border-bottom:1px solid #E5E7EB;">
+            <td style="padding:10px 4px; background:#10B981; color:#fff; font-weight:700; font-size:11px;">Excelente</td>
+            <td style="font-weight:700; font-size:15px;">4</td><td style="font-weight:700; font-size:15px;">0</td>
+            <td style="font-weight:700; font-size:15px;">5</td><td style="font-weight:700; font-size:15px;">0</td>
         </tr>
         <tr>
-            <td style="padding:10px; background:#10B981; color:#fff; font-weight:700;">Excelente</td>
-            <td style="font-weight:700;">4</td><td style="font-weight:700;">0</td>
-            <td style="font-weight:700;">5</td><td style="font-weight:700;">0</td>
-        </tr>
-        <tr>
-            <td style="padding:10px; background:#EF4444; color:#fff; font-weight:700;">Sin beneficio</td>
-            <td style="font-weight:700;">0</td><td style="font-weight:700;">4</td>
-            <td style="font-weight:700;">0</td><td style="font-weight:700;">5</td>
+            <td style="padding:10px 4px; background:#EF4444; color:#fff; font-weight:700; font-size:11px;">Sin beneficio</td>
+            <td style="font-weight:700; font-size:15px;">0</td><td style="font-weight:700; font-size:15px;">4</td>
+            <td style="font-weight:700; font-size:15px;">0</td><td style="font-weight:700; font-size:15px;">5</td>
         </tr>
     </table>
+    <div style="font-size:11px; color:var(--gris); margin-top:8px;">Trab. = sábados trabajados.</div>
 </div>
 
 @endsection
