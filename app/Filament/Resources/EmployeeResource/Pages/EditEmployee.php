@@ -45,8 +45,21 @@ class EditEmployee extends EditRecord
                     ])
                     ->action(fn (array $data) => redirect()->route('documentos.carta-retiro-cts', ['employee' => $this->record->id, 'fecha' => $data['fecha']])),
 
+                Actions\Action::make('certificado_quinta_auto')
+                    ->label('Certificado de 5.ª categoría (automático)')
+                    ->icon('heroicon-o-bolt')
+                    ->requiresConfirmation()
+                    ->modalDescription(function () {
+                        $anio = $this->record->fecha_cese?->year ?? now()->year;
+                        $p = app(\App\Services\DocumentosLaboralesService::class)->quintaPrefill($this->record, $anio);
+
+                        return 'Se genera con lo que el sistema tiene de ' . $anio . ' (planillas, histórico, gratificaciones y liquidación).'
+                            . ($p['meses_sin_datos'] ? ' OJO: no hay datos de ' . implode(', ', $p['meses_sin_datos']) . '; en ese caso usa «Certificado de 5.ª categoría» para completarlos a mano.' : '');
+                    })
+                    ->action(fn () => redirect()->route('documentos.certificado-quinta', ['employee' => $this->record->id, 'anio' => $this->record->fecha_cese?->year ?? now()->year])),
+
                 Actions\Action::make('certificado_quinta')
-                    ->label('Certificado de 5.ª categoría')
+                    ->label('Certificado de 5.ª categoría (revisar y ajustar)')
                     ->icon('heroicon-o-receipt-percent')
                     ->modalDescription('Los montos salen de lo que el sistema tiene del ejercicio (planillas, histórico, gratificaciones y liquidación). Revísalos y ajusta lo que haga falta antes de emitir.')
                     ->form(function () {

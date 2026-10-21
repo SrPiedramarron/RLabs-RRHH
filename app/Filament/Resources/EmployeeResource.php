@@ -774,8 +774,21 @@ Tables\Columns\TextColumn::make('sistema_pensiones')
                         ])
                         ->action(fn ($record, array $data) => redirect()->route('documentos.carta-retiro-cts', ['employee' => $record->id, 'fecha' => $data['fecha']])),
 
+                    Tables\Actions\Action::make('certificado_quinta_auto')
+                        ->label('Certificado de 5.ª categoría (automático)')
+                        ->icon('heroicon-o-bolt')
+                        ->requiresConfirmation()
+                        ->modalDescription(function ($record) {
+                            $anio = $record->fecha_cese?->year ?? now()->year;
+                            $p = app(\App\Services\DocumentosLaboralesService::class)->quintaPrefill($record, $anio);
+
+                            return 'Se genera con lo que el sistema tiene de ' . $anio . ' (planillas, histórico, gratificaciones y liquidación).'
+                                . ($p['meses_sin_datos'] ? ' OJO: no hay datos de ' . implode(', ', $p['meses_sin_datos']) . '; en ese caso usa «Certificado de 5.ª categoría» para completarlos a mano.' : '');
+                        })
+                        ->action(fn ($record) => redirect()->route('documentos.certificado-quinta', ['employee' => $record->id, 'anio' => $record->fecha_cese?->year ?? now()->year])),
+
                     Tables\Actions\Action::make('certificado_quinta')
-                        ->label('Certificado de 5.ª categoría')
+                        ->label('Certificado de 5.ª categoría (revisar y ajustar)')
                         ->icon('heroicon-o-receipt-percent')
                         ->modalDescription('Los montos salen de lo que el sistema tiene del ejercicio (planillas, histórico, gratificaciones y liquidación). Revísalos y ajusta lo que haga falta antes de emitir.')
                         ->form(function ($record) {

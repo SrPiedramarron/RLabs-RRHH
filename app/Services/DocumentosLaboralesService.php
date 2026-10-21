@@ -164,30 +164,39 @@ class DocumentosLaboralesService
             $retenciones   += (float) ($l->retencion_5ta_manual ?: $l->descuento_5ta_categoria);
         }
 
+        // Si el sistema ya calculó la gratificación del año, esa manda sobre la del histórico (evita contarla dos veces).
+        $gratificacionesSistema = Gratificacion::where('employee_id', $empleado->id)->where('anio', $anio)->get();
+
         // Meses sin planilla en el sistema: se usa el histórico importado.
         foreach ($historico->groupBy('periodo') as $periodo => $filas) {
             $tienePlanilla = $liquidaciones->has($periodo);
             foreach ($filas as $h) {
-                $c = mb_strtoupper($h->concepto);
+                $c = mb_strtoupper(trim($h->concepto));
                 $m = (float) $h->monto;
 
                 if ($c === 'RETENCION_5TA_APLICADA') {
                     $retenciones += $tienePlanilla ? 0 : $m;
+                } elseif ($c === 'RENTA UTILIDAD') {
+                    $retenciones += $m; // retención aparte sobre las utilidades
                 } elseif ($c === 'UTILIDADES') {
                     $utilidades += $m;
                 } elseif (str_starts_with($c, 'GRATIFICACION')) {
-                    $gratificacion += $m;
+                    $gratificacion += $gratificacionesSistema->isEmpty() ? $m : 0;
                 } elseif ($tienePlanilla) {
                     continue;
-                } elseif ($c === 'COMISIONES') {
+                } elseif (in_array($c, ['COMISIONES', 'COMISION TRIMESTRAL'], true)) {
                     $comisiones += $m;
-                } elseif ($c === 'SUELDO + ASIG FAM') {
+                } elseif (in_array($c, ['SUELDO + ASIG FAM', 'MOVILIDAD', 'BONO', 'HORAS EXTRAS'], true)) {
                     $sueldos += $m;
+                } elseif (in_array($c, ['VACACIONES PROMEDIO', 'PROMEDIO DE VACACIONES', 'PROMEDIO VACACIONES', 'COMPENSACIÓN DE VACACIONES', 'COMPRA DE VACACIONES'], true)) {
+                    $remuVacacional += $m;
+                } elseif ($c === 'BONO EXTRAORDINARIO') {
+                    $bonificaciones += $m;
                 }
             }
         }
 
-        foreach (Gratificacion::where('employee_id', $empleado->id)->where('anio', $anio)->get() as $g) {
+        foreach ($gratificacionesSistema as $g) {
             $gratificacion  += (float) $g->monto_gratificacion;
             $bonificaciones += (float) $g->bonificacion_extraordinaria;
         }
@@ -201,9 +210,26 @@ class DocumentosLaboralesService
             $bonificaciones += (float) $cese->bonificacion_extraordinaria_trunca;
         }
 
+        // Meses del ejercicio en que trabajó pero el sistema no tiene ni planilla ni sueldo del histórico.
+        $mesesSinDatos = [];
+        $ini = $empleado->fecha_ingreso && $empleado->fecha_ingreso->year === $anio ? $empleado->fecha_ingreso->month : 1;
+        $fin = $empleado->fecha_cese && $empleado->fecha_cese->year === $anio ? $empleado->fecha_cese->month
+            : ($anio === now()->year ? now()->month : 12);
+        if ($empleado->fecha_ingreso && $empleado->fecha_ingreso->year > $anio) {
+            $ini = 13;
+        }
+        $conSueldo = $historico->filter(fn ($h) => mb_strtoupper($h->concepto) === 'SUELDO + ASIG FAM')->pluck('periodo')->all();
+        for ($mes = $ini; $mes <= $fin; $mes++) {
+            $periodo = sprintf('%04d-%02d', $anio, $mes);
+            if (! $liquidaciones->has($periodo) && ! in_array($periodo, $conSueldo, true)) {
+                $mesesSinDatos[] = $periodo;
+            }
+        }
+
         $uit = $this->uit($anio);
 
         return [
+            'meses_sin_datos' => $mesesSinDatos,
             'sueldos'         => round($sueldos, 2),
             'comisiones'      => round($comisiones, 2),
             'utilidades'      => round($utilidades, 2),
