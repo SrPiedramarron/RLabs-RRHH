@@ -50,6 +50,7 @@ class Employee extends Model
         'aplica_5ta_categoria',
         'otras_rentas_afectas',
         'otras_rentas_anio',
+        'otras_retenciones_5ta',
         'aplica_comision',
         'tipo_base_comision',
         'porcentaje_comision',

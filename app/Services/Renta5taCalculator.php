@@ -49,6 +49,15 @@ class Renta5taCalculator
         return ($monto > 0 && ($anio === null || (int) $anio === $year)) ? $monto : 0.0;
     }
 
+    /** Retenciones de 5ta de otros empleadores para el ejercicio; 0 si son de otro año. */
+    private function otrasRetenciones(Employee $empleado, int $year): float
+    {
+        $monto = (float) ($empleado->otras_retenciones_5ta ?? 0);
+        $anio  = $empleado->otras_rentas_anio;
+
+        return ($monto > 0 && ($anio === null || (int) $anio === $year)) ? $monto : 0.0;
+    }
+
     private function uit($fecha = null): float
     {
         return ParametroLegal::valor(ParametroLegal::UIT, $fecha);
@@ -174,7 +183,8 @@ class Renta5taCalculator
             ->where('concepto', self::CONCEPTO_RETENCION)
             ->sum('monto');
 
-        $saldoPorRetener = max(0, $impuestoAnual - $retencionesPrevias);
+        $otrasRetenciones = $this->otrasRetenciones($empleado, $year);
+        $saldoPorRetener = max(0, $impuestoAnual - $retencionesPrevias - $otrasRetenciones);
         $cuotaMensual     = round($saldoPorRetener / $mesesRestantes, 2);
 
         return [
@@ -189,6 +199,7 @@ class Renta5taCalculator
             'base_imponible'            => round($baseImponible, 2),
             'impuesto_anual'            => round($impuestoAnual, 2),
             'retenciones_previas'       => round($retencionesPrevias, 2),
+            'otras_retenciones'         => round($otrasRetenciones, 2),
             'saldo_por_retener'         => round($saldoPorRetener, 2),
             'divisor'                   => $mesesRestantes,
         ];
@@ -286,7 +297,8 @@ class Renta5taCalculator
             ->where('concepto', self::CONCEPTO_RETENCION)
             ->sum('monto');
 
-        $saldoPorRetener = max(0, $impuestoAnual - $retencionesPrevias);
+        $otrasRetenciones = $this->otrasRetenciones($empleado, $year);
+        $saldoPorRetener = max(0, $impuestoAnual - $retencionesPrevias - $otrasRetenciones);
         $cuotaMensual     = round($saldoPorRetener / $mesesRestantes, 2);
 
         return [
@@ -302,6 +314,7 @@ class Renta5taCalculator
             'base_imponible'             => round($baseImponible, 2),
             'impuesto_anual'             => round($impuestoAnual, 2),
             'retenciones_previas'        => round($retencionesPrevias, 2),
+            'otras_retenciones'          => round($otrasRetenciones, 2),
             'saldo_por_retener'          => round($saldoPorRetener, 2),
             'divisor'                    => $mesesRestantes,
         ];
