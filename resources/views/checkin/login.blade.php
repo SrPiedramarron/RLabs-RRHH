@@ -47,14 +47,7 @@
 
         <div class="form-group">
             <label class="form-label" for="password">Contraseña</label>
-            <input
-                type="password"
-                id="password"
-                name="password"
-                class="form-input"
-                placeholder="••••••"
-                required
-            >
+            @include('checkin._password-input', ['id' => 'password', 'name' => 'password', 'placeholder' => '••••••', 'extra' => 'autocomplete="current-password"'])
             @error('password')
             <div class="form-error">{{ $message }}</div>
             @enderror
@@ -85,6 +78,9 @@
 })();
 </script>
 
+<p style="text-align:center; font-size:13px; margin-top:12px;">
+    <a href="{{ route('checkin.olvide') }}" style="color:var(--azul); font-weight:600;">¿Olvidaste tu contraseña?</a>
+</p>
 <p style="text-align:center; font-size:12px; color:var(--gris); margin-top:8px;">
     ¿Problemas para ingresar? Contacta a RR.HH.
 </p>

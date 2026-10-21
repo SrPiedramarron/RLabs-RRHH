@@ -24,6 +24,7 @@ class EmployeeCredential extends Authenticatable
     protected $casts = [
         'active'        => 'boolean',
         'ultimo_acceso' => 'datetime',
+        'reset_expires_at' => 'datetime',
     ];
 
     // ── Relación ──────────────────────────────────────────────────────────────

@@ -17,6 +17,12 @@ Route::prefix('checkin')->name('checkin.')->group(function () {
     Route::get('/login',  [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'login'])->name('login.submit');
 
+    // Recuperar contraseña con un código enviado al correo de la ficha
+    Route::get('/olvide',  [AuthController::class, 'showOlvide'])->name('olvide');
+    Route::post('/olvide', [AuthController::class, 'enviarCodigo'])->middleware('throttle:5,1')->name('olvide.submit');
+    Route::get('/restablecer',  [AuthController::class, 'showRestablecer'])->name('restablecer');
+    Route::post('/restablecer', [AuthController::class, 'restablecer'])->middleware('throttle:10,1')->name('restablecer.submit');
+
     // Manifest y service worker (PWA)
     Route::get('/manifest.json', [CheckinController::class, 'manifest'])->name('manifest');
     Route::get('/sw.js',         [CheckinController::class, 'serviceWorker'])->name('sw');

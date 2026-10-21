@@ -73,6 +73,89 @@ class AuthController extends Controller
         return redirect()->route('checkin.home');
     }
 
+    // ── Recuperar contraseña ──────────────────────────────────────────────────
+
+    public function showOlvide()
+    {
+        return view('checkin.olvide-clave');
+    }
+
+    public function enviarCodigo(Request $request)
+    {
+        $request->validate(['dni' => ['required', 'digits:8']], [
+            'dni.required' => 'Ingresa tu DNI.',
+            'dni.digits'   => 'El DNI debe tener 8 dígitos.',
+        ]);
+
+        $employee = Employee::where('dni', $request->dni)->where('active', true)->first();
+        $credential = $employee
+            ? EmployeeCredential::where('employee_id', $employee->id)->where('active', true)->first()
+            : null;
+
+        // La respuesta es siempre la misma: no revela si el DNI existe ni si tiene correo.
+        if ($employee && $credential && filter_var($employee->email, FILTER_VALIDATE_EMAIL)) {
+            $codigo = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            $credential->forceFill([
+                'reset_code'       => Hash::make($codigo),
+                'reset_expires_at' => now()->addMinutes(15),
+                'reset_intentos'   => 0,
+            ])->save();
+
+            try {
+                \Illuminate\Support\Facades\Mail::to($employee->email)
+                    ->send(new \App\Mail\CodigoRecuperacionMail($employee->nombres, $codigo));
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
+        return redirect()->route('checkin.restablecer')->with('reset_dni', $request->dni);
+    }
+
+    public function showRestablecer()
+    {
+        return view('checkin.restablecer-clave');
+    }
+
+    public function restablecer(Request $request)
+    {
+        $dni = $request->input('dni');
+
+        $request->validate([
+            'codigo'         => ['required', 'digits:6'],
+            'password_nueva' => ['required', 'min:6', 'confirmed'],
+        ], [
+            'codigo.digits'            => 'El código tiene 6 dígitos.',
+            'password_nueva.min'       => 'La nueva contraseña debe tener al menos 6 caracteres.',
+            'password_nueva.confirmed' => 'Las contraseñas no coinciden.',
+        ]);
+
+        $employee = $dni ? Employee::where('dni', $dni)->where('active', true)->first() : null;
+        $credential = $employee
+            ? EmployeeCredential::where('employee_id', $employee->id)->where('active', true)->first()
+            : null;
+
+        $invalido = ! $credential || ! $credential->reset_code || ! $credential->reset_expires_at
+            || $credential->reset_expires_at->isPast() || $credential->reset_intentos >= 5;
+
+        if (! $invalido && ! Hash::check($request->codigo, $credential->reset_code)) {
+            $credential->increment('reset_intentos');
+            $invalido = true;
+        }
+
+        if ($invalido) {
+            return back()->withInput($request->only('dni'))->with('reset_dni', $dni)
+                ->withErrors(['codigo' => 'El código no es válido o ya venció. Pide uno nuevo.']);
+        }
+
+        $credential->forceFill([
+            'password' => Hash::make($request->password_nueva),
+            'reset_code' => null, 'reset_expires_at' => null, 'reset_intentos' => 0,
+        ])->save();
+
+        return redirect()->route('checkin.login')->with('success', '✅ Contraseña actualizada. Ya puedes ingresar.');
+    }
+
     public function logout(Request $request)
     {
         Auth::guard('employee')->logout();

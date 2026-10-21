@@ -14,8 +14,7 @@
 
         <div class="form-group">
             <label class="form-label" for="password_actual">Contraseña actual</label>
-            <input type="password" id="password_actual" name="password_actual"
-                   class="form-input" placeholder="••••••" required>
+            @include('checkin._password-input', ['id' => 'password_actual', 'name' => 'password_actual', 'placeholder' => '••••••', 'extra' => 'autocomplete="current-password"'])
             @error('password_actual')
             <div class="form-error">{{ $message }}</div>
             @enderror
@@ -23,8 +22,7 @@
 
         <div class="form-group">
             <label class="form-label" for="password_nueva">Nueva contraseña</label>
-            <input type="password" id="password_nueva" name="password_nueva"
-                   class="form-input" placeholder="Mínimo 6 caracteres" minlength="6" required>
+            @include('checkin._password-input', ['id' => 'password_nueva', 'name' => 'password_nueva', 'placeholder' => 'Mínimo 6 caracteres', 'extra' => 'minlength="6" autocomplete="new-password"'])
             @error('password_nueva')
             <div class="form-error">{{ $message }}</div>
             @enderror
@@ -32,8 +30,7 @@
 
         <div class="form-group">
             <label class="form-label" for="password_nueva_confirmation">Confirmar nueva contraseña</label>
-            <input type="password" id="password_nueva_confirmation" name="password_nueva_confirmation"
-                   class="form-input" placeholder="Repite la contraseña" required>
+            @include('checkin._password-input', ['id' => 'password_nueva_confirmation', 'name' => 'password_nueva_confirmation', 'placeholder' => 'Repite la contraseña', 'extra' => 'autocomplete="new-password"'])
         </div>
 
         <button type="submit" class="btn btn-verde">
