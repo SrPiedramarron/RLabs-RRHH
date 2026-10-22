@@ -201,7 +201,7 @@ class EmployeeResource extends Resource
                                 ->helperText('Ej: horario de sábados u otros turnos especiales'),
 
                             Forms\Components\Select::make('sedes_adicionales')
-                                ->label('Sedes Adicionales')
+                                ->label('Sedes Adicionales / reloj donde marca')
                                 ->multiple()
                                 ->searchable()
                                 ->preload()
@@ -209,7 +209,7 @@ class EmployeeResource extends Resource
                                 // que pertenece a otra empresa (por eso no se filtra, a diferencia de la sede principal).
                                 ->options(fn () => \App\Models\Location::query()->with('company:id,razon_social')->orderBy('nombre')->get()
                                     ->mapWithKeys(fn ($l) => [$l->id => $l->nombre . ' — ' . ($l->company?->razon_social ?? '')]))
-                                ->helperText('Sedes donde este trabajador también puede marcar asistencia, además de su sede principal.')
+                                ->helperText('Sedes o relojes donde este trabajador marca, además de su sede principal. Si la oficina y el reloj son de otra empresa (oficina compartida, como OLAVIDE de InProcess), aparece aquí con el nombre de esa empresa: NO la quites, porque el trabajador dejaría de enviarse a ese reloj.')
                                 ->afterStateHydrated(function (Forms\Components\Select $component, $record) {
                                     if ($record) {
                                         $component->state(
