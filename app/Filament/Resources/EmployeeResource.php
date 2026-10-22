@@ -9,6 +9,7 @@ use App\Models\Schedule;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
+use Filament\Forms\Set;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -30,6 +31,20 @@ class EmployeeResource extends Resource
     protected static ?string $pluralModelLabel = 'Trabajadores';
     protected static ?int    $navigationSort  = 1;
 
+    /** Limita sedes/áreas/horarios a la empresa elegida en el formulario o, si no hay, a la empresa seleccionada en el panel. */
+    public static function soloDeLaEmpresa(Builder $query, ?callable $get = null): Builder
+    {
+        $empresa = ($get ? $get('company_id') : null) ?: \App\Helpers\CompanyContext::get();
+
+        return $query->when($empresa, fn (Builder $q, $id) => $q->where($q->getModel()->getTable() . '.company_id', $id));
+    }
+
+    /** Sin empresa seleccionada en el panel, las áreas/sedes repetidas entre empresas se distinguen por el nombre de la empresa. */
+    public static function etiquetaConEmpresa($registro): string
+    {
+        return \App\Helpers\CompanyContext::get() ? (string) $registro->nombre : $registro->nombre . ' — ' . ($registro->company?->razon_social ?? '');
+    }
+
     public static function form(Form $form): Form
     {
         return $form->schema([
@@ -47,6 +62,13 @@ class EmployeeResource extends Resource
                                 ->required()
                                 ->searchable()
                                 ->live()
+                                ->afterStateUpdated(function (Set $set) {
+                                    $set('location_id', null);
+                                    $set('department_id', null);
+                                    $set('schedule_id', null);
+                                    $set('schedules', []);
+                                    $set('sedes_adicionales', []);
+                                })
                                 ->columnSpan(2),
 
                             Forms\Components\TextInput::make('nombres')
@@ -146,14 +168,16 @@ class EmployeeResource extends Resource
                         ->schema([
                             Forms\Components\Select::make('location_id')
                                 ->label('Sede')
-                                ->relationship('location', 'nombre')
+                                ->relationship('location', 'nombre', modifyQueryUsing: fn (Builder $query, Get $get) => static::soloDeLaEmpresa($query, $get))
                                 ->required()
-                                ->searchable(),
+                                ->searchable()
+                                ->preload(),
 
                             Forms\Components\Select::make('department_id')
                                 ->label('Área')
-                                ->relationship('department', 'nombre')
+                                ->relationship('department', 'nombre', modifyQueryUsing: fn (Builder $query, Get $get) => static::soloDeLaEmpresa($query, $get))
                                 ->searchable()
+                                ->preload()
                                 ->nullable(),
 
                             Forms\Components\TextInput::make('centro_costos')
@@ -162,7 +186,7 @@ class EmployeeResource extends Resource
 
                             Forms\Components\Select::make('schedule_id')
                                 ->label('Horario Principal')
-                                ->relationship('schedule', 'nombre')
+                                ->relationship('schedule', 'nombre', modifyQueryUsing: fn (Builder $query, Get $get) => static::soloDeLaEmpresa($query, $get))
                                 ->required(fn (Forms\Get $get) => $get('tipo_vinculo') !== 'locador')
                                 ->visible(fn (Forms\Get $get) => $get('tipo_vinculo') !== 'locador')
                                 ->searchable()
@@ -170,7 +194,7 @@ class EmployeeResource extends Resource
 
                             Forms\Components\Select::make('schedules')
                                 ->label('Horarios Adicionales')
-                                ->relationship('schedules', 'nombre')
+                                ->relationship('schedules', 'nombre', modifyQueryUsing: fn (Builder $query, Get $get) => static::soloDeLaEmpresa($query, $get))
                                 ->multiple()
                                 ->searchable()
                                 ->preload()
@@ -181,7 +205,7 @@ class EmployeeResource extends Resource
                                 ->multiple()
                                 ->searchable()
                                 ->preload()
-                                ->options(fn () => \App\Models\Location::pluck('nombre', 'id'))
+                                ->options(fn (Get $get) => static::soloDeLaEmpresa(\App\Models\Location::query(), $get)->pluck('nombre', 'id'))
                                 ->helperText('Sedes donde este trabajador también puede marcar asistencia, además de su sede principal.')
                                 ->afterStateHydrated(function (Forms\Components\Select $component, $record) {
                                     if ($record) {
@@ -746,11 +770,13 @@ Tables\Columns\TextColumn::make('sistema_pensiones')
 
                 Tables\Filters\SelectFilter::make('location_id')
                     ->label('Sede')
-                    ->relationship('location', 'nombre'),
+                    ->relationship('location', 'nombre', fn (Builder $query) => static::soloDeLaEmpresa($query))
+                    ->getOptionLabelFromRecordUsing(fn ($record) => static::etiquetaConEmpresa($record)),
 
                 Tables\Filters\SelectFilter::make('department_id')
                     ->label('Área')
-                    ->relationship('department', 'nombre'),
+                    ->relationship('department', 'nombre', fn (Builder $query) => static::soloDeLaEmpresa($query))
+                    ->getOptionLabelFromRecordUsing(fn ($record) => static::etiquetaConEmpresa($record)),
 
                 Tables\Filters\TernaryFilter::make('active')
                     ->label('Estado')

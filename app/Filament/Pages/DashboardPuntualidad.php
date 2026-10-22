@@ -34,6 +34,17 @@ class DashboardPuntualidad extends Page
         ];
     }
 
+    /** Sedes o áreas para los filtros; sin empresa seleccionada, con el nombre de la empresa para distinguir las repetidas. */
+    private function opciones(string $tabla, ?int $companyId): array
+    {
+        return DB::table($tabla . ' as t')
+            ->join('companies as c', 'c.id', '=', 't.company_id')
+            ->when($companyId, fn ($q) => $q->where('t.company_id', $companyId))
+            ->orderBy('t.nombre')->orderBy('c.razon_social')
+            ->selectRaw($companyId ? 't.id, t.nombre as n' : "t.id, CONCAT(t.nombre, ' — ', c.razon_social) as n")
+            ->pluck('n', 'id')->all();
+    }
+
     protected function getViewData(): array
     {
         [$desde, $hasta, $clave] = EstadisticasAsistencia::rangoDeRequest(request());
@@ -51,8 +62,8 @@ class DashboardPuntualidad extends Page
             'hasta'   => $hasta->toDateString(),
             'sede'    => $sede,
             'area'    => $area,
-            'sedes'   => DB::table('locations')->when($companyId, fn ($q) => $q->where('company_id', $companyId))->orderBy('nombre')->pluck('nombre', 'id')->all(),
-            'areas'   => DB::table('departments')->when($companyId, fn ($q) => $q->where('company_id', $companyId))->orderBy('nombre')->pluck('nombre', 'id')->all(),
+            'sedes'   => $this->opciones('locations', $companyId),
+            'areas'   => $this->opciones('departments', $companyId),
         ];
     }
 }
