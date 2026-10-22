@@ -1,8 +1,8 @@
 <x-filament-panels::page>
-    <form method="GET" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px;">
+    <form method="GET" id="pd-filtros" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px;">
         <div>
             <label for="pd_corte" style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;">Periodo</label>
-            <select id="pd_corte" name="corte" style="font:inherit;border-radius:8px;padding:6px 10px;border:1px solid #d1d5db;">
+            <select id="pd_corte" name="corte">
                 @foreach($cortes as $k => $label)
                     <option value="{{ $k }}" @selected($clave === $k)>{{ $label }}</option>
                 @endforeach
@@ -12,16 +12,16 @@
         <div id="pd_rango" style="display:{{ $clave === 'custom' ? 'flex' : 'none' }};gap:8px;align-items:flex-end;">
             <div>
                 <label for="pd_desde" style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;">Desde</label>
-                <input type="date" id="pd_desde" name="desde" value="{{ $desde }}" style="font:inherit;border-radius:8px;padding:6px 10px;border:1px solid #d1d5db;">
+                <input type="date" id="pd_desde" name="desde" value="{{ $desde }}">
             </div>
             <div>
                 <label for="pd_hasta" style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;">Hasta</label>
-                <input type="date" id="pd_hasta" name="hasta" value="{{ $hasta }}" style="font:inherit;border-radius:8px;padding:6px 10px;border:1px solid #d1d5db;">
+                <input type="date" id="pd_hasta" name="hasta" value="{{ $hasta }}">
             </div>
         </div>
         <div>
             <label for="pd_sede" style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;">Sede</label>
-            <select id="pd_sede" name="sede" style="font:inherit;border-radius:8px;padding:6px 10px;border:1px solid #d1d5db;">
+            <select id="pd_sede" name="sede">
                 <option value="">Todas las sedes</option>
                 @foreach($sedes as $id => $nombre)
                     <option value="{{ $id }}" @selected((int) $sede === (int) $id)>{{ $nombre }}</option>
@@ -30,7 +30,7 @@
         </div>
         <div>
             <label for="pd_area" style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;">Área</label>
-            <select id="pd_area" name="area" style="font:inherit;border-radius:8px;padding:6px 10px;border:1px solid #d1d5db;">
+            <select id="pd_area" name="area">
                 <option value="">Todas las áreas</option>
                 @foreach($areas as $id => $nombre)
                     <option value="{{ $id }}" @selected((int) $area === (int) $id)>{{ $nombre }}</option>
@@ -50,6 +50,10 @@
     </div>
 
     <style>
+        /* Controles del filtro: heredan el color del tema (claro u oscuro) para que el texto siempre se vea. */
+        #pd-filtros select,#pd-filtros input{font:inherit;color:inherit;background:transparent;border:1px solid rgba(128,128,128,.45);border-radius:8px;padding:6px 10px;color-scheme:light dark;min-width:140px}
+        #pd-filtros select:focus,#pd-filtros input:focus{outline:2px solid rgba(42,120,214,.6);outline-offset:1px}
+        #pd-filtros option{color:#111;background:#fff}
         #pd-dash{--pd-surface:#fcfcfb;--pd-ink:#0b0b0b;--pd-ink2:#52514e;--pd-muted:#8a8984;--pd-line:#e4e3de;--pd-blue:#2a78d6;--pd-green:#1baf7a;--pd-amber:#e0a31b;--pd-red:#e34948;color:var(--pd-ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
         @media(prefers-color-scheme:dark){#pd-dash{--pd-surface:#1a1a19;--pd-ink:#fff;--pd-ink2:#c3c2b7;--pd-muted:#8b8a82;--pd-line:#2e2e2b;--pd-blue:#3987e5;--pd-green:#199e70;--pd-amber:#d9a21f;--pd-red:#e66767}}
         .dark #pd-dash{--pd-surface:#1a1a19;--pd-ink:#fff;--pd-ink2:#c3c2b7;--pd-muted:#8b8a82;--pd-line:#2e2e2b;--pd-blue:#3987e5;--pd-green:#199e70;--pd-amber:#d9a21f;--pd-red:#e66767}
