@@ -111,6 +111,7 @@ class EstadisticasAsistencia
             ->join('employees as e', 'e.id', '=', 'a.employee_id')
             ->where('a.company_id', $companyId)
             ->where('e.active', true)
+            ->where('e.exonerado_registro', false) // no sujetos a fiscalización: fuera de rankings y beneficios
             ->whereBetween('a.fecha', [$desde->toDateString(), $hasta->toDateString()])
             ->groupBy('a.employee_id')
             ->selectRaw('a.employee_id, ' . self::sqlPct() . ' as pct')
@@ -138,6 +139,7 @@ class EstadisticasAsistencia
             ->leftJoin('departments as d', 'd.id', '=', 'e.department_id')
             ->where('a.company_id', $companyId)
             ->where('e.active', true)
+            ->where('e.exonerado_registro', false) // no sujetos a fiscalización: fuera de rankings y beneficios
             ->whereBetween('a.fecha', [$desde->toDateString(), $hasta->toDateString()])
             ->groupBy('e.department_id')
             ->selectRaw('e.department_id as id, MAX(COALESCE(d.nombre, "Sin área")) as area, ' . self::sqlPct() . ' as pct')
