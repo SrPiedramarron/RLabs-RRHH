@@ -82,7 +82,12 @@
 
 <h1>LIQUIDACIÓN DE BENEFICIOS SOCIALES</h1>
 <div class="sub">D. Leg. N.º 650, D. Leg. 857 y D.S. N.º 001-97-TR</div>
-<div style="text-align:center; font-weight:bold; margin-bottom:4px;">{{ $empresa->razon_social }}</div>
+<div style="text-align:center; font-weight:bold;">{{ $empresa->razon_social }}</div>
+@if($empresa->ruc && $empresa->ruc !== '00000000000')
+<div style="text-align:center; margin-bottom:4px;">RUC N.º {{ $empresa->ruc }}</div>
+@else
+<div style="margin-bottom:4px;"></div>
+@endif
 
 <table class="cab">
     <tr><td style="width:36%;">NOMBRE DEL TRABAJADOR</td><td>: {{ $nombre }}</td></tr>
