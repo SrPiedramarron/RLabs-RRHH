@@ -151,9 +151,17 @@
         <input type="hidden" name="precision" id="input-precision">
         <input type="hidden" name="foto"     id="input-foto">
 
+        <div id="camara-ayuda" style="display:none; background:#FEF3C7; color:#78350F; border-radius:10px; padding:12px 14px; font-size:13px; margin-bottom:10px; line-height:1.45;"></div>
+
         <button type="button" id="btn-capturar" class="btn btn-outline" style="margin-bottom:10px;" disabled>
             📷 Tomar foto
         </button>
+
+        {{-- Alternativa si el navegador no deja usar la cámara: usa la cámara del teléfono --}}
+        <button type="button" id="btn-foto-nativa" class="btn btn-outline" style="display:none; margin-bottom:10px;">
+            📱 Tomar foto con la cámara del teléfono
+        </button>
+        <input type="file" id="foto-nativa" accept="image/*" capture="user" style="display:none;">
 
         <button type="submit" id="btn-marcar"
             class="btn {{ !$tieneEntrada ? 'btn-verde' : 'btn-rojo' }}"
@@ -192,6 +200,10 @@
 
     if (!video) return; // Jornada completada, no hay formulario
 
+    const camaraAyuda   = document.getElementById('camara-ayuda');
+    const btnFotoNativa = document.getElementById('btn-foto-nativa');
+    const inputNativo   = document.getElementById('foto-nativa');
+
     let stream      = null;
     let gpsOk       = false;
     let fotoTomada  = false;
@@ -206,9 +218,57 @@
             video.srcObject = stream;
             btnCaptura.disabled = false;
         } catch(e) {
-            alert('No se pudo acceder a la cámara. Por favor, permite el acceso e intenta nuevamente.');
+            mostrarErrorCamara(e);
         }
     }
+
+    // Mensaje según la causa, y alternativa con la cámara nativa del teléfono.
+    function mostrarErrorCamara(e) {
+        const nombre = (e && e.name) || '';
+        let msg;
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            msg = 'Este navegador no permite usar la cámara en esta página. Abre la app en Chrome o usa el botón de abajo.';
+        } else if (nombre === 'NotAllowedError' || nombre === 'SecurityError') {
+            msg = '<b>La cámara está bloqueada para esta página.</b><br>Para activarla: toca el candado o el ícono junto a la dirección → <b>Permisos</b> (o Ajustes del sitio) → <b>Cámara</b> → <b>Permitir</b>, y recarga la página. En Brave, desactiva también los Escudos para este sitio.<br>Mientras tanto puedes marcar con el botón de abajo.';
+        } else if (nombre === 'NotFoundError' || nombre === 'OverconstrainedError') {
+            msg = 'No se encontró una cámara frontal en este dispositivo. Usa el botón de abajo.';
+        } else if (nombre === 'NotReadableError' || nombre === 'AbortError') {
+            msg = 'La cámara está siendo usada por otra aplicación. Ciérrala e inténtalo de nuevo, o usa el botón de abajo.';
+        } else {
+            msg = 'No se pudo acceder a la cámara. Revisa los permisos o usa el botón de abajo.';
+        }
+        camaraAyuda.innerHTML = msg;
+        camaraAyuda.style.display = 'block';
+        btnFotoNativa.style.display = 'block';
+        video.style.display = 'none';
+    }
+
+    // Foto con la cámara nativa del teléfono: se reduce a 640 px y entra al mismo flujo que la foto normal.
+    btnFotoNativa && btnFotoNativa.addEventListener('click', function() { inputNativo.value = ''; inputNativo.click(); });
+    inputNativo && inputNativo.addEventListener('change', function() {
+        const archivo = inputNativo.files && inputNativo.files[0];
+        if (!archivo) return;
+        const url = URL.createObjectURL(archivo);
+        const img = new Image();
+        img.onload = function() {
+            const escala = Math.min(1, 640 / Math.max(img.width, img.height));
+            const canvas = document.createElement('canvas');
+            canvas.width  = Math.round(img.width  * escala);
+            canvas.height = Math.round(img.height * escala);
+            canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+            URL.revokeObjectURL(url);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            inputFoto.value = dataUrl;
+            fotoImg.src = dataUrl;
+            fotoImg.style.display = 'block';
+            video.style.display = 'none';
+            btnRetomar.style.display = 'block';
+            fotoTomada = true;
+            verificarListo();
+        };
+        img.onerror = function() { URL.revokeObjectURL(url); alert('No se pudo leer la foto. Intenta de nuevo.'); };
+        img.src = url;
+    });
 
     // ── 2. Obtener GPS ─────────────────────────────────────────────────────
     if (navigator.geolocation) {
@@ -255,11 +315,12 @@
     // ── 4. Retomar foto ────────────────────────────────────────────────────
     btnRetomar && btnRetomar.addEventListener('click', function() {
         fotoImg.style.display    = 'none';
-        video.style.display      = 'block';
+        video.style.display      = stream ? 'block' : 'none';
         btnRetomar.style.display = 'none';
         inputFoto.value = '';
         fotoTomada = false;
         btnMarcar.disabled = true;
+        if (!stream) { inputNativo.value = ''; inputNativo.click(); }
     });
 
     // ── 5. Habilitar botón marcar solo si GPS + foto OK ────────────────────
@@ -302,7 +363,7 @@
                     showAlert('⚠️ Rostro no reconocido. Te quedan ' + restantes + ' intento(s). Toma otra foto.', 'amarillo');
 
                     fotoImg.style.display    = 'none';
-                    video.style.display      = 'block';
+                    video.style.display      = stream ? 'block' : 'none';
                     btnRetomar.style.display = 'none';
                     inputFoto.value = '';
                     fotoTomada = false;

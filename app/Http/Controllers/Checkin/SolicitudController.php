@@ -95,6 +95,12 @@ class SolicitudController extends Controller
             'fecha_fin'    => ['required', 'date', 'after_or_equal:fecha_inicio'],
             'motivo'       => ['required', 'string', 'max:500'],
             'adjunto'      => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+        ], [
+            'adjunto.uploaded' => 'No se pudo subir el archivo (probablemente es muy pesado). Elige una foto o PDF de hasta 5 MB e inténtalo de nuevo.',
+            'adjunto.max'      => 'El archivo pesa más de 5 MB. Elige uno más liviano.',
+            'adjunto.mimes'    => 'El archivo debe ser PDF, JPG o PNG.',
+            'adjunto.required' => 'Adjunta el sustento (foto o PDF).',
+            'adjunto.file'     => 'Adjunta un archivo válido (foto o PDF).',
         ]);
 
         $categorias = [
@@ -147,6 +153,12 @@ class SolicitudController extends Controller
             'hora_salida_solicitada'  => ['nullable', 'date_format:H:i'],
             'motivo'                  => ['required', 'string', 'max:500'],
             'adjunto'                 => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+        ], [
+            'adjunto.uploaded' => 'No se pudo subir el archivo (probablemente es muy pesado). Elige una foto o PDF de hasta 5 MB e inténtalo de nuevo.',
+            'adjunto.max'      => 'El archivo pesa más de 5 MB. Elige uno más liviano.',
+            'adjunto.mimes'    => 'El archivo debe ser PDF, JPG o PNG.',
+            'adjunto.required' => 'Adjunta el sustento (foto o PDF).',
+            'adjunto.file'     => 'Adjunta un archivo válido (foto o PDF).',
         ]);
 
         if (empty($data['hora_entrada_solicitada']) && empty($data['hora_salida_solicitada'])) {

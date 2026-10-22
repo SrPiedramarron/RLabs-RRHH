@@ -30,6 +30,7 @@
 
     <label style="font-size:12px; font-weight:600; color:var(--gris); display:block; margin-bottom:6px;">Adjuntar documento (opcional)</label>
     <input type="file" name="adjunto" class="form-input" accept=".pdf,.jpg,.jpeg,.png" style="margin-bottom:6px;">
+    @include('checkin._comprimir-adjunto')
     <div style="font-size:11px; color:var(--gris); margin-bottom:6px;">PDF o imagen, máx. 5MB.</div>
 
     @if($errors->any())
