@@ -10,6 +10,8 @@ use Filament\Pages\Page;
 
 class DashboardVacaciones extends Page
 {
+    use \BezhanSalleh\FilamentShield\Traits\HasPageShield;
+
     protected static ?string $navigationIcon  = 'heroicon-o-chart-bar';
     protected static ?string $navigationLabel = 'Dashboard de Vacaciones';
     protected static ?string $navigationGroup = 'Reportes';

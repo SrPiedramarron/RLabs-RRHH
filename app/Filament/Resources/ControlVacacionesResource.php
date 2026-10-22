@@ -30,6 +30,31 @@ class ControlVacacionesResource extends Resource
         return false;
     }
 
+    public static function canViewAny(): bool
+    {
+        return (bool) auth()->user()?->can('view_any_control::vacaciones');
+    }
+
+    public static function canView($record): bool
+    {
+        return (bool) auth()->user()?->can('view_control::vacaciones');
+    }
+
+    public static function canEdit($record): bool
+    {
+        return (bool) auth()->user()?->can('update_control::vacaciones');
+    }
+
+    public static function canDelete($record): bool
+    {
+        return false;
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return false;
+    }
+
     public static function table(Table $table): Table
     {
         return $table

@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\DB;
 
 class DashboardPuntualidad extends Page
 {
+    use \BezhanSalleh\FilamentShield\Traits\HasPageShield;
+
     protected static ?string $navigationIcon  = 'heroicon-o-clock';
     protected static ?string $navigationLabel = 'Dashboard de Puntualidad';
     protected static ?string $navigationGroup = 'Reportes';

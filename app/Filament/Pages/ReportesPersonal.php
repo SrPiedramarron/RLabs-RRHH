@@ -28,6 +28,8 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class ReportesPersonal extends Page implements HasForms
 {
+    use \BezhanSalleh\FilamentShield\Traits\HasPageShield;
+
     use InteractsWithForms;
 
     protected static ?string $navigationIcon  = 'heroicon-o-identification';
