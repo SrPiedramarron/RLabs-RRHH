@@ -191,6 +191,12 @@ class AttendanceProcessor
             $minutosOrdinarios = min($minutosTrabajados, $minutosJornadaNormal);
             $minutosExtra      = max(0, $minutosTrabajados - $minutosJornadaNormal);
 
+            // Regla de RRHH (oct. 2026): solo hay hora extra por el tiempo que pasa de la HORA DE SALIDA programada.
+            // Almorzar menos de lo previsto, o llegar antes, no genera extras: lo que exceda queda sin pagar como
+            // extra. Si además llegó tarde, solo cuenta lo que realmente sobró de la jornada.
+            $minutosTrasLaSalida = max(0, intdiv($horaSalidaReal - $horaSalidaProgramada, 60));
+            $minutosExtra        = min($minutosExtra, $minutosTrasLaSalida);
+
             if ($minutosExtra > 0) {
                 $horasExtraTotales   = $minutosExtra / 60;
                 $horasExtraDiurnas   = min(2, $horasExtraTotales);
@@ -350,6 +356,12 @@ class AttendanceProcessor
 
             $minutosOrdinarios = min($minutosTrabajados, $minutosJornadaNormal);
             $minutosExtra      = max(0, $minutosTrabajados - $minutosJornadaNormal);
+
+            // Regla de RRHH (oct. 2026): solo hay hora extra por el tiempo que pasa de la HORA DE SALIDA programada.
+            // Almorzar menos de lo previsto, o llegar antes, no genera extras: lo que exceda queda sin pagar como
+            // extra. Si además llegó tarde, solo cuenta lo que realmente sobró de la jornada.
+            $minutosTrasLaSalida = max(0, intdiv($horaSalidaReal - $horaSalidaProgramada, 60));
+            $minutosExtra        = min($minutosExtra, $minutosTrasLaSalida);
 
             if ($minutosExtra > 0) {
                 // Recargo de ley (D.S. 007-2002-TR): las primeras 2 horas extra
