@@ -205,7 +205,10 @@ class EmployeeResource extends Resource
                                 ->multiple()
                                 ->searchable()
                                 ->preload()
-                                ->options(fn (Get $get) => static::soloDeLaEmpresa(\App\Models\Location::query(), $get)->pluck('nombre', 'id'))
+                                // Todas las sedes, con su empresa: un trabajador puede marcar en el reloj de una oficina compartida
+                                // que pertenece a otra empresa (por eso no se filtra, a diferencia de la sede principal).
+                                ->options(fn () => \App\Models\Location::query()->with('company:id,razon_social')->orderBy('nombre')->get()
+                                    ->mapWithKeys(fn ($l) => [$l->id => $l->nombre . ' — ' . ($l->company?->razon_social ?? '')]))
                                 ->helperText('Sedes donde este trabajador también puede marcar asistencia, además de su sede principal.')
                                 ->afterStateHydrated(function (Forms\Components\Select $component, $record) {
                                     if ($record) {
