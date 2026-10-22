@@ -9,7 +9,8 @@ use Illuminate\Console\Command;
 
 /**
  * Registros corregidos a mano (corrección de horas aprobada, registro manual) que guardaron las horas
- * ordinarias por encima del tope de su horario y sin separar las extras. Recalcula solo ordinarias y
+ * ordinarias por encima del tope de su horario y sin separar las extras (incluye días con permiso aprobado, que quedan
+ * bloqueados al aprobarse y conservan lo que se había calculado antes). Recalcula solo ordinarias y
  * extras con las horas de entrada y salida YA guardadas; no toca tardanza, estado ni justificaciones.
  * Simula por defecto.
  */
@@ -27,7 +28,7 @@ class RecalcularHorasCorregidas extends Command
         $registros = AttendanceRecord::where('corregido_manualmente', true)
             ->whereBetween('fecha', [$this->argument('desde'), $this->argument('hasta')])
             ->whereNotNull('hora_entrada')->whereNotNull('hora_salida')
-            ->whereIn('estado', ['presente', 'tarde'])
+            ->whereIn('estado', ['presente', 'tarde', 'permiso'])
             ->orderBy('fecha')->get();
 
         foreach ($registros as $r) {
