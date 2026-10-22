@@ -1094,6 +1094,27 @@ class PlanillaService
      * con la "Liquidación de Planilla" normal de ese mes (usando los días
      * realmente trabajados hasta el cese), para no duplicar el cálculo.
      */
+    /**
+     * Beneficio proporcional como lo calcula RRHH: primero por meses, luego por días (30 por mes) y se suman las
+     * dos partes, cada una redondeada a céntimos. Los meses llegan como decimal (5.4667 → 5 meses y 14 días).
+     *
+     * @return array{meses: int, dias: int, monto_meses: float, monto_dias: float, total: float}
+     */
+    public static function montoPorMesesYDias(float $base, int $divisor, float $mesesDecimal): array
+    {
+        $meses = (int) floor($mesesDecimal + 1e-9);
+        $dias  = (int) round(($mesesDecimal - $meses) * 30);
+        if ($dias >= 30) {
+            $meses++;
+            $dias = 0;
+        }
+
+        $montoMeses = round($base / $divisor * $meses, 2);
+        $montoDias  = round($base / $divisor / 30 * $dias, 2);
+
+        return ['meses' => $meses, 'dias' => $dias, 'monto_meses' => $montoMeses, 'monto_dias' => $montoDias, 'total' => round($montoMeses + $montoDias, 2)];
+    }
+
     public function calcularLiquidacionCese(
         int $employeeId,
         string $motivoCese,
@@ -1189,7 +1210,7 @@ class PlanillaService
         $diasRestantesVac      = max(0, $fechaTrasCompletosVac->diffInDays($finInclusiveVac));
         $mesesTruncasVacaciones = min(12.0, round($mesesCompletosVac + $diasRestantesVac / 30, 4));
 
-        $montoVacacionesTruncas = round($baseVacacional / 12 * $mesesTruncasVacaciones, 2);
+        $montoVacacionesTruncas = self::montoPorMesesYDias($baseVacacional, 12, $mesesTruncasVacaciones)['total'];
         // Se guarda en días (meses×30) solo para que la columna siga siendo
         // legible/consistente con el monto — el cálculo real usa meses.
         $diasVacacionesTruncas = round($mesesTruncasVacaciones * 30, 2);
@@ -1241,7 +1262,7 @@ class PlanillaService
         }
 
         $remuneracionComputableGrat = round($sueldo + $asignacionFamiliar + $promComisionesGrat + $promHorasExtraGrat, 2);
-        $montoGratTrunca = round($remuneracionComputableGrat / 6 * $mesesGratTrunca, 2);
+        $montoGratTrunca = self::montoPorMesesYDias($remuneracionComputableGrat, 6, $mesesGratTrunca)['total'];
         $bonifTrunca     = round($montoGratTrunca * 0.09, 2);
 
         // ── CTS trunca (semestre CTS en curso al momento del cese) ──────────
@@ -1275,7 +1296,7 @@ class PlanillaService
         $sextoGratificacion = $this->resolverSextoGratificacionParaCts($empleado, $inicioSemestreCts);
 
         $remuneracionComputableCts = round($sueldo + $asignacionFamiliar + $promComisionesCts + $promHorasExtraCts + $sextoGratificacion, 2);
-        $montoCtsTrunca = round($remuneracionComputableCts / 12 * $mesesCtsTrunca, 2);
+        $montoCtsTrunca = self::montoPorMesesYDias($remuneracionComputableCts, 12, $mesesCtsTrunca)['total'];
 
         // ── Indemnización por despido arbitrario ────────────────────────────
         // 1.5 sueldos por año completo de servicio (dozavos por meses
