@@ -79,7 +79,11 @@ class ImportEmployeesFromZKBio extends Command
                     continue;
                 }
 
-                $department = Department::firstOrCreate([
+                // El departamento raíz del reloj ("Inprocess", "Quantum") es la empresa entera, no un área:
+                // crearlo como área metía "Inprocess" en los rankings y reportes por área. Esos usuarios quedan
+                // sin área hasta que RRHH les asigne la real.
+                $esRaizEmpresa = array_key_exists($deptKey, $this->departmentCompanyMap);
+                $department = $esRaizEmpresa ? null : Department::firstOrCreate([
                     'company_id' => $company->id,
                     'nombre'     => $deptName,
                 ]);
