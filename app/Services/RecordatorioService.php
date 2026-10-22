@@ -28,6 +28,10 @@ class RecordatorioService
             return false; // ya se envió hoy
         }
 
+        if ($r->modo === 'dia_semana') {
+            return $ahora->dayOfWeekIso === (int) $r->dia_semana;
+        }
+
         if ($r->modo === 'dia_mes') {
             $objetivo = min((int) $r->dia_mes, $ahora->daysInMonth);
 
@@ -56,7 +60,7 @@ class RecordatorioService
             intro: $n === 0 ? $datos['intro'] . ' (Hoy no hay elementos que avisar.)' : $datos['intro'],
             columnas: $datos['columnas'],
             filas: $datos['filas'],
-            empresa: (string) $r->company?->razon_social,
+            empresa: $r->company_id ? (string) $r->company?->razon_social : 'Todas las empresas',
             cuando: $r->cuando,
         ));
 

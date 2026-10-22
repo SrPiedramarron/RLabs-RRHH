@@ -13,6 +13,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class RecordatorioResource extends Resource
 {
@@ -27,13 +28,23 @@ class RecordatorioResource extends Resource
     protected static ?string $modelLabel       = 'Recordatorio';
     protected static ?string $pluralModelLabel = 'Recordatorios por correo';
 
+    /** Los recordatorios sin empresa (revisión de cruces) se ven siempre, aunque haya una empresa seleccionada. */
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $empresa = \App\Helpers\CompanyContext::get();
+
+        return $empresa ? $query->where(fn ($q) => $q->where('company_id', $empresa)->orWhereNull('company_id')) : $query;
+    }
+
     public static function form(Form $form): Form
     {
         return $form->schema([
             Forms\Components\Select::make('company_id')
                 ->label('Empresa')
                 ->relationship('company', 'razon_social')
-                ->required()
+                ->required(fn (Forms\Get $get) => $get('tipo') !== 'cruces_empresas')
+                ->visible(fn (Forms\Get $get) => $get('tipo') !== 'cruces_empresas')
                 ->searchable(),
 
             Forms\Components\Select::make('tipo')
@@ -69,6 +80,13 @@ class RecordatorioResource extends Resource
                 ->native(false)
                 ->live()
                 ->default('dia_mes'),
+
+            Forms\Components\Select::make('dia_semana')
+                ->label('Día de la semana')
+                ->options([1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Viernes', 6 => 'Sábado', 7 => 'Domingo'])
+                ->native(false)
+                ->visible(fn (Forms\Get $get) => $get('modo') === 'dia_semana')
+                ->required(fn (Forms\Get $get) => $get('modo') === 'dia_semana'),
 
             Forms\Components\TextInput::make('dia_mes')
                 ->label('Día del mes')
@@ -108,7 +126,7 @@ class RecordatorioResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('tipo')->label('Recordatorio')
                     ->formatStateUsing(fn ($state) => Recordatorios::TIPOS[$state]['label'] ?? $state)->badge(),
-                Tables\Columns\TextColumn::make('company.razon_social')->label('Empresa')->searchable(),
+                Tables\Columns\TextColumn::make('company.razon_social')->label('Empresa')->searchable()->placeholder('Todas las empresas'),
                 Tables\Columns\TextColumn::make('cuando')->label('Cuándo'),
                 Tables\Columns\TextColumn::make('destinatarios')->label('Correos')->limit(60)->wrap(),
                 Tables\Columns\IconColumn::make('activo')->label('Activo')->boolean(),

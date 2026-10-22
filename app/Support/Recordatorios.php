@@ -34,6 +34,11 @@ class Recordatorios
             'ayuda' => 'Ceses de los últimos 60 días que aún no tienen liquidación calculada.',
             'ventana_defecto' => 0,
         ],
+        'cruces_empresas' => [
+            'label' => 'Cruces de datos entre empresas',
+            'ayuda' => 'Revisión que avisa solo si hay datos cruzados entre empresas (áreas, sedes, horarios o registros de otra empresa). No depende de una empresa.',
+            'ventana_defecto' => 0,
+        ],
         'solicitudes_pendientes' => [
             'label' => 'Solicitudes pendientes de RRHH',
             'ayuda' => 'Solicitudes que llevan más de 24 horas esperando a RRHH.',
@@ -44,6 +49,7 @@ class Recordatorios
     public const MODOS = [
         'dia_mes'    => 'Un día fijo de cada mes',
         'dias_antes' => 'Varios días antes del evento',
+        'dia_semana' => 'Un día fijo de cada semana',
         'diario'     => 'Todos los días',
     ];
 
@@ -88,6 +94,11 @@ class Recordatorios
         $hoy = ($hoy ?? now())->copy()->startOfDay();
         [$desde, $hasta] = self::rango($r, $hoy);
 
+        // La auditoría es global (todas las empresas): no necesita empresa ni consulta de trabajadores.
+        if ($r->tipo === 'cruces_empresas') {
+            return self::crucesEmpresas();
+        }
+
         $base = Employee::where('company_id', $r->company_id)->where('active', true)->whereNull('fecha_cese')->with('department');
 
         return match ($r->tipo) {
@@ -98,6 +109,19 @@ class Recordatorios
             'solicitudes_pendientes' => self::solicitudesPendientes($r->company_id),
             default                  => ['titulo' => $r->tipo_label, 'intro' => '', 'columnas' => [], 'filas' => []],
         };
+    }
+
+    private static function crucesEmpresas(): array
+    {
+        [$filas] = app(\App\Services\AuditoriaCrucesService::class)->revisar();
+        $errores = collect($filas)->where(0, 'ERROR')->map(fn ($f) => [$f[1], $f[2], $f[3]])->values()->all();
+
+        return [
+            'titulo'   => count($errores) . ' tipo(s) de cruce entre empresas por corregir',
+            'intro'    => 'La revisión encontró datos que se cruzan entre empresas. Corre rrhh:auditar-cruces-empresa para ver el detalle y rrhh:corregir-areas-cruzadas para corregir áreas, sedes y horarios.',
+            'columnas' => ['Revisión', 'Casos', 'Ejemplos'],
+            'filas'    => $errores,
+        ];
     }
 
     private static function rangoTexto(Carbon $desde, Carbon $hasta): string

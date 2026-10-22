@@ -12,7 +12,7 @@ class Recordatorio extends Model
 
     protected $fillable = [
         'company_id', 'tipo', 'activo', 'destinatarios', 'modo',
-        'dia_mes', 'dias_antes', 'ventana_dias', 'hora', 'ultimo_envio_at',
+        'dia_mes', 'dia_semana', 'dias_antes', 'ventana_dias', 'hora', 'ultimo_envio_at',
     ];
 
     protected $casts = [
@@ -40,6 +40,7 @@ class Recordatorio extends Model
 
         return match ($this->modo) {
             'dia_mes'    => ($this->dia_mes >= 31 ? 'El último día de cada mes' : "El día {$this->dia_mes} de cada mes") . " a las {$hora}",
+            'dia_semana' => 'Todos los ' . (['', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábados', 'domingos'][(int) $this->dia_semana] ?: 'días') . " a las {$hora}",
             'dias_antes' => ($this->dias_antes == 0 ? 'El mismo día' : "{$this->dias_antes} día(s) antes") . " del evento, a las {$hora}",
             default      => "Todos los días a las {$hora}",
         };
