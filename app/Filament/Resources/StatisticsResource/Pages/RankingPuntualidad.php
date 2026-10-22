@@ -56,13 +56,7 @@ class RankingPuntualidad extends ListRecords
     {
         [$desde, $hasta] = EstadisticasAsistencia::rango($this->periodoDe($vista));
 
-        $sub = DB::table('attendance_records as a')
-            ->join('employees as e', 'e.id', '=', 'a.employee_id')
-            ->leftJoin('locations as l', 'l.id', '=', 'e.location_id')
-            ->leftJoin('departments as d', 'd.id', '=', 'e.department_id')
-            ->when(CompanyContext::get(), fn ($q) => $q->where('a.company_id', CompanyContext::get()))
-            ->when($desde, fn ($q) => $q->whereDate('a.fecha', '>=', $desde))
-            ->when($hasta, fn ($q) => $q->whereDate('a.fecha', '<=', $hasta));
+        $sub = EstadisticasAsistencia::consultaBase(CompanyContext::get(), $desde, $hasta);
 
         $grupo = match ($vista) {
             'sedes'     => ['e.location_id'],

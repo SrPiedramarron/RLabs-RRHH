@@ -18,15 +18,9 @@ class PuntualidadDashboardService
 {
     public function build(?int $companyId, Carbon $desde, Carbon $hasta, ?int $locationId = null, ?int $departmentId = null): array
     {
-        $base = fn () => DB::table('attendance_records as a')
-            ->join('employees as e', 'e.id', '=', 'a.employee_id')
-            ->leftJoin('locations as l', 'l.id', '=', 'e.location_id')
-            ->leftJoin('departments as d', 'd.id', '=', 'e.department_id')
-            ->where('e.exonerado_registro', false)
-            ->when($companyId, fn ($q) => $q->where('a.company_id', $companyId))
+        $base = fn () => Est::consultaBase($companyId, $desde, $hasta)
             ->when($locationId, fn ($q) => $q->where('e.location_id', $locationId))
-            ->when($departmentId, fn ($q) => $q->where('e.department_id', $departmentId))
-            ->whereBetween('a.fecha', [$desde->toDateString(), $hasta->toDateString()]);
+            ->when($departmentId, fn ($q) => $q->where('e.department_id', $departmentId));
 
         $medidas = Est::sqlPuntual() . ' as p, ' . Est::sqlTarde() . ' as t, '
             . "COALESCE(SUM(CASE WHEN a.estado <> 'ausente' AND a.minutos_tarde > 0 THEN a.minutos_tarde ELSE 0 END), 0) as min, "

@@ -65,6 +65,24 @@ class EstadisticasAsistencia
         ];
     }
 
+    /**
+     * Consulta base ÚNICA de todo lo que muestra puntualidad (dashboard, ranking del panel y ranking de la app),
+     * para que los números sean idénticos en los tres. Alias: a = marcaciones, e = trabajador, l = sede, d = área.
+     * Cuenta a todo trabajador con marcaciones en el periodo (aunque ya haya cesado) y excluye al personal
+     * exonerado de registro (no sujeto a fiscalización). Fechas nulas = sin límite.
+     */
+    public static function consultaBase(?int $companyId, $desde = null, $hasta = null): \Illuminate\Database\Query\Builder
+    {
+        return \Illuminate\Support\Facades\DB::table('attendance_records as a')
+            ->join('employees as e', 'e.id', '=', 'a.employee_id')
+            ->leftJoin('locations as l', 'l.id', '=', 'e.location_id')
+            ->leftJoin('departments as d', 'd.id', '=', 'e.department_id')
+            ->where('e.exonerado_registro', false)
+            ->when($companyId, fn ($q) => $q->where('a.company_id', $companyId))
+            ->when($desde, fn ($q) => $q->whereDate('a.fecha', '>=', $desde instanceof Carbon ? $desde->toDateString() : $desde))
+            ->when($hasta, fn ($q) => $q->whereDate('a.fecha', '<=', $hasta instanceof Carbon ? $hasta->toDateString() : $hasta));
+    }
+
     /** Minutos → "dd:hh:mm" (día = 24 h). Sin minutos: guion. */
     public static function ddhhmm($minutos): string
     {
@@ -107,12 +125,7 @@ class EstadisticasAsistencia
      */
     public static function puestoPuntualidad(int $employeeId, int $companyId, Carbon $desde, Carbon $hasta): ?array
     {
-        $filas = \Illuminate\Support\Facades\DB::table('attendance_records as a')
-            ->join('employees as e', 'e.id', '=', 'a.employee_id')
-            ->where('a.company_id', $companyId)
-            ->where('e.active', true)
-            ->where('e.exonerado_registro', false) // no sujetos a fiscalización: fuera de rankings y beneficios
-            ->whereBetween('a.fecha', [$desde->toDateString(), $hasta->toDateString()])
+        $filas = self::consultaBase($companyId, $desde, $hasta)
             ->groupBy('a.employee_id')
             ->selectRaw('a.employee_id, ' . self::sqlPct() . ' as pct')
             ->pluck('pct', 'employee_id')
@@ -134,13 +147,7 @@ class EstadisticasAsistencia
     /** Ranking de áreas de una empresa en el corte: [[posicion, department_id, area, pct], ...]. Solo trabajadores activos. */
     public static function rankingAreas(int $companyId, Carbon $desde, Carbon $hasta): array
     {
-        $filas = \Illuminate\Support\Facades\DB::table('attendance_records as a')
-            ->join('employees as e', 'e.id', '=', 'a.employee_id')
-            ->leftJoin('departments as d', 'd.id', '=', 'e.department_id')
-            ->where('a.company_id', $companyId)
-            ->where('e.active', true)
-            ->where('e.exonerado_registro', false) // no sujetos a fiscalización: fuera de rankings y beneficios
-            ->whereBetween('a.fecha', [$desde->toDateString(), $hasta->toDateString()])
+        $filas = self::consultaBase($companyId, $desde, $hasta)
             ->groupBy('e.department_id')
             ->selectRaw('e.department_id as id, MAX(COALESCE(d.nombre, "Sin área")) as area, ' . self::sqlPct() . ' as pct')
             ->orderByDesc('pct')
