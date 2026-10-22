@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Helpers\CompanyContext;
 use App\Services\VacacionesPorPeriodoService;
 use Carbon\Carbon;
+use Filament\Actions\Action;
 use Filament\Pages\Page;
 
 class DashboardVacaciones extends Page
@@ -23,6 +24,16 @@ class DashboardVacaciones extends Page
     public function fechaCorte(): string
     {
         return request()->query('fecha_corte', now()->toDateString());
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('excel')->label('Exportar Excel')->icon('heroicon-o-table-cells')->color('success')
+                ->url(fn () => route('reportes.dashboard-vacaciones', ['formato' => 'xlsx'] + request()->query())),
+            Action::make('pdf')->label('Exportar PDF')->icon('heroicon-o-document-arrow-down')->color('danger')
+                ->url(fn () => route('reportes.dashboard-vacaciones', ['formato' => 'pdf'] + request()->query())),
+        ];
     }
 
     protected function getViewData(): array

@@ -35,6 +35,10 @@ Route::get('/documentos/certificado-trabajo/{employee}', [\App\Http\Controllers\
 Route::get('/documentos/carta-retiro-cts/{employee}', [\App\Http\Controllers\DocumentoLaboralController::class, 'cartaRetiroCts'])->name('documentos.carta-retiro-cts');
 Route::get('/documentos/certificado-quinta/{employee}', [\App\Http\Controllers\DocumentoLaboralController::class, 'certificadoQuinta'])->name('documentos.certificado-quinta');
 Route::get('/documentos/liquidacion/{liquidacion}', [\App\Http\Controllers\DocumentoLaboralController::class, 'liquidacion'])->name('documentos.liquidacion');
+Route::get('/reportes/dashboard-puntualidad/{formato}', [\App\Http\Controllers\DashboardExportController::class, 'puntualidad'])
+    ->whereIn('formato', ['xlsx', 'pdf'])->name('reportes.dashboard-puntualidad');
+Route::get('/reportes/dashboard-vacaciones/{formato}', [\App\Http\Controllers\DashboardExportController::class, 'vacaciones'])
+    ->whereIn('formato', ['xlsx', 'pdf'])->name('reportes.dashboard-vacaciones');
 Route::get('/boletas/pdf/{liquidacion}', [\App\Http\Controllers\BoletaExportController::class, 'exportarPdf'])
     ->name('boletas.pdf');
 

@@ -65,6 +65,45 @@ class EstadisticasAsistencia
         ];
     }
 
+    /** Cortes del 26 al 25 disponibles (últimos 12): clave 'YYYY-MM' = mes en que termina el corte. */
+    public static function cortesDisponibles(): array
+    {
+        [, $actual] = self::corteMensual();
+        $out = [];
+        for ($i = 0; $i < 12; $i++) {
+            $fin = $actual->copy()->subMonthsNoOverflow($i)->day(25);
+            $ini = $fin->copy()->subMonthNoOverflow()->addDay();
+            $out[$fin->format('Y-m')] = 'Corte ' . $fin->locale('es')->translatedFormat('F Y') . ' (' . $ini->format('d/m') . ' – ' . $fin->format('d/m') . ')';
+        }
+
+        return $out;
+    }
+
+    /** @return array{0: Carbon, 1: Carbon, 2: string} desde, hasta y clave elegida, según ?corte= (o ?desde=&hasta= si corte=custom) */
+    public static function rangoDeRequest(\Illuminate\Http\Request $request): array
+    {
+        $cortes = self::cortesDisponibles();
+        $clave  = (string) $request->query('corte', array_key_first($cortes));
+
+        if ($clave === 'custom') {
+            $f = function ($v) { try { return $v ? Carbon::parse($v) : null; } catch (\Throwable) { return null; } };
+            $desde = $f($request->query('desde')) ?? now()->startOfMonth();
+            $hasta = $f($request->query('hasta')) ?? now();
+            if ($hasta->lt($desde)) {
+                [$desde, $hasta] = [$hasta, $desde];
+            }
+
+            return [$desde->startOfDay(), $hasta->startOfDay(), 'custom'];
+        }
+
+        if (! isset($cortes[$clave])) {
+            $clave = array_key_first($cortes);
+        }
+        $hasta = Carbon::createFromFormat('Y-m-d', $clave . '-25')->startOfDay();
+
+        return [$hasta->copy()->subMonthNoOverflow()->addDay(), $hasta, $clave];
+    }
+
     /**
      * Consulta base ÚNICA de todo lo que muestra puntualidad (dashboard, ranking del panel y ranking de la app),
      * para que los números sean idénticos en los tres. Alias: a = marcaciones, e = trabajador, l = sede, d = área.
