@@ -24,6 +24,12 @@
     $mm = fn ($x) => ((float) $x) == 0 ? '-' : number_format((float) $x, 2, '.', ',');
     $MES = [1=>'ENERO',2=>'FEBRERO',3=>'MARZO',4=>'ABRIL',5=>'MAYO',6=>'JUNIO',7=>'JULIO',8=>'AGOSTO',9=>'SETIEMBRE',10=>'OCTUBRE',11=>'NOVIEMBRE',12=>'DICIEMBRE'];
     $fd = fn (\Carbon\Carbon $f) => $f->format('d/m/Y');
+    // Duración de un periodo en palabras: "0 AÑOS, 5 MESES Y 14 DÍAS" (mismo cálculo del periodo de trabajo).
+    $duracion = function (\Carbon\Carbon $desde, \Carbon\Carbon $hasta) {
+        [$a, $m, $d] = app(\App\Services\DocumentosLaboralesService::class)->tiempoServicio($desde, $hasta);
+
+        return "{$a} AÑO" . ($a === 1 ? '' : 'S') . ", {$m} MES" . ($m === 1 ? '' : 'ES') . " Y {$d} DÍA" . ($d === 1 ? '' : 'S');
+    };
     $cese = $l->fecha_cese;
     $ingreso = $e->fecha_ingreso ?? $cese;
 
@@ -83,14 +89,14 @@
 
 <div class="sec">2.- CÁLCULO DE LA CTS</div>
 <table>
-    <tr><td>PERIODO: {{ $fd($iniCts) }} AL {{ $fd($cese) }}</td><td></td></tr>
+    <tr><td>PERIODO: {{ $fd($iniCts) }} AL {{ $fd($cese) }} ({{ $duracion($iniCts, $cese) }})</td><td></td></tr>
     <tr><td>{{ $m($remCts) }} ÷ 12 × {{ rtrim(rtrim(number_format((float) $l->meses_cts_trunca, 4), '0'), '.') }} MESES</td><td class="der">{{ $m($l->monto_cts_trunca) }}</td></tr>
     <tr class="total"><td class="der">TOTAL CTS POR PAGAR S/</td><td class="der">{{ $m($l->monto_cts_trunca) }}</td></tr>
 </table>
 
 <div class="sec">3.- CÁLCULO DE LA GRATIFICACIÓN</div>
 <table>
-    <tr><td>PERIODO: {{ $fd($iniGrat) }} AL {{ $fd($cese) }}</td><td></td></tr>
+    <tr><td>PERIODO: {{ $fd($iniGrat) }} AL {{ $fd($cese) }} ({{ $duracion($iniGrat, $cese) }})</td><td></td></tr>
     <tr><td>{{ $m($remGrat) }} ÷ 6 × {{ rtrim(rtrim(number_format((float) $l->meses_gratificacion_trunca, 4), '0'), '.') }} MESES</td><td class="der">{{ $m($l->monto_gratificacion_trunca) }}</td></tr>
     <tr><td>BONIFICACIÓN EXTRAORDINARIA 9%</td><td class="der">{{ $m($l->bonificacion_extraordinaria_trunca) }}</td></tr>
     <tr class="total"><td class="der">TOTAL GRATIFICACIÓN POR PAGAR S/</td><td class="der">{{ $m($totalGrat) }}</td></tr>
