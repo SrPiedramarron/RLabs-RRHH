@@ -18,6 +18,7 @@ class RecordatorioMail extends Mailable
         public array $filas,
         public string $empresa,
         public string $cuando,
+        public ?string $pie = null,
     ) {
     }
 

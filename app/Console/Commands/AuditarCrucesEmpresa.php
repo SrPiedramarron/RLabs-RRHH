@@ -12,10 +12,60 @@ use Illuminate\Support\Facades\DB;
  */
 class AuditarCrucesEmpresa extends Command
 {
-    protected $signature = 'rrhh:auditar-cruces-empresa';
+    protected $signature = 'rrhh:auditar-cruces-empresa {--notificar : Envía un correo a RR.HH. si hay errores} {--silencioso : No imprime la tabla}';
     protected $description = 'Revisa (solo lectura) que nada se cruce entre empresas';
 
     public function handle(): int
+    {
+        [$filas, $total] = $this->revisar();
+
+        if (! $this->option('silencioso')) {
+            $this->table(['', 'Revisión', 'Casos', 'Ejemplos'], $filas);
+            $this->line($total === 0 ? '<info>Sin cruces de datos entre empresas.</info>' : "<error>{$total} cruce(s) por corregir.</error>");
+        }
+
+        if ($this->option('notificar') && $total > 0) {
+            $this->notificar($filas, $total);
+        }
+
+        return self::SUCCESS;
+    }
+
+    private function notificar(array $filas, int $total): void
+    {
+        $destinos = collect(preg_split('/[;,\s]+/', (string) config('rrhh.auditoria_correos'), -1, PREG_SPLIT_NO_EMPTY))
+            ->filter(fn ($c) => filter_var($c, FILTER_VALIDATE_EMAIL))->values();
+
+        if ($destinos->isEmpty()) {
+            $destinos = \App\Models\User::role('super_admin')->pluck('email')->filter()->values();
+        }
+        if ($destinos->isEmpty()) {
+            $this->warn('Hay errores pero no hay a quién avisar (AUDITORIA_CORREOS vacío y sin super_admin).');
+
+            return;
+        }
+
+        $errores = collect($filas)->where(0, 'ERROR')->map(fn ($f) => [$f[1], $f[2], $f[3]])->values()->all();
+
+        try {
+            \Illuminate\Support\Facades\Mail::to($destinos->all())->send(new \App\Mail\RecordatorioMail(
+                "Cruces de datos entre empresas: {$total} por corregir",
+                'La revisión semanal encontró datos que se cruzan entre empresas. Corre rrhh:auditar-cruces-empresa para ver el detalle y rrhh:corregir-areas-cruzadas para corregir áreas, sedes y horarios.',
+                ['Revisión', 'Casos', 'Ejemplos'],
+                $errores,
+                'Todas las empresas',
+                'revisión semanal de cruces entre empresas',
+                'Aviso automático de la revisión semanal (lunes 7:00). Solo se envía cuando hay errores.',
+            ));
+            $this->info('Aviso enviado a ' . $destinos->implode(', '));
+        } catch (\Throwable $e) {
+            report($e);
+            $this->error('No se pudo enviar el aviso: ' . $e->getMessage());
+        }
+    }
+
+    /** @return array{0: array, 1: int} filas de la tabla y total de ERRORES */
+    private function revisar(): array
     {
         $filas = [];
         $total = 0;
@@ -79,9 +129,6 @@ class AuditarCrucesEmpresa extends Command
                 ->whereColumn('m.model_id', 'u.id')->where('m.model_type', 'App\\Models\\User')->where('r.name', 'super_admin'))
             ->pluck('u.email'), 'AVISO');
 
-        $this->table(['', 'Revisión', 'Casos', 'Ejemplos'], $filas);
-        $this->line($total === 0 ? '<info>Sin cruces de datos entre empresas.</info>' : "<error>{$total} cruce(s) por corregir.</error>");
-
-        return self::SUCCESS;
+        return [$filas, $total];
     }
 }

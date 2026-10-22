@@ -37,7 +37,7 @@
                             @endif
 
                             <p style="font-size:12px; color:#9CA3AF; margin:20px 0 0;">
-                                Recordatorio automático: {{ $cuando }}. Se configura en Administración → Recordatorios.
+                                {{ $pie ?? ('Recordatorio automático: ' . $cuando . '. Se configura en Administración → Recordatorios.') }}
                             </p>
                         </td>
                     </tr>
