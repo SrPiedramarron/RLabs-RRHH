@@ -43,8 +43,8 @@ class RecordatorioResource extends Resource
             Forms\Components\Select::make('company_id')
                 ->label('Empresa')
                 ->relationship('company', 'razon_social')
-                ->required(fn (Forms\Get $get) => $get('tipo') !== 'cruces_empresas')
-                ->visible(fn (Forms\Get $get) => $get('tipo') !== 'cruces_empresas')
+                ->required(fn (Forms\Get $get) => ! in_array($get('tipo'), ['cruces_empresas', 'horas_sobre_tope']))
+                ->visible(fn (Forms\Get $get) => ! in_array($get('tipo'), ['cruces_empresas', 'horas_sobre_tope']))
                 ->searchable(),
 
             Forms\Components\Select::make('tipo')

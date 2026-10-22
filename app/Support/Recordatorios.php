@@ -39,6 +39,11 @@ class Recordatorios
             'ayuda' => 'Revisión que avisa solo si hay datos cruzados entre empresas (áreas, sedes, horarios o registros de otra empresa). No depende de una empresa.',
             'ventana_defecto' => 0,
         ],
+        'horas_sobre_tope' => [
+            'label' => 'Horas ordinarias sobre el tope del horario',
+            'ayuda' => 'Revisión que avisa solo si hay días donde las horas ordinarias (las de SUNAFIL) pasan del tope de su horario. No depende de una empresa. Los días que revisa y la tolerancia están en Parámetros del sistema.',
+            'ventana_defecto' => 0,
+        ],
         'solicitudes_pendientes' => [
             'label' => 'Solicitudes pendientes de RRHH',
             'ayuda' => 'Solicitudes que llevan más de 24 horas esperando a RRHH.',
@@ -99,6 +104,10 @@ class Recordatorios
             return self::crucesEmpresas();
         }
 
+        if ($r->tipo === 'horas_sobre_tope') {
+            return self::horasSobreTope($hoy);
+        }
+
         $base = Employee::where('company_id', $r->company_id)->where('active', true)->whereNull('fecha_cese')->with('department');
 
         return match ($r->tipo) {
@@ -121,6 +130,63 @@ class Recordatorios
             'intro'    => 'La revisión encontró datos que se cruzan entre empresas. Corre rrhh:auditar-cruces-empresa para ver el detalle y rrhh:corregir-areas-cruzadas para corregir áreas, sedes y horarios.',
             'columnas' => ['Revisión', 'Casos', 'Ejemplos'],
             'filas'    => $errores,
+        ];
+    }
+
+    private static function parametro(string $clave, float $defecto): float
+    {
+        try {
+            return (float) \App\Models\ParametroLegal::valor($clave);
+        } catch (\Throwable) {
+            return $defecto;
+        }
+    }
+
+    /** Días con horas ordinarias por encima del tope de su horario (jornada menos refrigerio), de todas las empresas. */
+    private static function horasSobreTope(Carbon $hoy): array
+    {
+        $dias      = (int) self::parametro('revision_horas_dias_atras', 7);
+        $tolerancia = self::parametro('revision_horas_tolerancia', 0.02);
+        $desde     = $hoy->copy()->subDays($dias);
+        $hasta     = $hoy->copy()->subDay();
+
+        $filas = [];
+        $registros = \App\Models\AttendanceRecord::withoutGlobalScopes()
+            ->whereBetween('fecha', [$desde->toDateString(), $hasta->toDateString()])
+            ->where('horas_ordinarias', '>', 0)->orderBy('fecha')->get();
+
+        $empleados = Employee::withoutGlobalScopes()->with(['schedule', 'company'])->whereIn('id', $registros->pluck('employee_id')->unique())->get()->keyBy('id');
+        $conAdicionales = \Illuminate\Support\Facades\DB::table('employee_schedules')->pluck('employee_id')->flip();
+
+        foreach ($registros as $reg) {
+            $e = $empleados[$reg->employee_id] ?? null;
+            $h = $e?->schedule;
+            if (! $e || ! $h || $e->horas_por_marcacion || $e->exonerado_registro || isset($conAdicionales[$e->id])) {
+                continue;
+            }
+
+            $jornada = strtotime($h->hora_salida) - strtotime($h->hora_entrada);
+            if ($jornada <= 0) {
+                $jornada += 86400; // turno nocturno
+            }
+            $refrigerio = $h->refrigerio_inicio && $h->refrigerio_fin ? max(0, strtotime($h->refrigerio_fin) - strtotime($h->refrigerio_inicio)) : 0;
+            $tope = ($jornada - $refrigerio) / 3600;
+
+            if ((float) $reg->horas_ordinarias > $tope + $tolerancia) {
+                $fecha = $reg->fecha instanceof Carbon ? $reg->fecha : Carbon::parse($reg->fecha);
+                $filas[] = [
+                    $fecha->format('d/m/Y'), $e->apellidos . ', ' . $e->nombres, $e->company?->razon_social ?? '—',
+                    number_format($tope, 2), number_format((float) $reg->horas_ordinarias, 2),
+                    $reg->corregido_manualmente ? 'Sí' : 'No',
+                ];
+            }
+        }
+
+        return [
+            'titulo'   => count($filas) . ' día(s) con horas ordinarias sobre el tope',
+            'intro'    => 'Del ' . $desde->format('d/m/Y') . ' al ' . $hasta->format('d/m/Y') . ' hay días donde las horas ordinarias pasan del tope de su horario, y eso se vería en la columna Horas Trabajadas del reporte SUNAFIL. Si no están corregidos a mano, se arreglan reprocesando el rango; si lo están, con rrhh:recalcular-horas-corregidas.',
+            'columnas' => ['Fecha', 'Trabajador', 'Empresa', 'Tope (h)', 'Ordinarias (h)', 'Corregido a mano'],
+            'filas'    => $filas,
         ];
     }
 
