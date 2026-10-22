@@ -106,8 +106,8 @@
     <tr><td>Indemnización vacacional</td><td class="der">{{ $m($l->indemnizacion_vacacional) }}</td></tr>
     @endif
     <tr><td>DESCUENTO {{ $afp }} {{ $tasaAfp }}% × {{ $m($baseAfp) }}</td><td class="der">-{{ $m($l->descuento_afp_vacaciones) }}</td></tr>
-    <tr><td>APORTACIÓN ESSALUD 9% × {{ $m($baseAfp) }} (a cargo del empleador)</td><td class="der">{{ $m($l->aporte_essalud_vacaciones) }}</td></tr>
     <tr class="total"><td class="der">TOTAL VACACIONES POR PAGAR S/</td><td class="der">{{ $m($l->total_vacaciones_por_pagar) }}</td></tr>
+    <tr style="font-style:italic; color:#444;"><td>Aportación EsSalud 9% × {{ $m($baseAfp) }} (a cargo del empleador; no se descuenta al trabajador)</td><td class="der">{{ $m($l->aporte_essalud_vacaciones) }}</td></tr>
 </table>
 
 @if((float) $l->indemnizacion > 0)
