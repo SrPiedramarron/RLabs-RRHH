@@ -107,17 +107,20 @@ class EstadisticasAsistencia
     /**
      * Consulta base ÚNICA de todo lo que muestra puntualidad (dashboard, ranking del panel y ranking de la app),
      * para que los números sean idénticos en los tres. Alias: a = marcaciones, e = trabajador, l = sede, d = área.
-     * Cuenta a todo trabajador con marcaciones en el periodo (aunque ya haya cesado) y excluye al personal
+     * La empresa es la del TRABAJADOR (no la de la marcación). Cuenta a todo trabajador con marcaciones en el
+     * periodo (aunque ya haya cesado) y excluye al personal
      * exonerado de registro (no sujeto a fiscalización). Fechas nulas = sin límite.
      */
     public static function consultaBase(?int $companyId, $desde = null, $hasta = null): \Illuminate\Database\Query\Builder
     {
         return \Illuminate\Support\Facades\DB::table('attendance_records as a')
             ->join('employees as e', 'e.id', '=', 'a.employee_id')
-            ->leftJoin('locations as l', 'l.id', '=', 'e.location_id')
-            ->leftJoin('departments as d', 'd.id', '=', 'e.department_id')
+            // Sede y área solo cuentan si pertenecen a la misma empresa del trabajador; si no (dato mal cargado),
+            // salen como "Sin sede" / "Sin área" en lugar de mostrar el nombre de otra empresa.
+            ->leftJoin('locations as l', fn ($j) => $j->on('l.id', '=', 'e.location_id')->on('l.company_id', '=', 'e.company_id'))
+            ->leftJoin('departments as d', fn ($j) => $j->on('d.id', '=', 'e.department_id')->on('d.company_id', '=', 'e.company_id'))
             ->where('e.exonerado_registro', false)
-            ->when($companyId, fn ($q) => $q->where('a.company_id', $companyId))
+            ->when($companyId, fn ($q) => $q->where('e.company_id', $companyId))
             ->when($desde, fn ($q) => $q->whereDate('a.fecha', '>=', $desde instanceof Carbon ? $desde->toDateString() : $desde))
             ->when($hasta, fn ($q) => $q->whereDate('a.fecha', '<=', $hasta instanceof Carbon ? $hasta->toDateString() : $hasta));
     }
