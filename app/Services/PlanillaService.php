@@ -213,11 +213,13 @@ class PlanillaService
 
         // El sueldo de los días de vacaciones se saca de aquí (0121) y se
         // mueve a 0118, para no duplicar — confirmado con RRHH.
-        // Quien ingresa dentro del mes cobra solo desde su fecha de ingreso (mes comercial de 30 días, igual
-        // que la quincena): ingreso el 19 = 12 días de 30. Aplica también a asignación familiar y 5ta.
+        // Quien ingresa dentro del mes cobra los días CALENDARIO desde su ingreso hasta fin de mes (los del mes
+        // real: ingreso el 20 de feb. = 9 días; el 19 de oct. = 13) × sueldo ÷ 30, con tope de 30 días
+        // (confirmado con RRHH, oct. 2026). Ingreso el día 1 = mes completo. Aplica también a asignación
+        // familiar y 5ta.
         $factorIngreso = 1.0;
-        if ($empleado->fecha_ingreso && $empleado->fecha_ingreso->year === $year && $empleado->fecha_ingreso->month === $month) {
-            $factorIngreso = max(1, min(30, 30 - ($empleado->fecha_ingreso->day - 1))) / 30;
+        if ($empleado->fecha_ingreso && $empleado->fecha_ingreso->year === $year && $empleado->fecha_ingreso->month === $month && $empleado->fecha_ingreso->day > 1) {
+            $factorIngreso = min(30, $fechaRef->daysInMonth - $empleado->fecha_ingreso->day + 1) / 30;
         }
 
         $sueldoProporcional = ($sueldo * $factorIngreso) - ($valorDia * $diasFalta) - ($valorDia * $diasVacaciones);
