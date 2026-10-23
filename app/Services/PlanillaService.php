@@ -213,14 +213,21 @@ class PlanillaService
 
         // El sueldo de los días de vacaciones se saca de aquí (0121) y se
         // mueve a 0118, para no duplicar — confirmado con RRHH.
-        $sueldoProporcional = $sueldo - ($valorDia * $diasFalta) - ($valorDia * $diasVacaciones);
+        // Quien ingresa dentro del mes cobra solo desde su fecha de ingreso (mes comercial de 30 días, igual
+        // que la quincena): ingreso el 19 = 12 días de 30. Aplica también a asignación familiar y 5ta.
+        $factorIngreso = 1.0;
+        if ($empleado->fecha_ingreso && $empleado->fecha_ingreso->year === $year && $empleado->fecha_ingreso->month === $month) {
+            $factorIngreso = max(1, min(30, 30 - ($empleado->fecha_ingreso->day - 1))) / 30;
+        }
+
+        $sueldoProporcional = ($sueldo * $factorIngreso) - ($valorDia * $diasFalta) - ($valorDia * $diasVacaciones);
 
         // Asignación familiar: monto fijo = 10% de la RMV, solo si el
         // empleado tiene el switch activado (hijos menores de 18, o hasta
         // 24 si estudian). Se recalcula sola si cambia la RMV en
         // Administración > Parámetros Legales.
         $asignacionFamiliar = $empleado->aplica_asignacion_familiar
-            ? round($rmv * 0.10, 2)
+            ? round($rmv * 0.10 * $factorIngreso, 2)
             : 0.0;
 
         // Remuneración vacacional (0118): (sueldo + asignación familiar) ÷ 30
@@ -397,7 +404,7 @@ class PlanillaService
                     ? $calculadora5ta->calcular($empleado, $comisiones, $year, $month)
                     : $calculadora5ta->calcularNoComisionado($empleado, $sueldo + $asignacionFamiliar, $year, $month);
 
-                $descuento5ta = $detalle5ta['cuota_mensual'];
+                $descuento5ta = round($detalle5ta['cuota_mensual'] * $factorIngreso, 2);
             }
         }
 
