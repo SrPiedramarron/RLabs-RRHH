@@ -73,7 +73,7 @@ class BoletaPagoService
             'cuspp'            => $empleado?->cuspp ?? '',
 
             // ── Asistencia ───────────────────────────────────────────────────
-            'dias_laborados'    => $l->dias_trabajados,
+            'dias_laborados'    => $this->diasLaboradosBoleta($l, $empleado),
             'dias_no_laborados' => $l->dias_falta,
             'dias_subsidiados'  => 0, // Pendiente: no se registra subsidio hoy
             'condicion'         => 'Domiciliado',
@@ -294,6 +294,21 @@ class BoletaPagoService
         }
 
         return $aportes;
+    }
+
+    /**
+     * Quien ingresó dentro del mes muestra los días pagados (días calendario desde el ingreso hasta fin de mes,
+     * tope 30), los mismos que usa la planilla; el resto, los días con asistencia registrada.
+     */
+    private function diasLaboradosBoleta($l, $empleado): int
+    {
+        $ingreso = $empleado?->fecha_ingreso ? Carbon::parse($empleado->fecha_ingreso) : null;
+
+        if ($ingreso && $ingreso->format('Y-m') === $l->periodo && $ingreso->day > 1) {
+            return (int) min(30, $ingreso->daysInMonth - $ingreso->day + 1);
+        }
+
+        return (int) $l->dias_trabajados;
     }
 
     private function periodoFormato(string $periodo): string
